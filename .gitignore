@@ -1,0 +1,12 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Local output and machine-specific configuration
+*.log
+/exports/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
