@@ -63,3 +63,5 @@ The world-v2 save has an optional `settlements` extension with its own version (
 When the extension is absent, ruins are added on vacant land using deterministic relocation if necessary. Existing machines and the engineer's location are preserved. A malformed present extension is rejected rather than silently reset. Contract costs/durations and project IDs are save-compatible data: changing their interpretation requires migration.
 
 Tests include the entire progression from an empty pack through both projects using mined/crafted materials, automated delivery, stock shortages, full buffers, blocked hands, exactly-once payments, save/load during transit, bonus application, currency reconciliation, migration around existing construction, and UI command wiring.
+
+Town Hall requires the Engineers' Workshop to be restored first. Materials delivered early remain stored, including across saves. The project status shows this blocker beside the Restore control and offers a direct button to view the required project.

@@ -38,6 +38,7 @@ func _ready() -> void:
 	hud.beacon_requested.connect(func(): world.defense.begin(world))
 	hud.beacon_cancel_requested.connect(func(): world.defense.cancel(world))
 	hud.structure_repair_requested.connect(_repair_selected)
+	hud.building_pickup_requested.connect(_pickup_selected)
 	hud.save_requested.connect(_save)
 	hud.load_requested.connect(_load_save)
 	hud.pause_requested.connect(_toggle_pause)
@@ -133,7 +134,7 @@ func _process(delta: float) -> void:
 		var entity = world.at(mouse_cell)
 		var site = world.settlements.at(mouse_cell)
 		var text := "(%d, %d)  " % [mouse_cell.x, mouse_cell.y]
-		if entity != null: text += Catalog.item_name(entity.kind) + " - " + entity.status
+		if entity != null: text += Catalog.item_name(entity.kind) + " - " + entity.status + "  |  Hold right mouse to pick up"
 		elif site != null: text += world.settlements.Definitions.SITES[site.id].name + " - " + world.settlements.status(site.id)
 		elif not deposit.is_empty(): text += "%s: %d remaining  |  Hold right mouse to mine" % [Catalog.item_name(deposit.item), deposit.amount]
 		else: text += "Grassland"
@@ -284,6 +285,15 @@ func _toggle_pause() -> void:
 	hud.workspace.simulation_paused = paused
 	hud.pause_button.text = "Resume" if paused else "Pause"
 	hud.refresh()
+
+func _pickup_selected() -> void:
+	if not hud.workspace.visible or hud.workspace.mode != "machine": return
+	var entity = world.entities.get(hud.workspace.entity_id)
+	if entity != null and world.reclaim(entity.cell):
+		_inspect(Vector2i(999999, 999999))
+		painting = false
+		mining_held = false
+		reclaim_progress = 0.0
 
 func _repair_selected() -> void:
 	if hud.site_id != "": world.repair_at(world.settlements.sites[hud.site_id].port())

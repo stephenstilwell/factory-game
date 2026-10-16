@@ -16,3 +16,5 @@ Crafting shows available recipes, ingredient counts, missing materials, output, 
 - `crafting.gd` owns atomic batch reservation and cancellation. Monotonic job IDs prevent an outdated cancel action from canceling a different job after the queue advances. Old saves receive IDs during loading.
 - `item_tile.gd`, `inventory_grid.gd`, and `ui_style.gd` provide shared presentation. The workspace composes crafting, machine, and town panels around the same pack. New item definitions automatically appear in grids and filters.
 - Model and UI integration checks cover partial transfers, invalid/stale targets, output protection, batch limits, refunds, recipe changes, search, and workspace input blocking. Normal new games still start empty; populated previews use test fixtures only.
+
+Machine inspection includes a **Pick up building** button. It returns the building and all stored items; it shows any reach, pack-space, or damage requirement directly. You can also close inspection and hold right mouse over a building for half a second.

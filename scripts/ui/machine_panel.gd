@@ -9,6 +9,7 @@ signal recipe_requested(id: String)
 signal supply_requested
 signal collect_requested
 signal repair_requested
+signal reclaim_requested
 
 var world: RefCounted
 var entity = null
@@ -21,6 +22,7 @@ var recipe_ids: Array = []
 var supply_button: Button
 var collect_button: Button
 var repair_button: Button
+var reclaim_button: Button
 var input_box: VBoxContainer
 var output_box: VBoxContainer
 var fuel_box: VBoxContainer
@@ -42,6 +44,7 @@ func _ready() -> void:
 	supply_button = Style.button(actions, "Load ingredients", func(): supply_requested.emit())
 	collect_button = Style.button(actions, "Collect output [X]", func(): collect_requested.emit())
 	repair_button = Style.button(actions, "Repair [H]", func(): repair_requested.emit())
+	reclaim_button = Style.button(self, "Pick up building", func(): reclaim_requested.emit())
 	recipe_picker = OptionButton.new()
 	recipe_picker.item_selected.connect(func(index): recipe_requested.emit(recipe_ids[index]))
 	add_child(recipe_picker)
@@ -110,6 +113,11 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	status_label.text += " • Health %d/%d" % [entity.health, entity.max_health()]
 	repair_button.visible = entity.health < entity.max_health()
 	repair_button.disabled = not reachable or world.player.count("repair_kit") == 0
+	var reclaim_blocker: String = world.reclaim_reason(entity.cell)
+	reclaim_button.disabled = not reclaim_blocker.is_empty()
+	reclaim_button.text = "Pick up building" if reclaim_blocker.is_empty() else "Pick up building (unavailable)"
+	if not reclaim_blocker.is_empty(): status_label.text += "\nPickup: " + reclaim_blocker
+	reclaim_button.tooltip_text = reclaim_blocker if not reclaim_blocker.is_empty() else "Returns the building, fuel, inputs, and output to your pack. Also: close this panel and hold right mouse over the building for 0.5 seconds. Unfinished work and spent fuel energy are lost."
 	if entity.kind == "drill":
 		var deposit: Dictionary = world.terrain.tile(entity.cell)
 		status_label.text += "\n%d units remaining under this drill" % int(deposit.get("amount", 0)) if not deposit.is_empty() else "\nPress M to survey another deposit, then hold right mouse to reclaim and relocate this drill."

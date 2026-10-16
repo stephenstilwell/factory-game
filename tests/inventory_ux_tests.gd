@@ -260,5 +260,57 @@ static func ui(test: SceneTree) -> void:
 	scene.hud.close_workspace()
 	scene._inspect(Vector2i(51, 11))
 	test.check(workspace.machine.input_grid.buttons.ammo.visible and not workspace.machine.output_box.visible, "Turret inspection presents ammunition as input rather than a machine output")
+	# Reproduce donating everything to Town Hall before restoring the workshop.
+	var staged_world := World.new()
+	staged_world.start()
+	var staged_hall = staged_world.settlements.sites.town_hall
+	staged_world.player_position = Vector2(staged_hall.port()) + Vector2(-0.5, 0.5)
+	staged_world.player.contents = staged_world.settlements.Definitions.SITES.town_hall.repair.duplicate()
+	staged_world.supply_site("town_hall")
+	var staged_save := SaveService.decode(JSON.parse_string(JSON.stringify(SaveService.encode(staged_world))))
+	test.check(staged_save.error.is_empty() and staged_save.world.settlements.sites.town_hall.inventory.has_all(staged_world.settlements.Definitions.SITES.town_hall.repair), "Donated Town Hall materials survive save/load while its prerequisite is incomplete")
+	scene._bind_world(staged_world)
+	scene._inspect_site("town_hall")
+	test.check(town_panel.restore_button.disabled and town_panel.state_label.text.contains("All repair materials delivered.") and town_panel.state_label.text.contains("workshop") and town_panel.state_label.text.contains("safely stored"), "Fully supplied Town Hall explains the workshop blocker beside restoration controls")
+	test.check(town_panel.prerequisite_button.visible, "Blocked restoration exposes a direct link to its prerequisite")
+	town_panel.prerequisite_button.pressed.emit()
+	test.check(workspace.site_id == "workshop", "Required-project action opens the workshop instead of silently failing restoration")
+	staged_world.settlements.sites.trading_post.repaired = true
+	staged_world.settlements.sites.workshop.repaired = true
+	scene._inspect_site("town_hall")
+	test.check(not town_panel.restore_button.disabled and not town_panel.prerequisite_button.visible, "Previously donated materials become ready to restore when the prerequisite is completed")
+	town_panel.restore_button.pressed.emit()
+	test.check(staged_hall.repaired and staged_hall.health == staged_hall.max_health() and staged_hall.inventory.total() == 0, "Town Hall restoration UI consumes staged goods once and restores full health")
+
+	var pickup_world := World.new()
+	pickup_world.start()
+	pickup_world.player_position = Vector2(19.5, 17.5)
+	var pickup_furnace = pickup_world.spawn("furnace", Vector2i(20, 17), 0)
+	pickup_furnace.inventory.contents = {"coal": 3, "iron_ore": 2}
+	pickup_furnace.output.contents = {"iron_plate": 2}
+	var pickup_drill = pickup_world.spawn("drill", Vector2i(21, 17), 0)
+	pickup_drill.inventory.add("coal", 4)
+	scene._bind_world(pickup_world)
+	scene._inspect(pickup_furnace.cell)
+	test.check(not workspace.machine.reclaim_button.disabled and workspace.machine.reclaim_button.tooltip_text.contains("right mouse"), "Inspection exposes a usable pickup action and teaches the world shortcut")
+	pickup_world.player.capacity = 1
+	scene.hud.refresh()
+	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.status_label.text.contains("Inventory full"), "Pickup explains insufficient pack space before the player clicks")
+	test.check(not pickup_world.reclaim(pickup_furnace.cell) and pickup_furnace.inventory.count("coal") == 3, "Rejected pickup preserves the building and every stored item")
+	pickup_world.player.capacity = 200
+	pickup_furnace.health -= 1
+	scene.hud.refresh()
+	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.status_label.text.contains("Repair"), "Damaged building pickup explains its repair requirement")
+	pickup_furnace.health = pickup_furnace.max_health()
+	pickup_world.player_position = Vector2.ZERO
+	scene.hud.refresh()
+	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.status_label.text.contains("closer"), "Distant machine pickup explains interaction reach")
+	pickup_world.player_position = Vector2(19.5, 17.5)
+	scene.hud.refresh()
+	workspace.machine.reclaim_button.pressed.emit()
+	test.check(pickup_world.at(Vector2i(20, 17)) == null and pickup_world.player.count("furnace") == 1 and pickup_world.player.count("coal") == 3 and pickup_world.player.count("iron_ore") == 2 and pickup_world.player.count("iron_plate") == 2 and not workspace.visible, "Pickup button returns the furnace and all stored fuel, input, and output and closes inspection")
+	scene._inspect(pickup_drill.cell)
+	workspace.machine.reclaim_button.pressed.emit()
+	test.check(pickup_world.at(Vector2i(21, 17)) == null and pickup_world.player.count("drill") == 1 and pickup_world.player.count("coal") == 7, "The same pickup action safely returns drills and their fuel")
 	scene.queue_free()
 	await test.process_frame

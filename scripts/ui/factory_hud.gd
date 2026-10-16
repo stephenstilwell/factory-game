@@ -12,6 +12,7 @@ signal upgrade_requested(id: String, rank: int)
 signal beacon_requested
 signal beacon_cancel_requested
 signal structure_repair_requested
+signal building_pickup_requested
 signal save_requested
 signal load_requested
 signal pause_requested
@@ -151,6 +152,7 @@ func _ready() -> void:
 	workspace.beacon_requested.connect(func(): beacon_requested.emit())
 	workspace.beacon_cancel_requested.connect(func(): beacon_cancel_requested.emit())
 	workspace.structure_repair_requested.connect(func(): structure_repair_requested.emit())
+	workspace.building_pickup_requested.connect(func(): building_pickup_requested.emit())
 	workspace.context_changed.connect(_sync_context)
 	workspace.build_requested.connect(func(id): build_selected.emit(id))
 	workspace.transfer_requested.connect(func(item, amount, from, to, token): transfer_requested.emit(item, amount, from, to, token))

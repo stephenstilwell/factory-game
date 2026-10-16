@@ -24,6 +24,7 @@ var state_label: Label
 var information: Label
 var supply_button: Button
 var restore_button: Button
+var prerequisite_button: Button
 var withdraw_button: Button
 var supplies: VBoxContainer
 var world: RefCounted
@@ -53,6 +54,7 @@ func _ready() -> void:
 	beacon_button = _button(detail, "Light beacon", func(): beacon_requested.emit())
 	cancel_beacon_button = _button(detail, "Extinguish beacon — cancel arrival", func(): beacon_cancel_requested.emit())
 	damage_button = _button(detail, "Repair with kit [H] (+50 health)", func(): repair_requested.emit())
+	prerequisite_button = _button(detail, "View required project", func(): site_selected.emit(Definitions.SITES[selected_id].requires))
 	supply_button = _button(detail, "Deliver materials", func(): supply_requested.emit(selected_id))
 	restore_button = _button(detail, "Restore", func(): restore_requested.emit(selected_id))
 	withdraw_button = _button(detail, "Withdraw unused goods [X]", func(): withdraw_requested.emit(selected_id))
@@ -78,6 +80,7 @@ func _button(parent: Node, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.focus_mode = Control.FOCUS_NONE
+	button.clip_text = true
 	button.pressed.connect(action)
 	parent.add_child(button)
 	return button
@@ -138,8 +141,21 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 		beacon_button.disabled = not reachable or not blocked.is_empty()
 		beacon_button.text = "Light beacon — wave %d in 15 seconds" % (world.defense.cleared + 1) if blocked.is_empty() else blocked
 	var reason: String = region.repair_reason(id)
+	var prerequisite: String = definition.get("requires", "")
+	prerequisite_button.visible = not site.repaired and not prerequisite.is_empty() and not region.sites[prerequisite].repaired
+	if prerequisite_button.visible:
+		prerequisite_button.text = "View required project: " + Definitions.SITES[prerequisite].name
+	if not site.repaired:
+		var materials_ready: bool = site.inventory.has_all(definition.repair)
+		state_label.text = ("All repair materials delivered." if materials_ready else "Repair materials still needed.")
+		if not reason.is_empty(): state_label.text += "\n" + reason
+		elif reachable: state_label.text += "\nReady! Click Restore below to finish the project."
+		if materials_ready and not reason.is_empty(): state_label.text += "\nYour delivered materials are safely stored here."
+		if not reachable: state_label.text += "\nWalk within %.0f tiles of the delivery hatch to restore." % world.interaction_reach()
 	restore_button.visible = not site.repaired
 	restore_button.text = "Restore - %d credits" % definition.credits if int(definition.credits) > 0 else "Restore " + definition.name
+	if not site.repaired and not reason.is_empty(): restore_button.text = "Restore (requirements incomplete)"
+	elif not site.repaired and not reachable: restore_button.text = "Walk closer to restore"
 	restore_button.disabled = not reachable or not reason.is_empty()
 	restore_button.tooltip_text = reason if reachable else "Walk within %.0f tiles of the hatch." % world.interaction_reach()
 	supply_button.visible = not site.repaired or definition.has("contract")

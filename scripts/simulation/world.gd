@@ -158,25 +158,34 @@ func register(entity: RefCounted) -> void:
 	occupancy[entity.cell] = entity.id
 	by_kind[entity.kind].append(entity.id)
 
-func reclaim(cell: Vector2i) -> bool:
-	if settlements.at(cell) != null:
-		message.emit("Town landmarks stay in the world. Inspect the hatch to restore or withdraw supplies.")
-		return false
-	var entity = at(cell)
-	if entity == null or not in_reach(cell): return false
-	if entity.health < entity.max_health():
-		message.emit("Repair damaged structures before reclaiming them [H].")
-		return false
+func _reclaim_returns(entity: RefCounted) -> Dictionary:
 	var returns: Dictionary = entity.inventory.contents.duplicate()
 	for item in entity.output.contents: returns[item] = int(returns.get(item, 0)) + entity.output.count(item)
 	returns[entity.kind] = int(returns.get(entity.kind, 0)) + 1
 	if not entity.carried.is_empty(): returns[entity.carried] = int(returns.get(entity.carried, 0)) + 1
-	if not player.exchange({}, returns):
-		message.emit("Inventory full. Empty it before reclaiming.")
+	return returns
+
+func reclaim_reason(cell: Vector2i) -> String:
+	if settlements.at(cell) != null:
+		return "Town landmarks stay in the world. Inspect the hatch to restore or withdraw supplies."
+	var entity = at(cell)
+	if entity == null: return "There is no building to pick up here."
+	if not in_reach(cell): return "Walk closer to pick up this building."
+	if entity.health < entity.max_health(): return "Repair damaged structures before reclaiming them [H]."
+	if not player.can_exchange({}, _reclaim_returns(entity)): return "Inventory full. Make room for the building and its contents."
+	return ""
+
+func reclaim(cell: Vector2i) -> bool:
+	var reason := reclaim_reason(cell)
+	if not reason.is_empty():
+		message.emit(reason)
 		return false
+	var entity = at(cell)
+	if not player.exchange({}, _reclaim_returns(entity)): return false
 	by_kind[entity.kind].erase(entity.id)
 	entities.erase(entity.id)
 	occupancy.erase(cell)
+	message.emit("Picked up " + Catalog.item_name(entity.kind) + " and its stored items.")
 	changed.emit()
 	return true
 
