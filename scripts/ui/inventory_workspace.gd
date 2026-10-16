@@ -26,6 +26,7 @@ signal site_supply_requested(id: String)
 signal site_restore_requested(id: String)
 signal site_talk_requested(id: String)
 signal site_withdraw_requested(id: String)
+signal supplies_order_requested
 signal beacon_requested
 signal beacon_cancel_requested
 signal structure_repair_requested
@@ -41,6 +42,7 @@ var quantity := 5 # 0 means all available, still bounded by the destination.
 var search: LineEdit
 var category: OptionButton
 var pack_grid: VBoxContainer
+var pack_column: VBoxContainer
 var pack_capacity: Label
 var pack_progress: ProgressBar
 var pack_hint: Label
@@ -82,7 +84,7 @@ func _ready() -> void:
 	Style.button(header, "Close [Esc]", func(): close_requested.emit())
 	var tab_row := HBoxContainer.new()
 	box.add_child(tab_row)
-	for entry in [["inventory", "Inventory [E]"], ["crafting", "Crafting [C]"], ["character", "Engineer [P]"], ["machine", "Machine"], ["town", "Town [T]"]]:
+	for entry in [["inventory", "Inventory [E]"], ["crafting", "Crafting [C]"], ["character", "Engineer [P]"], ["machine", "Machine"], ["town", "Town [Y]"]]:
 		var id: String = entry[0]
 		tabs[id] = Style.button(tab_row, entry[1], func(): open_mode(id))
 	var help := Style.label("Click to inspect / take. Right-click: 1. Shift-click: all. Drag to transfer the selected quantity.", 13, Style.MUTED)
@@ -92,6 +94,7 @@ func _ready() -> void:
 	body.add_theme_constant_override("separation", 18)
 	box.add_child(body)
 	var left := VBoxContainer.new()
+	pack_column = left
 	left.custom_minimum_size.x = 350
 	left.add_theme_constant_override("separation", 6)
 	body.add_child(left)
@@ -162,6 +165,7 @@ func _ready() -> void:
 	town.restore_requested.connect(func(id): site_restore_requested.emit(id))
 	town.talk_requested.connect(func(id): site_talk_requested.emit(id))
 	town.withdraw_requested.connect(func(id): site_withdraw_requested.emit(id))
+	town.supplies_order_requested.connect(func(): supplies_order_requested.emit())
 	town.beacon_requested.connect(func(): beacon_requested.emit())
 	town.beacon_cancel_requested.connect(func(): beacon_cancel_requested.emit())
 	town.repair_requested.connect(func(): structure_repair_requested.emit())
@@ -242,6 +246,8 @@ func refresh(state: RefCounted) -> void:
 	pack_hint.text = "Shift-click pack items to send them to the open destination." if not destination().is_empty() else "Select an item for details. Double-click buildings to equip."
 	details.visible = mode == "inventory"
 	crafting.visible = mode == "crafting"
+	pack_column.visible = mode != "crafting"
+	offset_top = 24 if mode == "crafting" else 80
 	machine_scroll.visible = mode == "machine"
 	town_scroll.visible = mode == "town"
 	character_scroll.visible = mode == "character"

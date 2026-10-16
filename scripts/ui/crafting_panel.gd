@@ -56,22 +56,26 @@ func _ready() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(body)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size.x = 186
+	scroll.custom_minimum_size.x = 600
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(scroll)
 	var recipes := VBoxContainer.new()
 	recipes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(recipes)
-	recipes.add_child(Style.label("RECIPES\nCount = craftable batches", 13, Style.MUTED))
+	recipes.add_child(Style.label("RECIPES  •  count = craftable batches", 13, Style.MUTED))
 	var grid := GridContainer.new()
-	grid.columns = 2
+	grid.columns = 7
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
 	recipes.add_child(grid)
+	var recipe_order: Array = ["furnace", "drill", "belt", "inserter", "chest", "fuel_depot", "assembler", "lab", "gear", "wire", "science", "fast_belt", "splitter", "underground_belt", "repair_kit", "wall", "service_rifle", "ammo", "turret", "cannon_turret", "pulse_turret"]
 	for id in Catalog.RECIPES:
+		if id not in recipe_order: recipe_order.append(id)
+	for id in recipe_order:
 		if not Catalog.RECIPES[id].get("hand", false): continue
 		var tile := Tile.new()
 		tile.item_id = id
+		tile.compact = true
 		grid.add_child(tile)
 		tile.activated.connect(func(item, _gesture): select_recipe(item))
 		recipe_buttons[id] = tile

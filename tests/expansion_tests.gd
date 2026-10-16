@@ -158,7 +158,7 @@ static func _housing(test: SceneTree) -> void:
 		test.advance(world, 1)
 		test.check(hall.inventory.total() == 0 and hall.shipment_ticks == 599, "Housing consumes a real shipment before its delivery timer")
 		test.advance(world, 599)
-	test.check(world.settlements.district_level() == 1 and world.settlements.effect("burner_ticks") == before + 4, "Three supplied deliveries restore a visible neighborhood and five percent base coal benefit")
+	test.check(world.settlements.district_level() == 1 and world.settlements.effect("burner_ticks") == before + 12, "Three supplied deliveries restore a visible neighborhood and five percent base coal benefit")
 	test.check(roundtrip(world).error.is_empty(), "Neighborhood growth and delivery milestones validate through saves")
 	var resumed := roundtrip(world)
 	if resumed.error.is_empty():

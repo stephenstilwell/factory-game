@@ -1,5 +1,7 @@
 # Inventory and crafting
 
+The crafting view now uses the full workspace with seven recipe columns and extra height. All current hand recipes fit at 1100x720; category, search, and ready filters remain. Machine and town views retain the pack alongside their transfer slots.
+
 Press **E** for inventory and crafting (**I** opens pack details, **C** opens crafting), or click a machine to open the shared workspace. Search and category filters help find materials and recipes. The factory keeps running unless paused with the Pause key or Escape menu; the workspace blocks movement and world clicks. E or Escape closes an interface. Q clears the build cursor, or picks a hovered building when empty. Escape clears the build cursor before opening the pause menu; closing the menu restores the previous pause state.
 
 Item tiles group matching items. Capacity still counts individual items rather than physical slots. Select a tile for its description; double-click a building to equip it. Empty ingredient tiles show what a machine or project accepts.

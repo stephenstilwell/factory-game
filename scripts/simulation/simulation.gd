@@ -3,6 +3,7 @@ extends RefCounted
 ## Belts resolve from a snapshot; inserters reserve an item in their hand.
 
 const Catalog = preload("res://scripts/data/catalog.gd")
+const Supply = preload("res://scripts/simulation/supply_service.gd")
 const Transport = preload("res://scripts/simulation/transport.gd")
 const World = preload("res://scripts/simulation/world.gd")
 
@@ -10,6 +11,7 @@ static func step(world: RefCounted) -> void:
 	world.ticks += 1
 	Transport.step(world)
 	world.metrics.prune(world.ticks)
+	Supply.step(world)
 	_machines(world)
 	_inserters(world)
 	world.combat.step(world)
@@ -118,11 +120,11 @@ static func _inserters(world: RefCounted) -> void:
 static func _lab(world: RefCounted, entity: RefCounted) -> void:
 	var id: String = world.current_research()
 	if id.is_empty():
-		entity.status = "All research complete"
+		entity.status = "Choose a workshop project [T]" if world.researched.size() < Catalog.TECHNOLOGIES.size() else "All projects complete"
 		return
 	world.research_target = id
 	if entity.inventory.count("science") == 0:
-		entity.status = "Needs science packs"
+		entity.status = "Needs engineering dossiers"
 		return
 	entity.status = "Researching " + Catalog.technology(id).name
 	entity.progress += 1
@@ -137,9 +139,6 @@ static func _lab(world: RefCounted, entity: RefCounted) -> void:
 		world.record("researched:" + id)
 		world.research_progress = 0
 		world.research_target = ""
-		world.research_target = world.current_research()
-		world.research_progress = int(world.research_banks.get(world.research_target, 0))
-		world.research_banks.erase(world.research_target)
 		world.feedback_requested.emit("success", Vector2i(world.player_position.floor()))
 		world.message.emit("Research complete: %s. Unlocked %s." % [technology.name, technology.unlock])
 

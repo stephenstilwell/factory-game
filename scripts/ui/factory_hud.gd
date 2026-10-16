@@ -15,6 +15,7 @@ signal build_selected(kind: String)
 signal journal_requested
 signal factory_requested
 signal upgrade_requested(id: String, rank: int)
+signal supplies_order_requested
 signal beacon_requested
 signal beacon_cancel_requested
 signal structure_repair_requested
@@ -77,7 +78,7 @@ var site_id := ""
 var town_open := false
 var crafting_open := false
 var selection := ""
-var notice := "Mine nearby stone to begin. E opens crafting; M surveys resources; T shows town projects."
+var notice := "Mine nearby stone to begin. E opens crafting; M surveys resources; T opens technology; Y shows town projects."
 var notice_time := 12.0
 var refresh_time := 0.0
 
@@ -100,7 +101,7 @@ func _ready() -> void:
 	row.add_child(title)
 	Style.button(row, "Pack [E]", toggle_inventory)
 	Style.button(row, "Craft [C]", toggle_crafting)
-	Style.button(row, "Town [T]", toggle_town)
+	Style.button(row, "Town [Y]", toggle_town)
 	Style.button(row, "Survey [M]", toggle_survey)
 	pause_button = Style.button(row, "Pause", func(): pause_requested.emit())
 	pause_button.tooltip_text = "Pause key: pause or resume. Escape opens the pause menu."
@@ -174,6 +175,7 @@ func _ready() -> void:
 	root.add_child(workspace)
 	workspace.close_requested.connect(close_workspace)
 	workspace.upgrade_requested.connect(func(id, rank): upgrade_requested.emit(id, rank))
+	workspace.supplies_order_requested.connect(func(): supplies_order_requested.emit())
 	workspace.beacon_requested.connect(func(): beacon_requested.emit())
 	workspace.beacon_cancel_requested.connect(func(): beacon_cancel_requested.emit())
 	workspace.structure_repair_requested.connect(func(): structure_repair_requested.emit())
@@ -220,7 +222,7 @@ func _ready() -> void:
 	menu.add_theme_constant_override("separation", 12)
 	scroll.add_child(menu)
 	menu.add_child(Style.label("PAUSED", 26, Style.ACCENT))
-	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nF — Research, production rates, and plans\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nV — Draw / holster rifle • LMB / Space — Fire\nPause key — Pause or resume • F11 — Fullscreen", 16)
+	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nT — Technology / workshop projects\nY — Settlement projects\nF — Production rates and construction plans\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nV — Draw / holster rifle • LMB / Space — Fire\nPause key — Pause or resume • F11 — Fullscreen", 16)
 	controls_help.hide()
 	Style.button(menu, "Controls and shortcuts", func(): controls_help.visible = not controls_help.visible)
 	menu.add_child(controls_help)
@@ -310,7 +312,7 @@ func refresh() -> void:
 	weapon_button.text = ("Holster rifle [V] • Hold LMB / Space to fire" if world.combat.armed else "Draw rifle [V]")
 	weapon_button.disabled = not world.combat.armed and world.player.count("service_rifle") == 0
 	defense_status.visible = world.settlements.enabled and world.settlements.sites.town_hall.repaired
-	defense_status.text = "TOWN HALL %d/%d • %s [T]" % [world.settlements.sites.town_hall.health, world.settlements.sites.town_hall.max_health(), world.defense.summary()]
+	defense_status.text = "TOWN HALL %d/%d • %s [Y]" % [world.settlements.sites.town_hall.health, world.settlements.sites.town_hall.max_health(), world.defense.summary()]
 	objective.visible = world.guide.enabled
 	lesson_hint.visible = world.guide.enabled and not world.guide.current().is_empty()
 	if world.guide.enabled:
@@ -318,12 +320,12 @@ func refresh() -> void:
 		lesson_hint.text = world.guide.current().get("hint", "")
 	research.visible = not world.guide.enabled or world.content_available("lab")
 	status.text = "Credits %d  |  %d machines  |  Pack %d / %d  |  WASD move • Hold RMB mine • E inventory • Esc menu" % [world.settlements.credits, world.entities.size(), world.player.total(), world.player.capacity]
-	if world.settlements.effect("burner_ticks") > 0: status.text += "  |  Coal +%d%%" % (world.settlements.effect("burner_ticks") * 100 / 80)
+	if world.settlements.effect("burner_ticks") > 0: status.text += "  |  Coal +%d%%" % (world.settlements.effect("burner_ticks") * 100 / Catalog.FUEL_TICKS)
 	var active: String = world.current_research()
 	if not active.is_empty():
 		var tech: Dictionary = Catalog.technology(active)
-		research.text = "RESEARCH  %s  %d / %d science  •  [F] Factory" % [tech.name, world.research_progress, tech.cost]
-	else: research.text = "RESEARCH COMPLETE  •  [F] Production and plans"
+		research.text = "RESEARCH  %s  %d / %d dossiers  •  [T] Technology" % [tech.name, world.research_progress, tech.cost]
+	else: research.text = "WORKSHOP  •  [T] Choose a project  •  [F] Production / plans" if world.researched.size() < Catalog.TECHNOLOGIES.size() else "ALL PROJECTS COMPLETE  •  [F] Production and plans"
 	hotbar.refresh(world, selection)
 	inventory_label.text = "PACK %d  [E]" % world.player.total()
 	notice_label.text = notice if notice_time > 0 else "E inventory • Hold RMB mine • Q clear/pick • Ctrl-click load • Esc menu"

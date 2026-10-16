@@ -12,7 +12,43 @@ var occupancy: Dictionary = {}
 var ports: Dictionary = {}
 var credits := 0
 var total_earned := 0
+var relief_waves: Array = []
+var supply_orders := 0
 var pending_sites: Array = [] # Only used while migrating an older save.
+const SUPPLY_COST := 20
+const SUPPLY_BUNDLE := {"coal": 20, "ammo": 10, "repair_kit": 2}
+
+func supply_order_reason(world: RefCounted) -> String:
+	if not enabled or not sites.trading_post.repaired or sites.trading_post.health <= 0 or not services_online(): return "Restore town services first."
+	if not sites.workshop.repaired: return "Restore the workshop to order ammunition."
+	if not world.in_reach(sites.trading_post.port()): return "Walk to the trading post hatch."
+	if credits < SUPPLY_COST: return "Needs 20 credits."
+	if not world.player.can_exchange({}, SUPPLY_BUNDLE): return "Make room for 32 items in your pack."
+	return ""
+
+func order_supplies(world: RefCounted) -> bool:
+	var reason := supply_order_reason(world)
+	if not reason.is_empty():
+		world.message.emit(reason)
+		return false
+	if not world.player.exchange({}, SUPPLY_BUNDLE): return false
+	credits -= SUPPLY_COST
+	supply_orders += 1
+	world.message.emit("Trade supplies delivered: 20 coal, 10 ammunition, 2 repair kits. Spent 20 credits.")
+	world.feedback_requested.emit("transfer", sites.trading_post.port())
+	world.changed.emit()
+	return true
+
+static func defense_reward(wave: int) -> int:
+	return 25 + 5 * wave
+
+func award_defense(wave: int) -> int:
+	if not enabled or wave < 1 or wave > 10 or wave in relief_waves: return 0
+	var reward := defense_reward(wave)
+	relief_waves.append(wave)
+	credits += reward
+	total_earned += reward
+	return reward
 
 func services_online() -> bool:
 	return not sites.town_hall.repaired or sites.town_hall.health > 0
@@ -83,7 +119,7 @@ func effect(name: String) -> int:
 	var value := 0
 	for id in sites:
 		if sites[id].repaired and sites[id].health > 0: value = maxi(value, int(Definitions.SITES[id].get("effect", {}).get(name, 0)))
-	if name == "burner_ticks": value += district_level() * 4
+	if name == "burner_ticks": value += district_level() * 12
 	return value
 
 func step(world: RefCounted) -> void:
@@ -126,12 +162,12 @@ func status(site_id: String) -> String:
 	return "Open - waiting for contract supplies"
 
 func objective_text() -> String:
-	if not sites.trading_post.repaired: return "Reopen Oldbridge trading post: 20 iron plates, 5 gears, 10 stone. [T] Town"
-	if not sites.workshop.repaired: return "Earn 60 trade credits and restore the engineers' workshop. [T] Town"
-	if not sites.town_hall.repaired: return "Rebuild Oldbridge Town Hall and prepare its beacon defenses. [T] Town"
+	if not sites.trading_post.repaired: return "Reopen Oldbridge trading post: 20 iron plates, 5 gears, 10 stone. [Y] Town"
+	if not sites.workshop.repaired: return "Earn 60 trade credits and restore the engineers' workshop. [Y] Town"
+	if not sites.town_hall.repaired: return "Rebuild Oldbridge Town Hall and prepare its beacon defenses. [Y] Town"
 	if not services_online(): return "Repair the breached Town Hall with kits [H] to restore town services."
-	if district_level() < 3: return "Restore neighborhoods %d/3: research Construction engineering [F], then automate housing deliveries [T]." % district_level()
-	return "Oldbridge neighborhoods restored! Prepare defenses and light the beacon when ready. [T] Town"
+	if district_level() < 3: return "Restore neighborhoods %d/3: research Homes for Oldbridge [T], then automate housing deliveries [Y]." % district_level()
+	return "Oldbridge neighborhoods restored! Prepare defenses and light the beacon when ready. [Y] Town"
 
 func objective_target() -> Dictionary:
 	if not enabled: return {}
@@ -165,4 +201,4 @@ func install_legacy(world: RefCounted) -> bool:
 func serialize() -> Dictionary:
 	var records: Array = []
 	for id in Definitions.SITES: records.append(sites[id].serialize())
-	return {"version": 2, "enabled": enabled, "credits": credits, "total_earned": total_earned, "sites": records}
+	return {"version": 2, "enabled": enabled, "credits": credits, "total_earned": total_earned, "relief_waves": relief_waves.duplicate(), "supply_orders": supply_orders, "sites": records}

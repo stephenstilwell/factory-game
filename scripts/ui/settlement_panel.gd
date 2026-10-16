@@ -11,6 +11,7 @@ signal restore_requested(id: String)
 signal talk_requested(id: String)
 signal withdraw_requested(id: String)
 signal transfer_requested(item: String, amount: int, source: Dictionary, target: Dictionary, token: int)
+signal supplies_order_requested
 signal beacon_requested
 signal beacon_cancel_requested
 signal repair_requested
@@ -32,6 +33,7 @@ var supplies: VBoxContainer
 var world: RefCounted
 var quantity := 5
 var defense_status: Label
+var order_button: Button
 var beacon_button: Button
 var cancel_beacon_button: Button
 var damage_button: Button
@@ -54,6 +56,8 @@ func _ready() -> void:
 	talk_button = _button(detail, "Talk", func(): talk_requested.emit(selected_id))
 	defense_status = _label("", 15, Color("e4c58b"))
 	detail.add_child(defense_status)
+	order_button = _button(detail, "Buy supply bundle — 20 credits", func(): supplies_order_requested.emit())
+	order_button.tooltip_text = "20 coal + 10 ammunition + 2 repair kits. Trade credits and beacon relief credits share the same wallet."
 	beacon_button = _button(detail, "Light beacon", func(): beacon_requested.emit())
 	cancel_beacon_button = _button(detail, "Extinguish beacon — cancel arrival", func(): beacon_cancel_requested.emit())
 	damage_button = _button(detail, "Repair with kit [H] (+50 health)", func(): repair_requested.emit())
@@ -69,7 +73,7 @@ func _ready() -> void:
 	supplies.transfer_dropped.connect(func(data, target): transfer_requested.emit(data.item, int(data.amount), data.source, target, int(data.world)))
 	information = _label("")
 	detail.add_child(information)
-	_button(detail, "All town projects [T]", func(): site_selected.emit(""))
+	_button(detail, "All town projects [Y]", func(): site_selected.emit(""))
 
 func _label(text: String, size: int = 16, color: Color = Color("e0e8df")) -> Label:
 	var label := Label.new()
@@ -142,6 +146,11 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 		state_label.text += "\nAll neighborhoods restored; housing deliveries complete." if region.district_level() >= 3 else "\nSupply construction kits, steel, and copper to grow the town. Shortages pause growth."
 		if region.district_level() > 0: state_label.text += "\nRegional coal efficiency: +%d%% from neighborhoods." % (region.district_level() * 5)
 	defense_status.visible = id == "town_hall" and site.repaired
+	order_button.visible = id == "trading_post" and site.repaired
+	order_button.disabled = not region.supply_order_reason(world).is_empty()
+	order_button.text = "Buy supplies: 20 coal + 10 ammo + 2 kits (20 credits)"
+	if order_button.disabled: order_button.tooltip_text = region.supply_order_reason(world)
+	else: order_button.tooltip_text = "20 coal + 10 ammunition + 2 repair kits delivered to your pack. Costs 20 trade / relief credits."
 	beacon_button.visible = defense_status.visible
 	cancel_beacon_button.visible = defense_status.visible and world.defense.phase == "warning"
 	damage_button.visible = site.repaired and site.health < site.max_health()
@@ -149,9 +158,12 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	if defense_status.visible:
 		defense_status.text = "%s\nNEXT: %s\n%s\nRifle [V], turrets, walls, and repair kits. No automatic waves." % [world.defense.summary(), Catalog.Combat.composition(world.defense.cleared), "Central eastern gate." if world.defense.cleared == 0 else "Three marked eastern gates. Scouts flank walls; dismantlers break through; haulers resist ordinary rounds."]
 		if world.defense.cleared == world.defense.MAX_WAVES: defense_status.text = "%s\n%d families sheltered. Road crews remain active while the hall is operational." % [world.defense.summary(), world.defense.cleared * 3]
+		if world.defense.cleared < world.defense.MAX_WAVES:
+			defense_status.text = "NEXT: %s\nVICTORY: +%d relief credits • 3 families home\nCREWS: +5%% movement • Hearth coverage %d tiles\n15-second warning. Voluntary; failure pays no reward." % [Catalog.Combat.composition(world.defense.cleared), region.defense_reward(world.defense.cleared + 1), 8 + mini(4, (world.defense.cleared + 1) / 2)]
+		beacon_button.tooltip_text = world.defense.reward_preview(world)
 		var blocked: String = world.defense.ready_reason(world)
 		beacon_button.disabled = not reachable or not blocked.is_empty()
-		beacon_button.text = "Light beacon — wave %d in 15 seconds" % (world.defense.cleared + 1) if blocked.is_empty() else blocked
+		beacon_button.text = "Signal arrival %d — 15s warning" % (world.defense.cleared + 1) if blocked.is_empty() else blocked
 	var reason: String = region.repair_reason(id)
 	var prerequisite: String = definition.get("requires", "")
 	prerequisite_button.visible = not site.repaired and not prerequisite.is_empty() and not region.sites[prerequisite].repaired

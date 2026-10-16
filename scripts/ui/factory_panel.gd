@@ -34,25 +34,33 @@ func _ready() -> void:
 	panel.add_child(box)
 	var header := HBoxContainer.new()
 	box.add_child(header)
-	var title := Style.label("FACTORY WORKBENCH", 23, Style.ACCENT)
+	var title := Style.label("OLDBRIDGE WORKSHOP", 23, Style.ACCENT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-	Style.button(header, "Close [Esc / F]", close_panel)
+	Style.button(header, "Close [Esc]", close_panel)
 	var controls := HBoxContainer.new()
 	box.add_child(controls)
 	for id in ["research", "production", "plans"]:
-		tabs[id] = Style.button(controls, id.capitalize(), func(): tab = id; refresh())
+		tabs[id] = Style.button(controls, ("Technology [T]" if id == "research" else id.capitalize()), func(): tab = id; refresh())
 		var section := VBoxContainer.new()
 		section.add_theme_constant_override("separation", 10)
 		box.add_child(section)
 		sections[id] = section
 	research_status = Style.label("", 16, Style.GOLD)
 	sections.research.add_child(research_status)
+	var project_grid := GridContainer.new()
+	project_grid.columns = 2
+	project_grid.add_theme_constant_override("h_separation", 12)
+	project_grid.add_theme_constant_override("v_separation", 12)
+	sections.research.add_child(project_grid)
 	for definition in Catalog.TECHNOLOGIES:
-		var button := Style.button(sections.research, "", func(): research_requested.emit(definition.id))
+		var button := Style.button(project_grid, "", func(): research_requested.emit(definition.id))
+		button.custom_minimum_size = Vector2(358, 130)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		research_buttons[definition.id] = button
-	sections.research.add_child(Style.label("Labs spend real science packs. Choose either routing or metallurgy after Logistics I. Switching projects preserves invested science.", 15, Style.MUTED))
+	sections.research.add_child(Style.label("HOW IT WORKS: Choose a project, then deliver engineering dossiers to a drafting bench. Switching banks invested dossiers. Completion waits for your next choice. Equipment also needs the restored workshop.", 15, Style.MUTED))
 	window_label = Style.label("", 14, Style.MUTED)
 	sections.production.add_child(window_label)
 	var scroll := ScrollContainer.new()
@@ -115,17 +123,19 @@ func refresh() -> void:
 		Style.select(tabs[id], id == tab)
 	if tab == "research":
 		var active: String = world.current_research()
-		research_status.text = "Choose a research project" if active.is_empty() else "ACTIVE: %s  •  %d / %d science" % [Catalog.technology(active).name, world.research_progress, Catalog.technology(active).cost]
+		research_status.text = "Choose what Oldbridge needs next - click an available project" if active.is_empty() else "ACTIVE: %s  •  %d / %d dossiers" % [Catalog.technology(active).name, world.research_progress, Catalog.technology(active).cost]
 		for definition in Catalog.TECHNOLOGIES:
 			var done: bool = definition.id in world.researched
 			var available: bool = world.research_available(definition.id) and world.content_available("lab")
 			var progress: int = world.research_progress if definition.id == active else int(world.research_banks.get(definition.id, 0))
 			if done: progress = int(definition.cost)
-			var condition := "Complete" if done else ("Active" if definition.id == active else ("Select" if available else "Needs: " + ", ".join(definition.requires)))
-			research_buttons[definition.id].text = "%s  •  %s  •  %d/%d science\n%s" % [definition.name, condition, progress, definition.cost, definition.unlock]
+			var prerequisites := PackedStringArray()
+			for required in definition.requires: prerequisites.append(Catalog.technology(required).name)
+			var condition := "COMPLETE" if done else ("ACTIVE" if definition.id == active else ("BEGIN PROJECT" if available else ("Finish the drafting lesson" if prerequisites.is_empty() else "Needs: " + ", ".join(prerequisites))))
+			research_buttons[definition.id].text = "%s\n%s  •  %d/%d dossiers\n%s\n%s" % [definition.name, condition, progress, definition.cost, definition.purpose, definition.unlock]
 			research_buttons[definition.id].disabled = done or not available or definition.id == active
 			Style.select(research_buttons[definition.id], definition.id == active and not done)
-			research_buttons[definition.id].tooltip_text = "Finish the introductory lab lesson to select research." if not world.content_available("lab") else definition.unlock
+			research_buttons[definition.id].tooltip_text = "Finish the introductory drafting lesson to select a project." if not world.content_available("lab") else definition.unlock
 	elif tab == "production":
 		var stats: Dictionary = world.metrics.snapshot(world.ticks)
 		window_label.text = "Actual output and recipe / fuel / delivery use. Recent %.1f simulated seconds; history starts on load." % stats.seconds

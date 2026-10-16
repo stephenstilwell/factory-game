@@ -17,7 +17,16 @@ static func restore(world: RefCounted, data) -> bool:
 	region.total_earned = int(data.total_earned)
 	var seen: Dictionary = {}
 	var earned := 0
-	var spent := 0
+	var relief = data.get("relief_waves", [])
+	if not relief is Array or relief.size() > 10: return false
+	for wave in relief:
+		if not region.enabled or not _int(wave, 1, 10) or int(wave) in region.relief_waves: return false
+		region.relief_waves.append(int(wave))
+		earned += region.defense_reward(int(wave))
+	if not _int(data.get("supply_orders", 0), 0, 100000000): return false
+	region.supply_orders = int(data.get("supply_orders", 0))
+	if region.supply_orders > 0 and not region.enabled: return false
+	var spent := region.supply_orders * region.SUPPLY_COST
 	for record in data.sites:
 		if not record is Dictionary or not Definitions.SITES.has(record.get("id")) or seen.has(record.id): return false
 		seen[record.id] = true
@@ -53,6 +62,7 @@ static func restore(world: RefCounted, data) -> bool:
 			site.inventory.contents[item] = int(record.inventory[item])
 		if site.inventory.total() > site.inventory.capacity: return false
 		if not region.enabled and (site.repaired or site.inventory.total() > 0 or site.shipment_ticks > 0 or site.shipments > 0): return false
+	if region.supply_orders > 0 and (not region.sites.trading_post.repaired or not region.sites.workshop.repaired): return false
 	if earned != region.total_earned or earned - spent != region.credits: return false
 	if not seen.has("trading_post") or not seen.has("workshop"): return false
 	if not seen.has("town_hall"): region.pending_sites.append("town_hall")

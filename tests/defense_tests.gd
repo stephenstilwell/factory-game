@@ -64,7 +64,7 @@ static func run(test: SceneTree) -> void:
 	var before := losing.player.contents.duplicate() as Dictionary
 	for i in range(6): losing.repair_at(broken.port())
 	test.check(broken.health == 300 and losing.player.count("repair_kit") == int(before.repair_kit) - 6 and losing.defense.phase == "idle", "Six real repair kits recover the hall without resetting research, skills, or factory stock")
-	test.check(losing.settlements.services_online() and losing.settlements.effect("burner_ticks") == 16, "Repairing the hall restores town services")
+	test.check(losing.settlements.services_online() and losing.settlements.effect("burner_ticks") == 48, "Repairing the hall restores town services")
 	test.check(losing.defense.begin(losing) and losing.defense.cleared == 0, "A failed defense can be retried at the same difficulty")
 	var barrier := Fixtures.defense_town(false)
 	var wall = barrier.spawn("wall", Vector2i(60, 13), 0)
@@ -99,7 +99,7 @@ static func run(test: SceneTree) -> void:
 	test.check(factory.settlements.effect("burner_ticks") == 0, "Damage to the outlying workshop suspends its bonus")
 	factory.player_position = Vector2(34.5, 20.5)
 	factory.repair_at(factory.settlements.sites.workshop.port())
-	test.check(factory.settlements.effect("burner_ticks") == 16, "Repairing the workshop restores its existing civic bonus")
+	test.check(factory.settlements.effect("burner_ticks") == 48, "Repairing the workshop restores its existing civic bonus")
 	var old := Saves.encode(Fixtures.trading_town())
 	old.erase("defense")
 	old.settlements.version = 1

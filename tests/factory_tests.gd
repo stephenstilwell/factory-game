@@ -1,5 +1,6 @@
 extends SceneTree
 
+const PacingTests = preload("res://tests/pacing_tests.gd")
 const CombatTests = preload("res://tests/combat_tests.gd")
 const PresentationTests = preload("res://tests/presentation_tests.gd")
 const ExpansionTests = preload("res://tests/expansion_tests.gd")
@@ -35,6 +36,7 @@ func advance(world: RefCounted, count: int) -> void:
 	for i in range(count): Simulation.step(world)
 
 func _run() -> void:
+	PacingTests.run(self)
 	ExpansionTests.run(self)
 	_inventory()
 	_terrain()
@@ -57,6 +59,7 @@ func _run() -> void:
 	await ExpansionTests.ui(self)
 	await PresentationTests.run(self)
 	await CombatTests.ui(self)
+	await PacingTests.ui(self)
 	await _scene_smoke()
 	await InventoryUXTests.ui(self)
 	print("Factory verification: %d checks, %d failures" % [checks, failures])
@@ -163,8 +166,10 @@ func _production() -> void:
 	drill.inventory.add("coal")
 	var before: int = world.terrain.tile(drill.cell).amount
 	advance(world, 150)
-	check(drill.output.count("iron_ore") == 5 and drill.status.begins_with("No fuel"), "One coal gives finite drill work, then stops")
-	check(world.terrain.tile(drill.cell).amount == before - 5, "Drilling depletes matching deposit amount")
+	var first_batch: int = drill.output.remove("iron_ore", 10)
+	advance(world, 150)
+	check(first_batch + drill.output.count("iron_ore") == 16 and drill.status.begins_with("No fuel"), "One coal gives finite drill work, then stops")
+	check(world.terrain.tile(drill.cell).amount == before - 16, "Drilling depletes matching deposit amount")
 	var furnace = world.spawn("furnace", Vector2i(20, 20), 0)
 	furnace.inventory.add("iron_ore", 2)
 	advance(world, 40)
@@ -225,6 +230,8 @@ func _progression() -> void:
 	world.player.add("belt")
 	world.player.add("gear", 2)
 	check(world.craft("fast_belt"), "Research unlock enables fast conveyor recipe")
+	check(world.current_research().is_empty(), "Completed project waits for an explicit next choice")
+	world.select_research("metallurgy")
 	lab.inventory.add("science", 20)
 	advance(world, 600)
 	check("metallurgy" in world.researched, "Second technology consumes 20 science packs")
@@ -232,7 +239,7 @@ func _progression() -> void:
 	furnace.recipe = "steel"
 	furnace.inventory.contents = {"coal": 1, "iron_plate": 5}
 	advance(world, 80)
-	check(furnace.output.count("steel") == 1 and lab.status == "Needs science packs", "Metallurgy enables steel while further research awaits science")
+	check(furnace.output.count("steel") == 1 and lab.status == "Choose a workshop project [T]", "Metallurgy enables steel while further research awaits science")
 
 func _mine_for_lesson(world: RefCounted, item: String, amount: int) -> void:
 	var cells := {"stone": Vector2i(26, 9), "iron_ore": Vector2i(14, 16), "coal": Vector2i(9, 23), "copper_ore": Vector2i(28, 23)}
@@ -263,7 +270,7 @@ func _mine_for_lesson(world: RefCounted, item: String, amount: int) -> void:
 func _smelt_for_lesson(world: RefCounted, furnace: RefCounted, item: String, amount: int) -> void:
 	var ore := "copper_ore" if item == "copper_plate" else "iron_ore"
 	_mine_for_lesson(world, ore, amount)
-	_mine_for_lesson(world, "coal", ceili(amount * 32.0 / 80.0))
+	_mine_for_lesson(world, "coal", maxi(2, ceili(amount * 32.0 / World.Catalog.FUEL_TICKS)))
 	world.player_position = Vector2(furnace.cell) + Vector2(0.5, 2.5)
 	for i in range(3):
 		if furnace.recipe == item: break
@@ -381,7 +388,7 @@ func _first_settlement_from_nothing(world: RefCounted, furnace: RefCounted) -> v
 	_smelt_for_lesson(world, furnace, "copper_plate", 10)
 	world.player_position = Vector2(34.5, 20.5)
 	world.supply_site("workshop")
-	check(world.restore_site("workshop") and world.burner_fuel_duration() == 96, "Entire empty-start economy reaches its first global civic bonus without free materials or currency")
+	check(world.restore_site("workshop") and world.burner_fuel_duration() == 288, "Entire empty-start economy reaches its first global civic bonus without free materials or currency")
 	var civic_save := SaveService.decode(JSON.parse_string(JSON.stringify(SaveService.encode(world))))
 	check(civic_save.has("world") and civic_save.world.settlements.sites.workshop.repaired and civic_save.world.settlements.credits == 0, "Earned campaign restoration and spent currency persist with learning progress")
 

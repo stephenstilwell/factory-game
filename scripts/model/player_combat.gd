@@ -10,7 +10,7 @@ var aim := Vector2.ZERO
 
 func toggle(world: RefCounted) -> bool:
 	if not armed and (world.player.count("service_rifle") == 0 or not world.content_available("service_rifle") or "logistics" not in world.researched):
-		world.message.emit("Craft a service rifle after restoring the workshop and researching Logistics I. [C]")
+		world.message.emit("Craft a service rifle after restoring the workshop and researching Supply routes. [C]")
 		return false
 	armed = not armed
 	firing = false

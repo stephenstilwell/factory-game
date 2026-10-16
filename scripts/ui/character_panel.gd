@@ -52,7 +52,7 @@ func _ready() -> void:
 	equipment_box = VBoxContainer.new()
 	equipment_box.add_theme_constant_override("separation", 14)
 	add_child(equipment_box)
-	equipment_box.add_child(Style.label("First tiers: working-drill lesson. Tier 2: Logistics I. Tier 3: Metallurgy and the restored workshop.", 14, Style.MUTED))
+	equipment_box.add_child(Style.label("First tiers: working-drill lesson. Tier 2: Supply routes. Tier 3: Foundry craft and the restored workshop.", 14, Style.MUTED))
 	for id in Definitions.UPGRADES:
 		var panel := PanelContainer.new()
 		equipment_box.add_child(panel)

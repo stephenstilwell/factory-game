@@ -2,9 +2,9 @@
 
 The next factory goal is to manufacture its own expansion supplies, route them around obstacles, and keep Oldbridge supplied. New games still begin empty and follow the original learning guide.
 
-## Factory workbench [F]
+## Technology [T] and operations [F]
 
-Research shows prerequisites and unlocks. Logistics I costs 10 science packs. Afterwards choose **Advanced routing** (20 packs, splitter junctions and underground conveyors) or **Metallurgy** (20 packs, steel). **Construction engineering** follows Metallurgy (25 packs, construction kits). A selected project is shared by all labs. Switching projects banks completed science investment; it does not refund or duplicate packs. The next available project starts automatically when one completes, and F lets you choose another.
+Research shows prerequisites and unlocks. Supply routes costs 10 engineering dossiers. Afterwards choose **District distribution** (20 packs, splitter junctions and underground conveyors) or **Foundry craft** (20 packs, steel). **Homes for Oldbridge** follows Foundry craft (25 packs, construction kits). A selected project is shared by all labs. Switching projects banks invested dossiers; it does not refund or duplicate them. After completion, choose the next project explicitly with T; benches preserve unused dossiers.
 
 Production shows actual made, consumed, and net item rates over up to 60 simulated seconds, including manual production, machine ingredients, fuel, science, building placement, and dispatches. Transfers do not count as consumption. History begins fresh on load and pauses with simulation time; it is not an offline estimate or a theoretical capacity graph. Machine inspection shows missing ingredient quantities and nominal recipe batches/minute. The dashboard summarizes stalled machine statuses and town demand.
 

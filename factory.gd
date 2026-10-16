@@ -54,7 +54,8 @@ func _ready() -> void:
 	add_child(presentation)
 	presentation.configure(hud, view)
 	audio.watch_ui(hud)
-	hud.factory_requested.connect(_open_factory)
+	hud.supplies_order_requested.connect(func(): world.settlements.order_supplies(world))
+	hud.factory_requested.connect(func(): _open_factory("research"))
 	hud.factory_panel.research_requested.connect(func(id): world.select_research(id); hud.refresh())
 	hud.factory_panel.copy_requested.connect(_start_copy)
 	hud.factory_panel.paste_requested.connect(_start_paste)
@@ -252,14 +253,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_J and hud.story_panel.chapter_id.is_empty(): hud.story_panel.close_panel()
 		return
 	if hud.factory_panel.visible:
-		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F: hud.factory_panel.close_panel()
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.keycode == KEY_F: _open_factory("production")
+			elif event.keycode == KEY_T: _open_factory("research")
+			elif event.keycode == KEY_Y:
+				hud.factory_panel.close_panel()
+				hud.toggle_town()
 		return
 	if hud.pause_menu.visible or hud.hotbar.picker.visible: return
 	if hud.survey.visible:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M: hud.survey.hide()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J, KEY_F, KEY_G, KEY_V]: return
+		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_Y, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J, KEY_F, KEY_G, KEY_V]: return
 		if not hud.workspace.visible and event.ctrl_pressed and event.keycode in [KEY_C, KEY_V]:
 			if event.keycode == KEY_C: _start_copy()
 			else: _start_paste()
@@ -311,7 +317,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				elif hud.world_has_pointer(): world.repair_at(_mouse_cell())
 			KEY_M: hud.toggle_survey()
 			KEY_I: hud.toggle_inventory()
-			KEY_T:
+			KEY_T: _open_factory("research")
+			KEY_Y:
 				painting = false
 				hud.toggle_town()
 			KEY_E:
@@ -553,8 +560,8 @@ func _build_plans() -> void:
 	hud.show_notice("Built %d planned buildings. Remaining ghosts need buildings in your pack and interaction reach." % count)
 	hud.refresh()
 
-func _open_factory() -> void:
-	if hud.factory_panel.visible:
+func _open_factory(next_tab: String = "production") -> void:
+	if hud.factory_panel.visible and hud.factory_panel.tab == next_tab:
 		hud.factory_panel.close_panel()
 		return
 	_cancel_planning()
@@ -562,7 +569,7 @@ func _open_factory() -> void:
 	hud.close_workspace()
 	hud.survey.hide()
 	hud.hotbar.close_picker()
-	hud.factory_panel.open_panel(world)
+	hud.factory_panel.open_panel(world, next_tab)
 
 func _toggle_weapon() -> void:
 	if not world.combat.toggle(world): return

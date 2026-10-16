@@ -45,7 +45,7 @@ func _ready() -> void:
 	library.tooltip_text = "Choose a slot and assign a building. Right-click any slot to edit it."
 	var journal := Style.button(row, "Journal [J]", func(): journal_requested.emit())
 	journal.custom_minimum_size = Vector2(96, 62)
-	Style.button(row, "Factory [F]", func(): factory_requested.emit())
+	Style.button(row, "Tech [T]", func(): factory_requested.emit())
 	caption = Style.label("", 13, Style.MUTED)
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.max_lines_visible = 1

@@ -54,9 +54,9 @@ func _draw() -> void:
 	elif item_id == "wire":
 		for i in range(3): draw_arc(center + Vector2(i * 4 - 4, 0), radius * 0.7, 0, TAU, 20, color, 2)
 	elif item_id in ["science", "lab"]:
-		draw_rect(Rect2(center + Vector2(-3, -radius), Vector2(6, radius)), color)
-		draw_colored_polygon(PackedVector2Array([center - Vector2(3, 2), center + Vector2(-radius, radius), center + Vector2(radius, radius), center + Vector2(3, -2)]), color)
-		draw_line(center + Vector2(-5, -radius), center + Vector2(5, -radius), color.lightened(0.4), 2)
+		draw_rect(Rect2(center + Vector2(-11, -9), Vector2(22, 19)), Color("b28b5d"))
+		draw_rect(Rect2(center + Vector2(-8, -11), Vector2(16, 18)), Color("dfd4ad"))
+		for y in [-6, -1, 4]: draw_line(center + Vector2(-5, y), center + Vector2(5, y), Color("668e92"), 2)
 	elif item_id in ["belt", "fast_belt"]:
 		draw_rect(Rect2(center - Vector2.ONE * radius, Vector2.ONE * radius * 2), color.darkened(0.65))
 		for y in [-6, 3]:

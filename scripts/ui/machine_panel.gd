@@ -98,7 +98,7 @@ func _drop(data: Dictionary, target: Dictionary) -> void:
 
 func _click_item(grid: VBoxContainer, item: String, gesture: String) -> void:
 	var amount := 1 if gesture == "one" else (0 if gesture == "all" else quantity)
-	if grid == output_grid or (grid == input_grid and entity.kind in (["chest"] + Catalog.TRANSPORT)):
+	if grid == output_grid or (grid == input_grid and entity.kind in (["chest", "fuel_depot"] + Catalog.TRANSPORT)):
 		transfer_requested.emit(item, amount, grid.descriptor, {"kind": "player"}, world.get_instance_id())
 	elif grid.buttons[item].amount > 0:
 		transfer_requested.emit(item, amount, grid.descriptor, {"kind": "player"}, world.get_instance_id())
@@ -137,7 +137,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 		status_label.text += "\n%d units remaining under this drill" % int(deposit.get("amount", 0)) if not deposit.is_empty() else "\nPress M to survey another deposit, then hold right mouse to reclaim and relocate this drill."
 	supply_button.text = "Stack matching" if entity.kind == "chest" else "Load ingredients"
 	supply_button.disabled = not reachable or entity.kind == "inserter"
-	collect_button.text = "Take all [X]" if entity.kind in (["chest"] + Catalog.TRANSPORT) else ("Recover hand [X]" if entity.kind == "inserter" else "Collect output [X]")
+	collect_button.text = "Take all [X]" if entity.kind in (["chest", "fuel_depot"] + Catalog.TRANSPORT) else ("Recover hand [X]" if entity.kind == "inserter" else "Collect output [X]")
 	collect_button.disabled = not reachable
 	if Catalog.Combat.TURRETS.has(entity.kind): collect_button.text = "Unload ammo [X]"
 	if entity.kind == "wall": collect_button.visible = false
@@ -155,6 +155,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	var input: Dictionary = entity.inventory.contents.duplicate()
 	var expected: Array = []
 	if Catalog.Combat.TURRETS.has(entity.kind): expected = ["ammo"]
+	if entity.kind == "fuel_depot": expected = ["coal"]
 	var output_expected: Array = []
 	if entity.recipe != "":
 		expected = Catalog.RECIPES[entity.recipe]["in"].keys()
@@ -162,7 +163,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	fuel_box.visible = Catalog.BUILDINGS[entity.kind].get("fuel", false)
 	if fuel_box.visible: input.erase("coal")
 	input_box.visible = entity.kind not in ["inserter", "wall"]
-	output_box.visible = entity.kind not in (["chest", "wall"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT)
+	output_box.visible = entity.kind not in (["chest", "fuel_depot", "wall"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT)
 	input_grid.grid.columns = 6 if entity.kind == "chest" else 3
 	var descriptor := {"kind": "input", "entity_id": entity.id}
 	for grid in [input_grid, fuel_grid, output_grid]:
@@ -189,4 +190,8 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	summary.text = "Click a filled tile to take items; click an empty ingredient to load it. Drag pack items into INPUT or FUEL. Output collection leaves fuel and ingredients in place."
 	if entity.kind == "chest": summary.text = "Drop pack items into storage, or Shift-click them in your pack to transfer all. Ctrl-click stacks only item types already stored here; it never dumps unrelated supplies."
 	if Catalog.Combat.TURRETS.has(entity.kind): summary.text = "Load ammunition into INPUT manually or by inserter. Guns stop scouts, cannons counter armor, and pulses slow groups. Walls shape routes; scouts can go around isolated barriers. Select a turret to see its range."
+	if entity.kind == "fuel_depot":
+		summary.text = "Covers %d tiles. Delivers one real coal per nearby burner each tick, keeping a small 3-coal reserve. Load once here or automate an inserter supply. No coal is created. Returning crews expand coverage." % world.supply_radius()
+		status_label.text += "\n%d / 200 shared coal • Coverage %d tiles" % [entity.inventory.count("coal"), world.supply_radius()]
+		supply_button.text = "Load all coal"
 	if entity.kind == "wall": summary.text = "Blocks the marked approach until its health reaches zero. Disabled walls stay in place as passable ruins; repair them with kits [H]. Damaged structures must be repaired before reclamation."

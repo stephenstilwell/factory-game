@@ -12,6 +12,7 @@ const GENERATOR_VERSION := 2
 const REGION_SIZE := 96
 const MAX_RADIUS := 16
 const RESOURCE_IDS := ["iron_ore", "copper_ore", "coal", "stone"]
+var stock_scale := 4
 var generator_version := 1
 var chunks: Dictionary = {}
 var depleted: Dictionary = {}
@@ -57,7 +58,7 @@ func _generate(chunk: Vector2i) -> void:
 			var cell := Vector2i(x, y)
 			for patch in patches:
 				if Vector2(cell - patch[0]).length() <= float(patch[1]):
-					deposits[cell] = {"item": patch[2], "amount": 120 + posmod(x * 17 + y * 31 + seed_value, 100)}
+					deposits[cell] = {"item": patch[2], "amount": (120 + posmod(x * 17 + y * 31 + seed_value, 100)) * stock_scale}
 	chunks[chunk] = deposits
 
 func _rng(coordinate: Vector2i, salt: int = 0) -> RandomNumberGenerator:
@@ -116,7 +117,7 @@ func _generate_frontier(chunk: Vector2i) -> void:
 				var cell := Vector2i(x, y)
 				if not _patch_contains(cell, patch): continue
 				var variation := posmod(x * 17 + y * 31 + seed_value, 180)
-				deposits[cell] = {"item": patch[2], "amount": (180 if starter else 450 + depth * 450) + variation}
+				deposits[cell] = {"item": patch[2], "amount": ((180 if starter else 450 + depth * 450) + variation) * stock_scale}
 	chunks[chunk] = deposits
 
 func find_resource(item: String, origin: Vector2i, region_radius: int = 3) -> Dictionary:

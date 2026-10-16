@@ -8,6 +8,7 @@ signal activated(id: String, gesture: String)
 signal transfer_dropped(data: Dictionary, target: Dictionary)
 
 var item_id := "stone"
+var compact := false
 var amount := 0
 var source: Dictionary = {}
 var target: Dictionary = {}
@@ -20,7 +21,7 @@ var name_label: Label
 var selected_style: Variant = null
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(78, 82)
+	custom_minimum_size = Vector2(78, 74 if compact else 82)
 	focus_mode = Control.FOCUS_ALL
 	var box := VBoxContainer.new()
 	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -42,7 +43,8 @@ func _ready() -> void:
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(count_label)
-	name_label = Style.label(Catalog.item_name(item_id), 12)
+	var short_names := {"science": "Dossier", "underground_belt": "Underpass"}
+	name_label = Style.label(short_names.get(item_id, Catalog.item_name(item_id)) if compact else Catalog.item_name(item_id), 12)
 	name_label.max_lines_visible = 2
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

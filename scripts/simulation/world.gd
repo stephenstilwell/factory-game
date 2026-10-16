@@ -109,6 +109,7 @@ func start() -> void:
 	changed.emit()
 
 func content_available(id: String) -> bool:
+	if id == "fuel_depot": return guide.available("chest")
 	if id in ["wall", "repair_kit"]: return settlements.enabled and settlements.sites.trading_post.repaired
 	if id in ["turret", "ammo", "service_rifle", "cannon_turret", "pulse_turret"]: return settlements.enabled and settlements.sites.workshop.repaired
 	if id in ["splitter", "underground_belt", "construction_kit"]: return guide.available("assembler")
@@ -248,7 +249,7 @@ func collect_output(cell: Vector2i) -> void:
 	if entity.kind == "inserter":
 		if entity.carried != "": transfer_item(entity.carried, 0, {"kind": "hand", "entity_id": entity.id}, {"kind": "player"})
 		return
-	var kind := "input" if entity.kind in (["chest"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT) else "output"
+	var kind := "input" if entity.kind in (["chest", "fuel_depot"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT) else "output"
 	var storage = entity.inventory if kind == "input" else entity.output
 	for item in storage.contents.keys(): transfer_item(item, 0, {"kind": kind, "entity_id": entity.id}, {"kind": "player"})
 
@@ -289,6 +290,9 @@ func supply(cell: Vector2i) -> void:
 		message.emit("Stacked %d matching items. Drag an item into the chest to store a new type." % stacked)
 		changed.emit()
 		return
+	if entity.kind == "fuel_depot":
+		transfer_item("coal", 0, {"kind": "player"}, {"kind": "input", "entity_id": entity.id})
+		return
 	var accepted := 0
 	for item in Catalog.ITEMS:
 		if accepts(entity, item):
@@ -325,6 +329,7 @@ func set_recipe(cell: Vector2i, recipe_id: String) -> bool:
 	return true
 
 func input_limit(entity: RefCounted, item: String) -> int:
+	if entity.kind == "fuel_depot": return 200 if item == "coal" else 0
 	if item == "coal" and Catalog.BUILDINGS[entity.kind].get("fuel", false): return 10
 	if not entity.recipe.is_empty(): return maxi(10, int(Catalog.RECIPES[entity.recipe]["in"].get(item, 0)) * 2)
 	return 10
@@ -345,8 +350,6 @@ func research_available(id: String) -> bool:
 
 func current_research() -> String:
 	if research_available(research_target): return research_target
-	for definition in Catalog.TECHNOLOGIES:
-		if research_available(definition.id): return definition.id
 	return ""
 
 func select_research(id: String) -> bool:
@@ -367,6 +370,7 @@ func award_automation(key: String, skill: String, xp_amount: int) -> void:
 	message.emit("Automation milestone! +%d %s XP. Your factory is doing the work." % [xp_amount, Skills.Definitions.SKILLS[skill].name])
 
 func accepts(entity: RefCounted, item: String) -> bool:
+	if entity.kind == "fuel_depot": return entity.health > 0 and item == "coal" and entity.inventory.count("coal") < 200
 	if entity.kind == "settlement_port": return settlements.receiving_limit(entity.id, item) > 0
 	if entity.health <= 0: return false
 	if Catalog.Combat.TURRETS.has(entity.kind): return item == "ammo" and entity.inventory.count(item) < 10
@@ -377,7 +381,7 @@ func accepts(entity: RefCounted, item: String) -> bool:
 	return false
 
 func transfer_source(entity: RefCounted):
-	return entity.inventory if entity.kind in (Catalog.TRANSPORT + ["chest"]) else entity.output
+	return entity.inventory if entity.kind in (Catalog.TRANSPORT + ["chest", "fuel_depot"]) else entity.output
 
 func solid(cell: Vector2i) -> bool:
 	var entity = at(cell)
@@ -425,7 +429,10 @@ func logistics_receiver(cell: Vector2i):
 	return entity if entity != null else settlements.receiver(cell)
 
 func burner_fuel_duration() -> int:
-	return 80 + settlements.effect("burner_ticks")
+	return Catalog.FUEL_TICKS + settlements.effect("burner_ticks")
+
+func supply_radius() -> int:
+	return 8 + mini(4, defense.cleared / 2) if settlements.enabled and settlements.services_online() else 8
 
 func _site_in_reach(id: String) -> bool:
 	if not settlements.enabled or not settlements.sites.has(id): return false

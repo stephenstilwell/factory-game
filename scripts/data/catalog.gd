@@ -3,8 +3,10 @@ extends RefCounted
 ## Durations are integer simulation ticks (10 ticks = 1 second).
 
 const Combat = preload("res://scripts/data/combat_catalog.gd")
+const FUEL_TICKS := 240
 const TRANSPORT := ["belt", "fast_belt", "splitter", "underground_belt"]
 const ITEMS := {
+	"fuel_depot": {"name": "Supply Hearth", "color": "d8a269"},
 	"service_rifle": {"name": "Service rifle", "color": "c9ad79"},
 	"cannon_turret": {"name": "Piercing cannon", "color": "a6b7b0"},
 	"pulse_turret": {"name": "Pulse turret", "color": "81c7be"},
@@ -23,7 +25,7 @@ const ITEMS := {
 	"copper_plate": {"name": "Copper plate", "color": "e8a16c"},
 	"gear": {"name": "Iron gear", "color": "a0b8bd"},
 	"wire": {"name": "Copper wire", "color": "e7b07b"},
-	"science": {"name": "Science pack", "color": "ef7974"},
+	"science": {"name": "Engineering dossier", "color": "ef7974"},
 	"steel": {"name": "Steel plate", "color": "e1e5d5"},
 	"belt": {"name": "Conveyor", "color": "b8a565"},
 	"drill": {"name": "Burner drill", "color": "cfa95d"},
@@ -31,12 +33,13 @@ const ITEMS := {
 	"inserter": {"name": "Inserter", "color": "e5b95a"},
 	"chest": {"name": "Storage chest", "color": "ad825b"},
 	"assembler": {"name": "Assembler", "color": "709cae"},
-	"lab": {"name": "Research lab", "color": "79bca9"},
+	"lab": {"name": "Drafting bench", "color": "79bca9"},
 	"fast_belt": {"name": "Fast conveyor", "color": "ce725c"},
 }
 
 const BUILD_ORDER := ["belt", "drill", "furnace", "inserter", "chest", "assembler", "lab", "fast_belt"]
 const BUILDINGS := {
+	"fuel_depot": {"capacity": 200, "solid": true},
 	"cannon_turret": {"capacity": 30, "solid": true, "health": 140, "technology": "metallurgy"},
 	"pulse_turret": {"capacity": 30, "solid": true, "health": 100, "technology": "routing"},
 	"splitter": {"capacity": 1, "solid": false, "technology": "routing"},
@@ -49,11 +52,12 @@ const BUILDINGS := {
 	"furnace": {"capacity": 30, "solid": true, "fuel": true, "recipes": ["iron_plate", "copper_plate", "steel"]},
 	"inserter": {"capacity": 1, "solid": false},
 	"chest": {"capacity": 200, "solid": true},
-	"assembler": {"capacity": 40, "solid": true, "recipes": ["gear", "wire", "science", "ammo", "repair_kit", "belt", "inserter", "chest", "drill", "furnace", "assembler", "lab", "fast_belt", "wall", "turret", "splitter", "underground_belt", "construction_kit", "service_rifle", "cannon_turret", "pulse_turret"]},
+	"assembler": {"capacity": 40, "solid": true, "recipes": ["gear", "fuel_depot", "wire", "science", "ammo", "repair_kit", "belt", "inserter", "chest", "drill", "furnace", "assembler", "lab", "fast_belt", "wall", "turret", "splitter", "underground_belt", "construction_kit", "service_rifle", "cannon_turret", "pulse_turret"]},
 	"lab": {"capacity": 40, "solid": true},
 }
 
 const RECIPES := {
+	"fuel_depot": {"in": {"iron_plate": 10, "gear": 4, "stone": 10}, "out": {"fuel_depot": 1}, "ticks": 30, "hand": true, "machine": "assembler"},
 	"service_rifle": {"in": {"iron_plate": 8, "gear": 4, "copper_plate": 4}, "out": {"service_rifle": 1}, "ticks": 35, "hand": true, "machine": "assembler", "technology": "logistics"},
 	"cannon_turret": {"in": {"iron_plate": 8, "steel": 6, "gear": 4, "copper_plate": 4}, "out": {"cannon_turret": 1}, "ticks": 50, "hand": true, "machine": "assembler", "technology": "metallurgy"},
 	"pulse_turret": {"in": {"iron_plate": 8, "wire": 6, "gear": 4}, "out": {"pulse_turret": 1}, "ticks": 45, "hand": true, "machine": "assembler", "technology": "routing"},
@@ -81,10 +85,10 @@ const RECIPES := {
 }
 
 const TECHNOLOGIES := [
-	{"id": "logistics", "name": "Logistics I", "cost": 10, "requires": [], "unlock": "Fast conveyors; workshop rifles, gun turrets, and ammunition"},
-	{"id": "metallurgy", "name": "Metallurgy", "cost": 20, "requires": ["logistics"], "unlock": "Steel smelting and workshop piercing cannons"},
-	{"id": "routing", "name": "Advanced routing", "cost": 20, "requires": ["logistics"], "unlock": "Splitters, underground conveyors, and workshop pulse turrets"},
-	{"id": "construction", "name": "Construction engineering", "cost": 25, "requires": ["metallurgy"], "unlock": "Construction kits and housing supply lines"},
+	{"id": "logistics", "name": "Supply routes", "purpose": "Move supplies faster; equip returning crews.", "cost": 10, "requires": [], "unlock": "Fast conveyors; workshop rifles, gun turrets, and ammunition"},
+	{"id": "metallurgy", "name": "Foundry craft", "purpose": "Make strong steel for homes and defenses.", "cost": 20, "requires": ["logistics"], "unlock": "Steel smelting and workshop piercing cannons"},
+	{"id": "routing", "name": "District distribution", "purpose": "Branch and cross supply routes in a growing town.", "cost": 20, "requires": ["logistics"], "unlock": "Splitters, underground conveyors, and workshop pulse turrets"},
+	{"id": "construction", "name": "Homes for Oldbridge", "purpose": "Deliver housing supplies; restore three neighborhoods.", "cost": 25, "requires": ["metallurgy"], "unlock": "Construction kits and housing supply lines"},
 ]
 
 static func technology(id: String) -> Dictionary:
@@ -112,6 +116,7 @@ static func category(id: String) -> String:
 
 static func item_description(id: String) -> String:
 	var descriptions := {
+		"fuel_depot": "Shared coal storage. Automatically delivers real coal to healthy drills and furnaces within 8 tiles. Returning beacon crews extend coverage up to 12 tiles. Load all carried coal with Load coal, or feed continuously by inserter.",
 		"service_rifle": "Carry in your pack. V draws/holsters it; hold left mouse or Space while drawn to fire during a wave. Uses one ammo per shot. Range 8, damage 16; armor reduces damage. Shots can miss.",
 		"cannon_turret": "Range 8, 32 armor-piercing damage. Uses 2 ammunition every 1.5 seconds. Prioritizes armored haulers. Supply by inserter or manual loading.",
 		"pulse_turret": "Range 4.5, 8 armor-piercing damage in a 1.8-tile burst. Slows targets for 2.5 seconds. Uses 2 ammunition per pulse. Combine with guns and cannons.",
@@ -122,16 +127,16 @@ static func item_description(id: String) -> String:
 		"turret": "Fires at old-network constructs within six tiles. Each shot consumes one ammunition. Load by drag, Ctrl-click, or inserter. Equip from your pack to build.",
 		"ammo": "Five rounds per batch. Gun turrets consume one per shot; automate production and delivery with an assembler and inserters.",
 		"repair_kit": "Press H over a damaged building or civic landmark to consume one kit and restore 50 health. Also available in inspection panels.",
-		"coal": "Fuel for burner drills and furnaces. Insert it into a machine's fuel area.",
+		"coal": "24 seconds of active burner work per coal. Load a nearby Supply Hearth to serve several drills and furnaces, or feed burners directly by inserter.",
 		"stone": "Mine by hand to craft your first furnace. Also used in civic repairs.",
 		"iron_ore": "Smelt in a coal-fueled furnace to produce iron plates.",
 		"copper_ore": "Select Copper plate in a furnace to smelt this ore.",
 		"iron_plate": "A foundation material for gears, buildings, science, and town repairs.",
-		"copper_plate": "Used in wire, science packs, and workshop restoration.",
+		"copper_plate": "Used in wire, engineering dossiers, and workshop restoration.",
 		"gear": "A manufactured component used in drills, inserters, assemblers, and trade shipments.",
-		"wire": "One copper plate makes two wire. Used in research lab construction.",
-		"science": "Supply a research lab to unlock new technologies.",
-		"steel": "Advanced material unlocked through Metallurgy research.",
+		"wire": "One copper plate makes two wire. Used in drafting bench construction.",
+		"science": "Working prototypes and plans. Supply a drafting bench to complete the workshop project you choose with T.",
+		"steel": "Advanced material unlocked through Foundry craft research.",
 	}
 	if descriptions.has(id): return descriptions[id]
 	return "A placeable building. Equip it from your pack or use its numbered hotbar shortcut."

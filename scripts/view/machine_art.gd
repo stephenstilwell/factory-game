@@ -69,6 +69,14 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 				var muzzle := center - Vector2(0, 4) + barrel * 27
 				Art.glow(canvas, muzzle, 13, Art.AMBER)
 				canvas.draw_circle(muzzle, 4, Art.CREAM)
+		"fuel_depot":
+			Art.box(canvas, Rect2(center + Vector2(-20, -18), Vector2(40, 33)), Color("805b3b"), 4, Art.INK)
+			Art.box(canvas, Rect2(center + Vector2(-15, -14), Vector2(30, 17)), Art.INK, 3)
+			for i in range(5): canvas.draw_circle(center + Vector2(-10 + i * 5, -6 + i % 2 * 3), 5, Color("414a4b"))
+			canvas.draw_line(center + Vector2(-19, 7), center + Vector2(19, 7), Art.COPPER, 4)
+			canvas.draw_circle(center + Vector2(0, 7), 4, Art.AMBER if healthy else Art.INK)
+			canvas.draw_line(center + Vector2(0, -18), center + Vector2(0, -31), Art.STEEL, 2)
+			canvas.draw_colored_polygon(PackedVector2Array([center + Vector2(0, -31), center + Vector2(14, -28), center + Vector2(0, -23)]), Art.CREAM)
 		"chest":
 			Art.box(canvas, Rect2(center + Vector2(-18, -13), Vector2(36, 31)), Color("76583c"), 3)
 			Art.box(canvas, Rect2(center + Vector2(-18, -21), Vector2(36, 19)), Color("a47d4c"), 4, Art.INK)
@@ -83,11 +91,12 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 			canvas.draw_line(center + Vector2(-17, 11), center + Vector2(17, 11), Art.COPPER, 3, true)
 		"lab":
 			var research_time := time if healthy and entity.status.begins_with("Researching") else 0.0
-			Art.box(canvas, Rect2(center + Vector2(-18, -18), Vector2(36, 31)), Color("6f9b90"), 7, Art.INK)
-			Art.ellipse(canvas, center + Vector2(0, -14), Vector2(16, 14), Color("a4cec0"))
-			Art.ellipse(canvas, center + Vector2(0, -16), Vector2(12, 10), Color("3e6c6c"))
-			canvas.draw_line(center + Vector2(-7, -20), center + Vector2(-2, -25), Color("c7e1ce"), 2, true)
-			for i in range(3): canvas.draw_circle(center + Vector2(-7 + i * 7, -11 - sin(research_time + i) * 2), 2, [Art.AMBER, Color("c37568"), Color("9dc2b0")][i])
+			Art.box(canvas, Rect2(center + Vector2(-21, -18), Vector2(42, 32)), Color("8f6b48"), 3, Art.INK)
+			Art.box(canvas, Rect2(center + Vector2(-16, -15), Vector2(30, 24)), Color("dfd4ad"), 1)
+			for i in range(3): canvas.draw_line(center + Vector2(-11, -10 + i * 6), center + Vector2(7, -10 + i * 6), Color("668e92"), 1, true)
+			canvas.draw_rect(Rect2(center + Vector2(-7, -7), Vector2(10, 12)), Color("668e92"), false, 1)
+			canvas.draw_line(center + Vector2(8, -7 + sin(research_time * 4) * 3), center + Vector2(15, -18 + sin(research_time * 4) * 3), Art.COPPER, 3, true)
+			Art.box(canvas, Rect2(center + Vector2(-19, 6), Vector2(7, 8)), Art.INK, 2)
 
 static func _belt(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: float) -> void:
 	var dir: Vector2 = DIRS[entity.direction]

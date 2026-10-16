@@ -50,12 +50,17 @@ func spawn_enemy(kind: String, cell: Vector2i) -> Dictionary:
 	next_id += 1
 	return enemy
 
+func reward_preview(world: RefCounted) -> String:
+	if cleared >= MAX_WAVES: return "Eastern route secure. All ten arrivals rescued."
+	var coverage := 8 + mini(4, (cleared + 1) / 2)
+	return "ON VICTORY: +%d relief credits and 3 families home.\nCrew services: +5%% movement; hearth coverage %d tiles. Every second arrival extends coverage, up to 12. Services require an operational Town Hall.\nSpend credits on civic restoration or supply bundles at the trading post [Y]. Failure pays nothing; repair and retry." % [world.settlements.defense_reward(cleared + 1), coverage]
+
 func ready_reason(world: RefCounted) -> String:
 	if not world.settlements.enabled or not hub(world).repaired: return "Restore the Town Hall first."
 	if phase != "idle": return "Finish this defense or repair the hall first."
 	if cleared >= MAX_WAVES: return "Eastern route secured — all ten defenses complete."
 	if hub(world).health != hub(world).max_health(): return "Fully repair the Town Hall before signaling."
-	if "logistics" not in world.researched: return "Research Logistics I to unlock defense equipment."
+	if "logistics" not in world.researched: return "Research Supply routes to unlock defense equipment."
 	return ""
 
 func begin(world: RefCounted) -> bool:
@@ -120,10 +125,11 @@ func step(world: RefCounted) -> void:
 			return
 	if pending == 0 and enemies.is_empty():
 		cleared += 1
+		var reward: int = world.settlements.award_defense(cleared)
 		world.feedback_requested.emit("success", Vector2i(world.player_position.floor()))
 		phase = "idle"
 		spawn_timer = 0
-		world.message.emit("Defense %d complete! %d families sheltered. Road crews grant +5%% movement while Town Hall operates. The next signal is your choice." % [cleared, cleared * 3])
+		world.message.emit("Arrival %d secured! +%d relief credits; %d families sheltered. Returning crews: +5%% movement and %d-tile hearth coverage while Town Hall operates. Choose the next arrival when ready." % [cleared, reward, cleared * 3, world.supply_radius()])
 		world.changed.emit()
 		if cleared == 1: world.request_story("first_homecoming")
 

@@ -42,7 +42,7 @@ Repairs are permanent. Supply interruptions stop future income without closing t
 
 Six completed shipments earn the workshop's 60-credit crew payment. Deliver its materials and restore it. Money pays for the crew; physical construction goods are still required.
 
-The workshop gives each subsequently consumed coal **96 active work ticks instead of 80**, for every burner drill and furnace in the world. This improves fuel efficiency, not recipe speed. Already-burning coal keeps its remaining energy; rebuilding/inspecting cannot refill it. The bonus is derived from the unique repaired project, so it cannot be purchased repeatedly or stacked by building copies. The HUD and town panel show it as active.
+The workshop gives each subsequently consumed coal **288 active work ticks instead of 240**, for every burner drill and furnace in the world. This improves fuel efficiency, not recipe speed. Already-burning coal keeps its remaining energy; rebuilding/inspecting cannot refill it. The bonus is derived from the unique repaired project, so it cannot be purchased repeatedly or stacked by building copies. The HUD and town panel show it as active.
 
 This slice uses an explicit global effect. There is no regional connectivity requirement, power graph, simulated population, player-to-player economy, general-purpose item shop, or offline idle system yet. Further spending choices should be added as functioning projects, rather than showing unavailable purchases as completed features.
 
@@ -68,4 +68,4 @@ Town Hall requires the Engineers' Workshop to be restored first. Materials deliv
 
 ## Expanded production goals
 
-The repaired workshop now accepts recurring shipments of 2 gears and 4 wire, delivering 12 credits every 40 supplied simulated seconds. Restored Town Hall accepts 2 construction kits, 4 steel, and 4 copper plates for a 60-second housing delivery. Kits require Construction engineering research and assembler production. Three deliveries restore each neighborhood, up to three, with cottage/resident art and +5% base coal working time each. Housing stops after nine deliveries; excess stock can be withdrawn. Existing neighborhoods persist through shortages; bonuses suspend on a breached hub. See [factory expansion](factory-expansion.md) for details.
+The repaired workshop now accepts recurring shipments of 2 gears and 4 wire, delivering 12 credits every 40 supplied simulated seconds. Restored Town Hall accepts 2 construction kits, 4 steel, and 4 copper plates for a 60-second housing delivery. Kits require Homes for Oldbridge research and assembler production. Three deliveries restore each neighborhood, up to three, with cottage/resident art and +5% base coal working time each. Housing stops after nine deliveries; excess stock can be withdrawn. Existing neighborhoods persist through shortages; bonuses suspend on a breached hub. See [factory expansion](factory-expansion.md) for details.

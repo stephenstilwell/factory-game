@@ -26,9 +26,9 @@ The 15 current lessons introduce:
 10. Run a fueled drill on iron; reveal belts, inserters, and chests.
 11. Deliver 5 plates automatically into a chest; reveal assemblers and copper wire.
 12. Smelt 5 copper plates.
-13. Produce a gear in an assembler; reveal science packs and labs.
-14. Produce 10 science packs.
-15. Consume them in a lab to research Logistics I; reveal fast belts.
+13. Produce a gear in an assembler; reveal engineering dossiers and labs.
+14. Produce 10 engineering dossiers.
+15. Consume them in a lab to research Supply routes; reveal fast belts.
 
 Only the current lesson and relevant recipes/tools are displayed. Controls, ingredient quantities, progress counts, resource coordinates, a target ring, and a direction arrow provide contextual instruction. Completed lessons remain complete when materials are consumed or machines reclaimed. Actions completed ahead of their lesson are retained, so the player does not have to repeat them. Cancelled crafts do not count as completed production.
 
@@ -36,7 +36,7 @@ Definitions live in `scripts/simulation/onboarding.gd`. Its counters are fed by 
 
 ## Implemented research branches
 
-Logistics I (10 science packs) opens both Metallurgy (20, steel) and Advanced routing (20, splitters and underground conveyors). Construction engineering (25, construction kits) follows Metallurgy. Press F to choose an available project; switching preserves completed science investment. Labs consume real packs. Research continues automatically into an available project after completion, and can be redirected.
+Supply routes (10 engineering dossiers) opens both Foundry craft (20, steel) and District distribution (20, splitters and underground conveyors). Homes for Oldbridge (25, construction kits) follows Foundry craft. Press T to choose an available project; switching preserves invested dossiers. Drafting benches consume real dossiers. Completion leaves benches idle until you choose the next project.
 
 Construction kits feed Town Hall housing deliveries: each three deliveries restores a neighborhood, up to three, each adding +5% base coal working time. This gives the steel branch a settlement purpose. Routing improves distribution and reuse of layouts. All placeable buildings can now be manufactured in assemblers. See [factory expansion](factory-expansion.md) for controls, costs, metrics, and saved construction plans.
 

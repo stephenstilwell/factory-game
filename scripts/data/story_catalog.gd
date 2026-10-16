@@ -38,8 +38,8 @@ const CHAPTERS := {
 	"oren_after": {
 		"title": "Under the workbench", "speaker": "workshop", "site": "workshop",
 		"pages": [
-			"The crew are back at their benches. We have tuned the region\'s burners: each new piece of coal now lasts twenty percent longer. We can also build you a service rifle. Research Logistics I, craft it, and press V to draw it. Keep real ammunition in your pack; we cannot fight the old network with empty barrels.",
-			"Steel barrels make piercing cannons that stop armored haulers. With Advanced routing, we can turn salvaged relay coils into pulse turrets to slow groups. Keep their ammunition arriving by inserter. I found this relay plate under the old workbench. Someone scratched words across the maker's seal: 'Cut the chain before it answers.' The night the beacons failed, we called it an accident. I'm no longer sure. Keep the plate in mind when we repair Ada's beacon."
+			"The crew are back at their benches. We have tuned the region\'s burners: each new piece of coal now lasts twenty percent longer. We can also build you a service rifle. Research Supply routes, craft it, and press V to draw it. Keep real ammunition in your pack; we cannot fight the old network with empty barrels.",
+			"Steel barrels make piercing cannons that stop armored haulers. With District distribution, we can turn salvaged relay coils into pulse turrets to slow groups. Keep their ammunition arriving by inserter. I found this relay plate under the old workbench. Someone scratched words across the maker's seal: 'Cut the chain before it answers.' The night the beacons failed, we called it an accident. I'm no longer sure. Keep the plate in mind when we repair Ada's beacon."
 		], "goal": "Rebuild Town Hall so returning families have a safe shelter."
 	},
 	"ada_before": {
@@ -53,8 +53,8 @@ const CHAPTERS := {
 		"title": "Room for a name", "speaker": "town_hall", "site": "town_hall",
 		"pages": [
 			"Dry bedding. A sound roof. Space to write a family's name beside a door instead of a number on a camp list. You've given them somewhere they can stay.",
-			"The hall is a beginning. Research Construction engineering at your factory workbench with F, then send construction kits, steel, and copper to our hatch. Every three housing deliveries will restore another neighborhood. Returning crews will help our burners use coal better. A steady supply line means real homes.",
-			"When you are ready, light the beacon from this project. You will have fifteen seconds and a list of what is coming; you can cancel during that warning. Later calls draw constructs to three eastern gates. Cover the flanks, supply your guns, and move out of their marked strikes. Until you choose to signal, we keep building."
+			"The hall is a beginning. Research Homes for Oldbridge at your workshop with T, then send construction kits, steel, and copper to our hatch. Every three housing deliveries will restore another neighborhood. Returning crews will help our burners use coal better. A steady supply line means real homes.",
+			"When you are ready, light the beacon from this project. You will have fifteen seconds and a list of what is coming; you can cancel during that warning. Each safe arrival brings three families and relief credits; Mira can trade twenty credits for coal, ammunition, and repair kits. Every second arrival brings enough crew to extend our hearth delivery routes. Later calls draw constructs to three eastern gates. Until you choose to signal, we keep building."
 		], "goal": "Restore neighborhoods with housing deliveries. Prepare defenses and signal when you choose."
 	},
 	"first_homecoming": {

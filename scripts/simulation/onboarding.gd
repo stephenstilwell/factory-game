@@ -9,16 +9,16 @@ const STAGES := [
 	{"id": "place_furnace", "title": "Place the furnace", "goals": {"placed:furnace": 1}, "hint": "Select the furnace on your hotbar and left-click empty ground near you. Esc clears the build tool. Click a machine to inspect it."},
 	{"id": "ingredients", "title": "Gather ore and fuel", "goals": {"mined:iron_ore": 5, "mined:coal": 2}, "target": "iron_ore", "hint": "Mine 5 iron ore near (14, 16), then 2 coal near (9, 23). Hold right mouse to mine; move within six tiles."},
 	{"id": "feed_furnace", "title": "Fuel and load your furnace", "goals": {"fed:iron_ore": 5, "fed:coal": 2}, "machine": "furnace", "hint": "Walk back to your furnace. Click it, then use Load ingredients to insert ore and coal. Watch its status change to Working."},
-	{"id": "smelt", "title": "Smelt iron plates", "goals": {"smelted:iron_plate": 5}, "machine": "furnace", "hint": "The furnace burns coal to turn ore into plates. Inspect its progress and output; two coal smelt five plates."},
+	{"id": "smelt", "title": "Smelt iron plates", "goals": {"smelted:iron_plate": 5}, "machine": "furnace", "hint": "The furnace burns coal to turn ore into plates. Inspect its progress and output; one coal now supports seven plates of active work."},
 	{"id": "collect_plates", "title": "Collect your first plates", "goals": {"collected:iron_plate": 5}, "machine": "furnace", "hint": "Select the furnace and press X to collect its output. Gears and the burner drill become available next."},
 	{"id": "gears", "title": "Make three gears", "goals": {"crafted:gear": 3}, "hint": "C opens crafting. Each gear costs 2 iron plates. Mine and smelt more ore as needed; you need 11 plates total for a drill."},
 	{"id": "craft_drill", "title": "Craft a burner drill", "goals": {"crafted:drill": 1}, "hint": "Gather 5 more stone. Craft a burner drill with 5 iron plates, 3 gears, and 5 stone. No supplies are granted."},
 	{"id": "drill_online", "title": "Let a drill do the mining", "goals": {"extracted:iron_ore": 1}, "target": "iron_ore", "hint": "Select the drill on your hotbar and place it on iron ore. Ctrl-click it to supply coal. It stores mined ore in its output; X collects it."},
-	{"id": "storage", "title": "Build your first automated line", "goals": {"stored:iron_plate": 5}, "machine": "furnace", "hint": "Craft belts, inserters, and a chest. Route drill -> belts -> inserter -> furnace -> inserter -> chest. R rotates; inserters pick behind and drop ahead. Supply coal manually."},
+	{"id": "storage", "title": "Build your first automated line", "goals": {"stored:iron_plate": 5}, "machine": "furnace", "hint": "Craft belts, inserters, and a chest. Route drill -> belts -> inserter -> furnace -> inserter -> chest. R rotates; inserters pick behind and drop ahead. Build a Supply Hearth nearby and load its shared coal reserve to refuel burners automatically."},
 	{"id": "copper", "title": "Smelt copper", "goals": {"smelted:copper_plate": 5}, "target": "copper_ore", "hint": "Mine copper near (28, 23). Click a furnace and choose copper in its recipe selector. Supply copper ore and coal; X collects finished plates."},
 	{"id": "assembly", "title": "Automate a gear", "goals": {"assembled:gear": 1}, "hint": "Craft an assembler (9 plates + 5 gears), place it, and Ctrl-click to supply iron plates. Its default recipe makes gears. Choose other recipes in its Machine tab."},
-	{"id": "science", "title": "Make science packs", "goals": {"produced:science": 10}, "hint": "Craft 10 science packs by hand or in an assembler. Each costs 1 iron plate, 1 gear, and 1 copper plate. Build a lab using plates, gears, and copper wire."},
-	{"id": "research", "title": "Complete your first research", "goals": {"researched:logistics": 1}, "hint": "Place a research lab. Supply 10 science packs (Ctrl-click loads up to 5 at a time), or use an inserter. Logistics I unlocks fast conveyors."},
+	{"id": "science", "title": "Make engineering dossiers", "goals": {"produced:science": 10}, "hint": "Craft 10 engineering dossiers by hand or in an assembler. Each costs 1 iron plate, 1 gear, and 1 copper plate. Build a drafting bench using plates, gears, and copper wire."},
+	{"id": "research", "title": "Complete your first research", "goals": {"researched:logistics": 1}, "hint": "Place a drafting bench. Supply 10 engineering dossiers (Ctrl-click loads up to 5 at a time), or use an inserter. Supply routes unlocks fast conveyors."},
 ]
 
 const REVEALS := {
@@ -59,7 +59,7 @@ func objective_text() -> String:
 	var parts := PackedStringArray()
 	for key in stage.goals:
 		var id: String = key.split(":")[1]
-		parts.append("%s %d/%d" % [Catalog.item_name(id) if Catalog.ITEMS.has(id) else "Logistics I", mini(int(counters.get(key, 0)), int(stage.goals[key])), int(stage.goals[key])])
+		parts.append("%s %d/%d" % [Catalog.item_name(id) if Catalog.ITEMS.has(id) else "Supply routes", mini(int(counters.get(key, 0)), int(stage.goals[key])), int(stage.goals[key])])
 	return "LEARN %d/%d  %s  |  %s" % [completed.size() + 1, STAGES.size(), stage.title, ", ".join(parts)]
 
 func target(world: RefCounted) -> Dictionary:

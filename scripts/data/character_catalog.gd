@@ -10,9 +10,9 @@ const UPGRADES := {
 
 static func gate(world: RefCounted, rank: int) -> String:
 	if world.guide.enabled and "drill_online" not in world.guide.completed: return "Finish the first working-drill lesson."
-	if rank >= 2 and "logistics" not in world.researched: return "Research Logistics I."
+	if rank >= 2 and "logistics" not in world.researched: return "Research Supply routes."
 	if rank >= 3:
-		if "metallurgy" not in world.researched: return "Research Metallurgy."
+		if "metallurgy" not in world.researched: return "Research Foundry craft."
 		if not world.settlements.enabled or not world.settlements.sites.workshop.repaired: return "Restore the engineers' workshop."
 	return ""
 

@@ -19,7 +19,7 @@ static func encode(world: RefCounted) -> Dictionary:
 	var depletion: Array = []
 	for cell in world.terrain.depleted:
 		depletion.append([cell.x, cell.y, world.terrain.depleted[cell]])
-	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "ticks": world.ticks, "next_id": world.next_id,
+	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "resource_scale": world.terrain.stock_scale, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
 		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(),
 		"researched": world.researched.duplicate(), "research_progress": world.research_progress, "research_target": world.current_research(), "research_banks": world.research_banks.duplicate(), "automation_awards": world.automation_awards.duplicate(), "plans": world.plans.serialize(),
@@ -105,6 +105,8 @@ static func decode(data) -> Dictionary:
 	world.player.capacity = int(character.stat("inventory_capacity"))
 	if not _integer(data.get("terrain_generator", 1), 1, World.Terrain.GENERATOR_VERSION): return {"error": "Unsupported terrain generator."}
 	world.terrain.generator_version = int(data.get("terrain_generator", 1))
+	var saved_scale = data.get("resource_scale", 1)
+	if not _integer(saved_scale, 1, 4) or int(saved_scale) not in [1, 4]: return {"error": "Invalid resource richness."}
 	if data.has("skills") and not world.skills.restore(data.skills, world.terrain): return {"error": "Invalid skill progress."}
 	world.player.contents = _counts(data.player)
 	world.player_position = Vector2(float(position[0]), float(position[1]))
@@ -120,9 +122,14 @@ static func decode(data) -> Dictionary:
 	for id in research:
 		if not id is String or not world.research_available(id): return {"error": "Invalid technology prerequisites."}
 		world.researched.append(id)
-	var target = data.get("research_target", world.current_research())
+	var legacy_target := ""
+	for definition in Catalog.TECHNOLOGIES:
+		if world.research_available(definition.id):
+			legacy_target = definition.id
+			break
+	var target = data.get("research_target", legacy_target)
 	if not target is String or (not target.is_empty() and not world.research_available(target)): return {"error": "Invalid research target."}
-	if target.is_empty() and world.researched.size() != Catalog.TECHNOLOGIES.size(): return {"error": "Missing research target."}
+
 	world.research_target = target
 	var banks = data.get("research_banks", {})
 	if not banks is Dictionary or banks.size() > Catalog.TECHNOLOGIES.size(): return {"error": "Invalid research investments."}
@@ -156,6 +163,8 @@ static func decode(data) -> Dictionary:
 		entity.health = int(record.get("health", entity.max_health()))
 		entity.attack_cooldown = int(record.get("attack_cooldown", 0))
 		if not _integer(record.get("routing_cursor", 0), 0, 1) or not _integer(record.get("merge_cursor", 0)) or not record.get("underground_exit", false) is bool: return {"error": "Invalid transport state."}
+		if not _integer(record.get("supply_cursor", 0), 0, world.next_id - 1) or (entity.kind != "fuel_depot" and record.get("supply_cursor", 0) != 0): return {"error": "Invalid hearth state."}
+		entity.supply_cursor = int(record.get("supply_cursor", 0))
 		entity.routing_cursor = int(record.get("routing_cursor", 0))
 		entity.merge_cursor = int(record.get("merge_cursor", 0))
 		entity.underground_exit = record.get("underground_exit", false)
@@ -165,9 +174,10 @@ static func decode(data) -> Dictionary:
 		if not Catalog.Combat.TURRETS.has(entity.kind) and entity.attack_cooldown != 0: return {"error": "Invalid turret timer."}
 		if not entity.recipe.is_empty() and not world.unlocked(Catalog.RECIPES[entity.recipe]): return {"error": "Recipe is not researched."}
 		var duration: int = int(Catalog.RECIPES[entity.recipe].ticks) if not entity.recipe.is_empty() else (30 if entity.kind == "lab" else 15)
-		var fuel_limit: int = (96 if world.settlements.sites.workshop.repaired else 80) + world.settlements.district_level() * 4
+		var fuel_limit: int = (288 if world.settlements.sites.workshop.repaired else Catalog.FUEL_TICKS) + world.settlements.district_level() * 12
 		if not _integer(record.get("progress"), 0, duration - 1) or not _integer(record.get("burn_ticks"), 0, fuel_limit) or not _integer(record.get("cooldown"), 0, 2): return {"error": "Invalid machine timers."}
 		if not record.get("carried") is String or (record.carried != "" and (entity.kind != "inserter" or not Catalog.ITEMS.has(record.carried))): return {"error": "Invalid inserter hand."}
+		if entity.kind == "fuel_depot" and (record.inventory.keys().any(func(item): return item != "coal") or not record.output.is_empty()): return {"error": "Invalid hearth contents."}
 		entity.inventory.contents = _counts(record.inventory)
 		entity.output.contents = _counts(record.output)
 		entity.progress = int(record.progress)
@@ -186,8 +196,8 @@ static func decode(data) -> Dictionary:
 		if not _integer(entry[0], -1000000, 1000000) or not _integer(entry[1], -1000000, 1000000) or not _integer(entry[2], 0, 1000000): return {"error": "Invalid resource amounts."}
 		var cell := Vector2i(int(entry[0]), int(entry[1]))
 		var deposit: Dictionary = world.terrain.tile(cell)
-		if world.terrain.depleted.has(cell) or deposit.is_empty() or int(entry[2]) > int(deposit.amount): return {"error": "Invalid resource override."}
-		world.terrain.depleted[cell] = int(entry[2])
+		if world.terrain.depleted.has(cell) or deposit.is_empty() or int(entry[2]) * (4 / int(saved_scale)) > int(deposit.amount): return {"error": "Invalid resource override."}
+		world.terrain.depleted[cell] = int(entry[2]) * (4 / int(saved_scale))
 	if not data.get("production") is Dictionary: return {"error": "Invalid production counters."}
 	for item in data.production:
 		if not Catalog.ITEMS.has(item) or not _integer(data.production[item]): return {"error": "Invalid production statistic."}
@@ -210,6 +220,8 @@ static func decode(data) -> Dictionary:
 	world.next_craft_id = int(data.get("next_craft_id", maximum_job_id + 1))
 	if data.has("combat") and not world.combat.restore(data.combat, world): return {"error": "Invalid engineer combat state."}
 	if data.has("defense") and not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
+	for wave in world.settlements.relief_waves:
+		if wave > world.defense.cleared: return {"error": "Relief reward lacks a completed defense."}
 	if data.has("story") and not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
 	if data.has("plans") and not world.plans.restore(data.plans, world): return {"error": "Invalid construction plans."}
 	return {"world": world, "error": ""}

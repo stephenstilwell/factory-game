@@ -11,7 +11,7 @@ Press **P**, or choose **Engineer** inside the inventory workspace. The panel sh
 | Utility harness | 6-tile reach | 7 | 8 | — |
 | Expedition pack | 10,000 items | 12,500 | 15,000 | — |
 
-Tier 1 becomes available after the first working-drill lesson. Tier 2 requires Logistics I. Tier 3 requires Metallurgy and the restored engineers' workshop. Old factories with introductory lessons disabled can buy the first tier immediately, while research and workshop requirements still apply. Each upgrade track progresses independently and in order. Exact costs live in `scripts/data/character_catalog.gd`: early tiers use plates and gears; advanced tiers add copper, wire, and steel.
+Tier 1 becomes available after the first working-drill lesson. Tier 2 requires Supply routes. Tier 3 requires Foundry craft and the restored engineers' workshop. Old factories with introductory lessons disabled can buy the first tier immediately, while research and workshop requirements still apply. Each upgrade track progresses independently and in order. Exact costs live in `scripts/data/character_catalog.gd`: early tiers use plates and gears; advanced tiers add copper, wire, and steel.
 
 Movement upgrades retain collision and normalized diagonal movement. Mining upgrades improve hand mining only and still consume one unit of finite terrain stock per item; a full pack stops mining. Reach affects construction, mining, machines, and civic hatches through one shared validation method. Increased pack capacity applies to transfers, crafting output, refunds, and saving. Base stats and empty-start progression remain unchanged.
 

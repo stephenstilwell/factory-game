@@ -162,6 +162,8 @@ func _draw() -> void:
 				EngineerArt.draw(self, engineer, facing, animation_time, not paused and world.previous_position != world.player_position, mining, Vector2(world.mining_cell) * TILE + Vector2.ONE * 24)
 	DefenseView.draw_shots(self, world, reduced_motion or not ambient_enabled)
 	DefenseView.draw_player(self, world, pointer_in_world, reduced_motion, engineer)
+	if world.at(selected) != null and world.at(selected).kind == "fuel_depot":
+		draw_arc((Vector2(selected) + Vector2.ONE * 0.5) * TILE, world.supply_radius() * TILE, 0, TAU, 96, Color(0.95, 0.65, 0.35, 0.4), 2)
 	if Catalog.Combat.TURRETS.has(world.at(selected).kind if world.at(selected) != null else ""):
 		var turret = world.at(selected)
 		draw_arc((Vector2(selected) + Vector2.ONE * 0.5) * TILE, float(Catalog.Combat.TURRETS[turret.kind].range) * TILE, 0, TAU, 96, Color(0.5, 0.85, 0.75, 0.35), 2)
