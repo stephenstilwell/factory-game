@@ -26,6 +26,7 @@ signal site_supply_requested(id: String)
 signal site_restore_requested(id: String)
 signal site_talk_requested(id: String)
 signal site_withdraw_requested(id: String)
+signal age_requested
 signal supplies_order_requested
 signal beacon_requested
 signal beacon_cancel_requested
@@ -169,6 +170,7 @@ func _ready() -> void:
 	town.restore_requested.connect(func(id): site_restore_requested.emit(id))
 	town.talk_requested.connect(func(id): site_talk_requested.emit(id))
 	town.withdraw_requested.connect(func(id): site_withdraw_requested.emit(id))
+	town.age_requested.connect(func(): age_requested.emit())
 	town.supplies_order_requested.connect(func(): supplies_order_requested.emit())
 	town.beacon_requested.connect(func(): beacon_requested.emit())
 	town.beacon_cancel_requested.connect(func(): beacon_cancel_requested.emit())

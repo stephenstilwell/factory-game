@@ -165,9 +165,9 @@ func _draw() -> void:
 	for drawable in drawables:
 		match drawable.kind:
 			"site":
-				SettlementView.draw_site(self, drawable.data, selected_site, world.defense.phase, animation_time)
+				SettlementView.draw_site(self, drawable.data, selected_site, world.defense.phase, animation_time, world.settlements.age >= 1)
 				NpcArt.draw_homecoming(self, drawable.data, world.defense.cleared, world.defense.phase, animation_time)
-				if drawable.data.id == "town_hall": NpcArt.draw_neighborhoods(self, drawable.data, world.settlements.district_level(), animation_time)
+				if drawable.data.id == "town_hall": NpcArt.draw_neighborhoods(self, drawable.data, world.settlements.district_level(), animation_time, world.settlements.age >= 1)
 			"landmark": FrontierView.landmark(self, world, drawable.data, animation_time)
 			"tree": FrontierView.tree(self, world, drawable.data, 0.0 if reduced_motion or not ambient_enabled else animation_time, world.player_position.distance_to(Vector2(drawable.data) + Vector2.ONE * 0.5) < 2.5 or (pointer_in_world and not ghost_kind.is_empty()))
 			"npc": NpcArt.draw_npc(self, world, drawable.data, animation_time, pointer_in_world and hover == world.story.npc_cell(world, drawable.data))

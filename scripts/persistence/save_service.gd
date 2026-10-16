@@ -225,7 +225,9 @@ static func decode(data) -> Dictionary:
 	if data.has("defense") and not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
 	if data.has("frontier"):
 		if not world.frontier.restore(world, data.frontier): return {"error": "Invalid frontier discoveries."}
+		world.frontier.add_missing_sites(world)
 	elif world.settlements.enabled: world.frontier.install(world)
+	if world.settlements.age == 1 and (not world.frontier.claimed("orchard") or not world.frontier.claimed("quarry")): return {"error": "Invalid town age discoveries."}
 	if not character.valid_progress(world): return {"error": "Engineer upgrades lack required progression."}
 	for wave in world.settlements.relief_waves:
 		if wave > world.defense.cleared: return {"error": "Relief reward lacks a completed defense."}

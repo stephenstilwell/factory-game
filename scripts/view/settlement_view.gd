@@ -8,20 +8,26 @@ static func draw_sites(canvas: Node2D, region: RefCounted, visible: Rect2i, sele
 	for site in region.sites.values():
 		if visible.intersects(site.footprint().grow(3)): draw_site(canvas, site, selected, defense_phase, time)
 
-static func draw_site(canvas: Node2D, site: RefCounted, selected: String, phase: String, time: float) -> void:
+static func draw_site(canvas: Node2D, site: RefCounted, selected: String, phase: String, time: float, stone_age: bool = false) -> void:
 	var p := Vector2(site.origin) * TILE
 	var operational: bool = site.repaired and site.health > 0
 	var id: String = site.id
 	Art.shadow(canvas, p + Vector2(78, 113), Vector2(74, 27))
 	Art.box(canvas, Rect2(p + Vector2(12, 50), Vector2(126, 91)), Color("414b3d"), 7)
-	var wall := Color("c1ad87") if site.repaired else Color("858574")
+	var wall := (Color("b6bbb0") if stone_age else Color("a38a61")) if site.repaired else Color("858574")
 	Art.box(canvas, Rect2(p + Vector2(17, 48), Vector2(113, 84)), wall, 5, Color("62694f"))
 	for row in range(4):
 		canvas.draw_line(p + Vector2(20, 72 + row * 15), p + Vector2(127, 72 + row * 15), wall.darkened(0.15), 1, true)
-		for column in range(4):
+		for column in range(4 if stone_age or not site.repaired else 0):
 			var x := 25 + column * 28 + (12 if row % 2 else 0)
 			if x < 125: canvas.draw_line(p + Vector2(x, 58 + row * 15), p + Vector2(x, 72 + row * 15), wall.darkened(0.12), 1, true)
+	if site.repaired:
+		if stone_age:
+			Art.box(canvas, Rect2(p + Vector2(13, 122), Vector2(122, 16)), Color("87928c"), 2, Art.STEEL)
+		else:
+			for x in [22, 124]: canvas.draw_line(p + Vector2(x, 53), p + Vector2(x, 130), Color("68573e"), 5)
 	var roof := Color("637f73") if id == "trading_post" else (Color("b87c56") if id == "town_hall" else Color("637f85"))
+	if stone_age and site.repaired: roof = roof.lerp(Color("586e7b"), 0.55)
 	if not site.repaired: roof = Color("747664")
 	if site.repaired:
 		canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(7, 61), p + Vector2(72, 15), p + Vector2(137, 61), p + Vector2(137, 83), p + Vector2(72, 40), p + Vector2(7, 83)]), roof.darkened(0.18))
@@ -97,7 +103,7 @@ static func _details(canvas: Node2D, p: Vector2, id: String, operational: bool, 
 			var axis := Vector2.from_angle(i * TAU / 6)
 			canvas.draw_line(p + Vector2(73, 76) + axis * 5, p + Vector2(73, 76) + axis * 12, Art.CREAM, 3, true)
 
-static func _beacon(canvas: Node2D, p: Vector2, operational: bool, phase: String, time: float) -> void:
+static func _beacon(canvas: Node2D, p: Vector2, operational: bool, phase: String, time: float, stone_age: bool = false) -> void:
 	Art.box(canvas, Rect2(p + Vector2(57, 18), Vector2(30, 29)), Art.STEEL, 4, Art.INK)
 	Art.box(canvas, Rect2(p + Vector2(62, 23), Vector2(20, 18)), Art.AMBER if operational else Art.INK, 3)
 	Art.box(canvas, Rect2(p + Vector2(53, 13), Vector2(38, 7)), Art.COPPER, 3)

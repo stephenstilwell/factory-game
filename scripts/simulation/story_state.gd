@@ -9,6 +9,7 @@ func fresh() -> void:
 func conversation(world: RefCounted, site_id: String) -> String:
 	if not world.settlements.enabled or not Definitions.NPCS.has(site_id): return ""
 	var site = world.settlements.sites[site_id]
+	if site_id == "workshop" and world.settlements.age >= 1: return "stone_homecoming"
 	if site_id == "town_hall" and site.repaired:
 		if site.health == 0: return "ada_recovery"
 		if world.defense.cleared > 0: return "first_homecoming"
@@ -19,6 +20,7 @@ func available(world: RefCounted, chapter: String) -> bool:
 	if chapter == "arrival": return true
 	if not world.settlements.enabled: return false
 	var data: Dictionary = Definitions.CHAPTERS[chapter]
+	if chapter == "stone_homecoming": return world.settlements.age >= 1
 	if chapter == "first_homecoming": return world.settlements.sites.town_hall.repaired and world.defense.cleared > 0
 	if chapter == "ada_recovery": return world.settlements.sites.town_hall.repaired
 	if chapter.ends_with("_after"): return world.settlements.sites[data.site].repaired
@@ -48,6 +50,7 @@ func goal(world: RefCounted) -> String:
 	if not sites.workshop.repaired: return "Keep Mira's contracts running. Fund Oren's crew and reopen the workshop."
 	if not sites.town_hall.repaired: return "Build Ada a safe shelter before inviting more families down the eastern road."
 	if sites.town_hall.health == 0: return "Repair the hall. A setback does not erase the town you've rebuilt."
+	if world.settlements.age == 0: return "Recover the orchard and Greybank mason pattern [L]. Rebuild at the Hall [Y] to enter Stone & Water."
 	if world.defense.cleared == 0: return "Prepare the eastern defenses, then choose when to light the beacon."
 	return "Keep the eastern road safe. More families are waiting beyond the ridge."
 

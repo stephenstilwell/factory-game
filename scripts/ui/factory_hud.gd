@@ -16,6 +16,7 @@ signal build_selected(kind: String)
 signal journal_requested
 signal factory_requested
 signal upgrade_requested(id: String, rank: int)
+signal age_requested
 signal supplies_order_requested
 signal beacon_requested
 signal beacon_cancel_requested
@@ -210,6 +211,7 @@ func _ready() -> void:
 	workspace.collect_requested.connect(func(): collect_requested.emit())
 	workspace.site_selected.connect(func(id): site_selected.emit(id))
 	workspace.site_supply_requested.connect(func(id): site_supply_requested.emit(id))
+	workspace.age_requested.connect(func(): age_requested.emit())
 	workspace.site_restore_requested.connect(func(id): site_restore_requested.emit(id))
 	workspace.site_talk_requested.connect(func(id): site_talk_requested.emit(id))
 	workspace.site_withdraw_requested.connect(func(id): site_withdraw_requested.emit(id))

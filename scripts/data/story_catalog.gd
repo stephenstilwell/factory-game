@@ -6,6 +6,13 @@ const NPCS := {
 	"town_hall": {"name": "Ada", "role": "Warden of Oldbridge", "color": "88976a", "before": "ada_before", "after": "ada_after"},
 }
 const CHAPTERS := {
+	"stone_homecoming": {
+		"title": "A town built to stay", "speaker": "workshop", "site": "workshop",
+		"pages": [
+			"The first repairs kept the weather out. These dressed stones will keep it out for our grandchildren. Iona has her garden, the masons have their pattern, and Mira can promise buyers a reliable market. Her completed shipments now earn twelve credits.",
+			"Before the Quiet, we let one enchanted network do everything. When it failed, the town had forgotten how to look after itself. This time we know what holds each wall up. One day we may understand the old aether again. For now, listen: hammers, wagons, someone calling a neighbor by name."
+		], "goal": "Keep the town supplied and restore its neighborhoods. Let each new chapter give people a better home."
+	},
 	"arrival": {
 		"title": "At the broken crossing", "speaker": "trading_post", "site": "trading_post",
 		"pages": [

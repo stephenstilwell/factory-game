@@ -9,6 +9,9 @@ static func tree(canvas: CanvasItem, world: RefCounted, cell: Vector2i, time: fl
 	var height: float = 42 + seed_value % 22
 	var palette: Array = [Color("7d9560"), Color("477661"), Color("8a9b5e")]
 	var leaf: Color = palette[Frontier.biome(cell, world.terrain.seed_value)]
+	var region: int = world.frontier.landscape_index(cell)
+	if region == 1: leaf = Color("9aab69")
+	elif region == 2: leaf = Color("668782")
 	var sway := sin(time * 1.1 + seed_value % 17) * 1.4
 	Art.shadow(canvas, p + Vector2(0, 4), Vector2(26, 10))
 	canvas.draw_line(p + Vector2(0, 8), p + Vector2(sway, -height + 10), Color("5d5940"), 7, true)
@@ -32,6 +35,17 @@ static func landmark(canvas: CanvasItem, world: RefCounted, id: String, time: fl
 	Art.shadow(canvas, p + size / 2 + Vector2(0, 30), size * Vector2(0.46, 0.18))
 	Art.box(canvas, Rect2(p - Vector2(7, 3), size + Vector2(14, 6)), Color("686b4d"), 16)
 	match id:
+		"quarry":
+			for row in range(3):
+				var step := p + Vector2(17 + row * 15, 35 + row * 36)
+				Art.box(canvas, Rect2(step, Vector2(203 - row * 30, 33)), Color("818c88").darkened(row * 0.09), 4, Art.STEEL)
+				canvas.draw_line(step + Vector2(4, 3), step + Vector2(196 - row * 30, 3), Color("bac0ad"), 2)
+				for column in range(3): canvas.draw_line(step + Vector2(30 + column * 48, 8), step + Vector2(28 + column * 48, 28), Color("63746f"), 2)
+			for x in [25, 184]:
+				canvas.draw_line(p + Vector2(x, 65), p + Vector2(x, 145), Art.COPPER.darkened(0.25), 5)
+			canvas.draw_line(p + Vector2(19, 61), p + Vector2(202, 61), Art.COPPER, 6)
+			Art.box(canvas, Rect2(p + Vector2(96, 121), Vector2(48, 29)), Art.CREAM if not recovered else Color("a8b7a4"), 3)
+			for i in range(3): canvas.draw_line(p + Vector2(102, 128 + i * 6), p + Vector2(135, 128 + i * 6), Art.STEEL, 1)
 		"camp":
 			canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(20, 90), p + Vector2(70, 15), p + Vector2(125, 90)]), Color("b9b18b"))
 			canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(70, 15), p + Vector2(85, 90), p + Vector2(125, 90)]), Color("7e8061"))

@@ -21,7 +21,7 @@ static func run(test: SceneTree) -> void:
 		a.start()
 		var b := World.new(seed_value)
 		b.start()
-		test.check(a.frontier.serialize() == b.frontier.serialize() and a.frontier.sites.size() == 3, "All three landmarks generate reproducibly for seed %d" % seed_value)
+		test.check(a.frontier.serialize() == b.frontier.serialize() and a.frontier.sites.size() == 4, "All four landmarks generate reproducibly for seed %d" % seed_value)
 		test.check(a.player.total() == 0 and a.entities.is_empty(), "Frontier keeps the empty tutorial start")
 		for id in a.frontier.sites:
 			var rect: Rect2i = a.frontier.footprint(id)
@@ -103,7 +103,7 @@ static func run(test: SceneTree) -> void:
 	var data := Saves.encode(old)
 	data.erase("frontier")
 	loaded = Saves.decode(data)
-	test.check(loaded.error.is_empty() and loaded.world.frontier.sites.size() == 3 and Saves.encode(loaded.world).entities == entities, "Old saves gain landmarks on vacant land without moving factories")
+	test.check(loaded.error.is_empty() and loaded.world.frontier.sites.size() == 4 and Saves.encode(loaded.world).entities == entities, "Old saves gain landmarks on vacant land without moving factories")
 	var guarded := World.new()
 	guarded.start()
 	visit(guarded, "camp")

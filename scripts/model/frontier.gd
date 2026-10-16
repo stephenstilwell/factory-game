@@ -22,6 +22,16 @@ static func tree_candidate(cell: Vector2i, seed_value: int) -> bool:
 	var density: int = [5, 18, 11][biome(cell, seed_value)]
 	return hash_cell(grove, seed_value, 21) % 4 != 0 and hash_cell(cell, seed_value, 11) % 100 < density
 
+# Landmark-centered regions are derived from saved origins, never from ore generation.
+# Used when terrain chunks are drawn; no per-tile nodes or simulation actors.
+func landscape_index(cell: Vector2i) -> int:
+	for id in ["orchard", "quarry"]:
+		if not enabled or not sites.has(id): continue
+		var center: Vector2i = sites[id].origin + Definitions.SITES[id].size / 2
+		var radius: int = 25 if id == "orchard" else 22
+		if cell.distance_squared_to(center) < radius * radius: return 1 if id == "orchard" else 2
+	return 0
+
 func footprint(id: String) -> Rect2i:
 	return Rect2i(sites[id].origin, Definitions.SITES[id].size)
 
@@ -63,7 +73,12 @@ func install(world: RefCounted) -> void:
 	sites.clear()
 	for entity in world.entities.values():
 		if tree_candidate(entity.cell, world.terrain.seed_value): cleared[entity.cell] = true
+	add_missing_sites(world)
+
+func add_missing_sites(world: RefCounted) -> void:
+	if not enabled: return
 	for id in Definitions.SITES:
+		if sites.has(id): continue
 		var definition: Dictionary = Definitions.SITES[id]
 		var shift: Vector2i = world.settlements.sites.trading_post.origin - world.settlements.Definitions.SITES.trading_post.origin if world.settlements.enabled else Vector2i.ZERO
 		var jitter := Vector2i(hash_cell(definition.anchor, world.terrain.seed_value, 41) % 9 - 4, hash_cell(definition.anchor, world.terrain.seed_value, 43) % 9 - 4)

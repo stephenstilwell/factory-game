@@ -1,5 +1,7 @@
 # The living frontier: first playable slice
 
+Extended with a fourth landmark, two landscape regions, and [Timber → Stone town progression](settlement-ages.md).
+
 Implemented after the [research and design pass](living-frontier-research.md). This is an overworld exploration loop: walk out, find a place, recover something useful, and see a change back in Oldbridge.
 
 ## Controls and first excursion

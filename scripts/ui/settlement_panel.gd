@@ -11,12 +11,16 @@ signal restore_requested(id: String)
 signal talk_requested(id: String)
 signal withdraw_requested(id: String)
 signal transfer_requested(item: String, amount: int, source: Dictionary, target: Dictionary, token: int)
+signal age_requested
 signal supplies_order_requested
 signal beacon_requested
 signal beacon_cancel_requested
 signal repair_requested
 
 var selected_id := ""
+var age_box: VBoxContainer
+var age_text: Label
+var age_button: Button
 var overview: VBoxContainer
 var detail: VBoxContainer
 var overview_text: Label
@@ -40,6 +44,13 @@ var damage_button: Button
 var supplies_title: Label
 
 func _ready() -> void:
+	age_box = VBoxContainer.new()
+	add_child(age_box)
+	age_text = _label("", 15, Color("e4c58b"))
+	age_box.add_child(age_text)
+	age_button = _button(age_box, "Town age project", func():
+		if selected_id != "town_hall": site_selected.emit("town_hall")
+		else: age_requested.emit())
 	overview = VBoxContainer.new()
 	add_child(overview)
 	overview.add_child(_label("OLDBRIDGE RESTORATION", 18, Color("91d2b4")))
@@ -109,6 +120,12 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	overview.visible = id.is_empty()
 	detail.visible = not id.is_empty()
 	var region = world.settlements
+	age_box.visible = region.enabled and (id.is_empty() or id == "town_hall")
+	age_text.text = region.age_summary(world) if id == "town_hall" else "TOWN AGE: " + region.Ages.AGES[region.age].name + "\n" + ("Next: recover orchard cuttings and the Greybank mason pattern [L], then rebuild at the Hall." if region.age == 0 else "Stone civic buildings • Market shipments +2 credits")
+	age_button.visible = region.age == 0
+	age_button.text = "View Stone & Water project" if id != "town_hall" else "Rebuild Oldbridge — enter Stone & Water"
+	age_button.disabled = id == "town_hall" and not region.age_reason(world).is_empty()
+	age_button.tooltip_text = region.age_reason(world) if id == "town_hall" else "View requirements, supplies and rewards at the Town Hall."
 	if id.is_empty():
 		overview_text.text = "Mira promised the families beyond the ridge a market, a working road, and somewhere dry to sleep. Your factory can make that promise real.\n\nTrade credits: %d\nLifetime earned: %d\n\n%s\n" % [region.credits, region.total_earned, region.objective_text()]
 		if region.effect("burner_ticks") > 0: overview_text.text += "\nACTIVE REGIONAL BONUS\nBurner coal lasts 20% longer.\n"
@@ -204,7 +221,7 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 		text += "%s\n\"%s\"\n\n" % [definition.keeper, definition.greeting]
 		if definition.has("contract"):
 			var contract: Dictionary = Definitions.CONTRACTS[definition.contract]
-			var benefit := "Housing progress" if id == "town_hall" else "%d credits" % contract.reward
+			var benefit := "Housing progress" if id == "town_hall" else "%d credits" % (int(contract.reward) + (region.Ages.STONE_MARKET_BONUS if id == "trading_post" and region.age == 1 else 0))
 			text += "CONTRACT: %s\n%s\n%s per %.0f-second shipment.\n\nBuffered: %s\nDelivered shipments: %d\n" % [contract.name, Catalog.describe(contract.goods), benefit, contract.ticks / 10.0, Catalog.describe(site.inventory.contents), site.shipments]
 			if id == "town_hall": text += "\nEvery 3 housing deliveries restores a neighborhood (3 total). Each adds 5% coal working time. Dispatch stops at full restoration.\n"
 			else: text += "\nGoods are committed when a shipment departs. Income pauses when supplies run out. Repairs remain complete.\n"

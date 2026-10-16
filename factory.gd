@@ -89,6 +89,7 @@ func _ready() -> void:
 	hud.recipe_selected.connect(func(id): world.set_recipe(selected_cell, id))
 	hud.site_selected.connect(_inspect_site)
 	hud.site_supply_requested.connect(func(id): world.supply_site(id))
+	hud.age_requested.connect(func(): world.settlements.advance_age(world))
 	hud.site_restore_requested.connect(func(id): world.restore_site(id))
 	hud.site_talk_requested.connect(func(id): world.talk_to_site(id))
 	hud.journal_requested.connect(_open_journal)

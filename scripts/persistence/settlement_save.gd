@@ -15,6 +15,9 @@ static func restore(world: RefCounted, data) -> bool:
 	var region := Settlements.new(bool(data.enabled))
 	region.credits = int(data.credits)
 	region.total_earned = int(data.total_earned)
+	if not _int(data.get("age", 0), 0, 1) or not _int(data.get("stone_shipments", 0)): return false
+	region.age = int(data.get("age", 0))
+	region.stone_shipments = int(data.get("stone_shipments", 0))
 	var seen: Dictionary = {}
 	var earned := 0
 	var relief = data.get("relief_waves", [])
@@ -63,6 +66,10 @@ static func restore(world: RefCounted, data) -> bool:
 		if site.inventory.total() > site.inventory.capacity: return false
 		if not region.enabled and (site.repaired or site.inventory.total() > 0 or site.shipment_ticks > 0 or site.shipments > 0): return false
 	if region.supply_orders > 0 and (not region.sites.trading_post.repaired or not region.sites.workshop.repaired): return false
+	if region.stone_shipments > region.sites.trading_post.shipments: return false
+	if region.age == 0 and region.stone_shipments != 0: return false
+	if region.age == 1 and (not region.enabled or not region.sites.town_hall.repaired): return false
+	earned += region.stone_shipments * region.Ages.STONE_MARKET_BONUS
 	if earned != region.total_earned or earned - spent != region.credits: return false
 	if not seen.has("trading_post") or not seen.has("workshop"): return false
 	if not seen.has("town_hall"): region.pending_sites.append("town_hall")

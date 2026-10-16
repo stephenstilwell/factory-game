@@ -143,8 +143,11 @@ func refresh() -> void:
 	var record: Dictionary = world.frontier.sites[selected]
 	var reason: String = world.frontier.interaction_reason(world, selected)
 	title.text = definition.name
+	if definition.has("biome"): state_label.tooltip_text = definition.biome
+	else: state_label.tooltip_text = ""
 	var distance: int = ceili(world.player_position.distance_to(Vector2(world.frontier.port(selected)) + Vector2.ONE * 0.5))
 	state_label.text = ("RECOVERED" if record.claimed else ("DISCOVERED" if record.discovered else "RUMOR")) + " • %d tiles away" % distance
+	if definition.has("biome"): state_label.text += "\n" + definition.biome
 	description.text = definition.story if record.discovered else definition.hint
 	description.visible = selected != "depot" or not record.discovered
 	reward.text = "REWARD\n" + definition.reward

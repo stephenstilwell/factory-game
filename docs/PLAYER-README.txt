@@ -68,3 +68,12 @@ The Windows executable is not code-signed.
 ENGINE
 Made with Godot Engine: https://godotengine.org
 Godot license and third-party notices: https://godotengine.org/license/
+
+TOWN AGES
+Oldbridge begins in Timber & Hearth. Recover the Lost Orchard cutting and
+Greybank Quarry mason pattern through Discoveries [L], restore Town Hall,
+then open Town [Y] > View Stone & Water project. Bring 80 stone, 20 iron
+plates and 10 gears to the Hall hatch. Completing the project changes civic
+buildings, grants 500 Fabrication XP, and adds 2 credits to each supplied
+market shipment completed afterward. Oren has a new conversation to read.
+Iron and magical town ages are planned future chapters.

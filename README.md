@@ -14,7 +14,9 @@ The engineer can join voluntary defenses with a **service rifle [V]**. Hold **le
 
 See [the Oldbridge pacing pass](docs/oldbridge-pacing.md) for shared fuel service, resource migration, clearer projects, and arrival rewards.
 
-The world now has seeded groves, birds and butterflies, and three recoverable landmarks. Open **Discoveries [L]** or **Journal [J]** to follow survey notes, recover orchard cuttings for a visible town garden, and solve the old depot’s loaned-conveyor puzzle. Rewards improve surveys and civic fuel service. See [the living frontier](docs/living-frontier.md).
+The world now has seeded groves, birds and butterflies, and four recoverable landmarks. Open **Discoveries [L]** or **Journal [J]** to follow survey notes, recover orchard cuttings for a visible town garden, and solve the old depot’s loaned-conveyor puzzle. Rewards improve surveys and civic fuel service. See [the living frontier](docs/living-frontier.md).
+
+Oldbridge now advances from **Timber & Hearth** to **Stone & Water**. Explore orchard farmlands and Greybank Quarry, recover their knowledge, then fund a visible civic rebuilding project at the Hall. See [town ages](docs/settlement-ages.md).
 
 ## Play
 
