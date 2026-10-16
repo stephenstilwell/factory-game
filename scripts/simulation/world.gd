@@ -20,6 +20,7 @@ signal message(text: String)
 signal skill_progressed(id: String, amount: int, level: int, leveled: bool)
 signal hand_resource_extracted(cell: Vector2i, item: String)
 signal structure_repaired(cell: Vector2i)
+signal feedback_requested(cue: String, cell: Vector2i)
 
 var terrain: RefCounted
 var character: RefCounted
@@ -144,6 +145,7 @@ func build(kind: String, cell: Vector2i, direction: int) -> bool:
 	player.remove(kind)
 	spawn(kind, cell, direction)
 	record("placed:" + kind)
+	feedback_requested.emit("build", cell)
 	changed.emit()
 	return true
 
@@ -186,6 +188,7 @@ func reclaim(cell: Vector2i) -> bool:
 	entities.erase(entity.id)
 	occupancy.erase(cell)
 	message.emit("Picked up " + Catalog.item_name(entity.kind) + " and its stored items.")
+	feedback_requested.emit("pickup", cell)
 	changed.emit()
 	return true
 
@@ -263,6 +266,7 @@ func supply(cell: Vector2i) -> void:
 			accepted += moved
 			if entity.kind == "furnace": record("fed:" + item, moved)
 	message.emit("Supplied %d items." % accepted)
+	if accepted > 0: feedback_requested.emit("transfer", cell)
 	changed.emit()
 
 func cycle_recipe(cell: Vector2i) -> void:
@@ -285,6 +289,7 @@ func set_recipe(cell: Vector2i, recipe_id: String) -> bool:
 	entity.inventory.exchange(refund, {})
 	entity.recipe = recipe_id
 	entity.progress = 0
+	feedback_requested.emit("transfer", cell)
 	changed.emit()
 	return true
 
@@ -370,6 +375,7 @@ func supply_site(id: String) -> void:
 		var amount: int = mini(int(wanted[item]), settlements.receiving_limit(id, item))
 		moved += player.move_to(site.inventory, item, amount)
 	message.emit("Delivered %d items to %s." % [moved, definition.name])
+	if moved > 0: feedback_requested.emit("transfer", site.port())
 	changed.emit()
 
 func restore_site(id: String) -> bool:
@@ -379,6 +385,7 @@ func restore_site(id: String) -> bool:
 		message.emit(reason)
 		return false
 	message.emit("Restored: " + Settlements.Definitions.SITES[id].name + ". " + Settlements.Definitions.SITES[id].reward)
+	feedback_requested.emit("success", settlements.sites[id].port())
 	changed.emit()
 	return true
 

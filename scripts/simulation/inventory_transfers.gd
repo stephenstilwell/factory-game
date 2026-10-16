@@ -55,5 +55,6 @@ static func execute(world: RefCounted, item: String, quantity: int, source: Dict
 	else: moved = plan.source.storage.move_to(plan.target.storage, item, amount)
 	if plan.target.kind == "player": world.record("collected:" + item, moved)
 	if plan.target.kind == "input" and plan.target.entity.kind == "furnace": world.record("fed:" + item, moved)
+	if moved > 0: world.feedback_requested.emit("transfer", Vector2i(world.player_position.floor()))
 	world.changed.emit()
 	return moved

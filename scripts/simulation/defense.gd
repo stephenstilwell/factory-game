@@ -46,6 +46,7 @@ func begin(world: RefCounted) -> bool:
 		return false
 	phase = "warning"
 	warning = WARNING_TICKS
+	world.feedback_requested.emit("warning", Vector2i(world.player_position.floor()))
 	world.message.emit("Beacon lit! %d salvage scavengers approach from the EAST in 15 seconds. Load your turrets!" % wave_size())
 	world.changed.emit()
 	return true
@@ -111,6 +112,7 @@ func step(world: RefCounted) -> void:
 			return
 	if pending == 0 and enemies.is_empty():
 		cleared += 1
+		world.feedback_requested.emit("success", Vector2i(world.player_position.floor()))
 		phase = "idle"
 		spawn_timer = 0
 		world.message.emit("Defense %d complete! %d families sheltered. Road crews grant +5%% movement while the Town Hall is operational. The next wave waits for your signal." % [cleared, cleared * 3])
@@ -133,6 +135,7 @@ func _fire_turrets(world: RefCounted) -> void:
 			if target == -1 or enemies[enemy_id].cell.x < enemies[target].cell.x: target = enemy_id
 		if target == -1: continue
 		turret.inventory.remove("ammo")
+		world.feedback_requested.emit("shot", turret.cell)
 		turret.attack_cooldown = 4
 		turret.status = "Firing"
 		shots.append({"from": turret.cell, "to": enemies[target].cell, "until": world.ticks + 2})

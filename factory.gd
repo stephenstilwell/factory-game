@@ -7,8 +7,10 @@ const SaveService = preload("res://scripts/persistence/save_service.gd")
 const WorldView = preload("res://scripts/view/world_view.gd")
 const HUD = preload("res://scripts/ui/factory_hud.gd")
 const Catalog = preload("res://scripts/data/catalog.gd")
+const AudioDirector = preload("res://scripts/audio/audio_director.gd")
 const TILE := 48
 
+var audio: Node
 var world: RefCounted
 var view: Node2D
 var hud: CanvasLayer
@@ -31,8 +33,15 @@ func _ready() -> void:
 	add_child(camera)
 	view = WorldView.new()
 	add_child(view)
+	audio = AudioDirector.new()
+	add_child(audio)
 	hud = HUD.new()
 	add_child(hud)
+	var sound_controls := VBoxContainer.new()
+	hud.pause_content.add_child(sound_controls)
+	hud.pause_content.move_child(sound_controls, 1)
+	audio.create_controls(sound_controls)
+	audio.watch_ui(hud)
 	hud.build_selected.connect(_select)
 	hud.upgrade_requested.connect(func(id, rank): world.upgrade_character(id, rank))
 	hud.beacon_requested.connect(func(): world.defense.begin(world))
@@ -73,6 +82,7 @@ func _ready() -> void:
 
 func _bind_world(state: RefCounted) -> void:
 	world = state
+	audio.bind_world(world)
 	world.message.connect(func(text): hud.show_notice(text))
 	world.changed.connect(func(): hud.refresh())
 	world.skill_progressed.connect(func(id, amount, level, leveled): hud.show_skill_xp(id, amount, level, leveled))
@@ -100,6 +110,7 @@ func _bind_world(state: RefCounted) -> void:
 func _process(delta: float) -> void:
 	var mouse_cell := _mouse_cell()
 	var pointer: bool = hud.world_has_pointer()
+	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible, paused)
 	if not view.resource_target.is_empty() and world.terrain.tile(view.resource_target.cell).is_empty():
 		view.resource_target = world.terrain.find_resource(view.resource_target.item, Vector2i(world.player_position.floor()), world.skills.survey_radius())
 		hud.show_notice("Tracked tile exhausted. Survey marker updated to remaining resources." if not view.resource_target.is_empty() else "No remaining patch found nearby. Explore farther and press M to survey again.")

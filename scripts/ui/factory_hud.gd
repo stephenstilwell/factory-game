@@ -52,6 +52,7 @@ var tool_buttons: Dictionary = {}
 var workspace: PanelContainer
 var backdrop: ColorRect
 var pause_menu: ColorRect
+var pause_content: VBoxContainer
 var survey: ColorRect
 var crafting: VBoxContainer
 var craft_buttons: Dictionary = {}
@@ -182,11 +183,20 @@ func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size.x = 560
 	center.add_child(panel)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(560, 580)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
 	var menu := VBoxContainer.new()
-	menu.add_theme_constant_override("separation", 16)
-	panel.add_child(menu)
+	pause_content = menu
+	menu.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	menu.add_theme_constant_override("separation", 12)
+	scroll.add_child(menu)
 	menu.add_child(Style.label("PAUSED", 26, Style.ACCENT))
-	menu.add_child(Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nPause key — Pause or resume • F11 — Fullscreen", 16))
+	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nPause key — Pause or resume • F11 — Fullscreen", 16)
+	controls_help.hide()
+	Style.button(menu, "Controls and shortcuts", func(): controls_help.visible = not controls_help.visible)
+	menu.add_child(controls_help)
 	Style.button(menu, "Resume [Esc]", func(): menu_close_requested.emit())
 	Style.button(menu, "Save game", func(): save_requested.emit())
 	Style.button(menu, "Load game", func(): load_requested.emit())

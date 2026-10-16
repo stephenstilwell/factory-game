@@ -148,6 +148,7 @@ static func _lab(world: RefCounted, entity: RefCounted) -> void:
 		world.researched.append(technology.id)
 		world.record("researched:" + technology.id)
 		world.research_progress = 0
+		world.feedback_requested.emit("success", Vector2i(world.player_position.floor()))
 		world.message.emit("Research complete: %s. Unlocked %s." % [technology.name, technology.unlock])
 
 static func _player(world: RefCounted) -> void:
@@ -165,6 +166,7 @@ static func _player(world: RefCounted) -> void:
 				_record(world, item, int(recipe["out"][item]))
 				world.record("crafted:" + item, int(recipe["out"][item]))
 			world.craft_queue.pop_front()
+			world.feedback_requested.emit("craft", Vector2i(world.player_position.floor()))
 			world.award_skill("fabrication", int(world.Skills.Definitions.CRAFT_XP.get(entry.recipe, 0)))
 	if not world.mining or not world.in_reach(world.mining_cell) or world.at(world.mining_cell) != null or world.settlements.at(world.mining_cell) != null:
 		world.mining_progress = 0

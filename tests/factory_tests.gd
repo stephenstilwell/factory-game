@@ -11,6 +11,7 @@ const InventoryUXTests = preload("res://tests/inventory_ux_tests.gd")
 const TerrainGenerationTests = preload("res://tests/terrain_generation_tests.gd")
 const CharacterTests = preload("res://tests/character_tests.gd")
 const SkillTests = preload("res://tests/skill_tests.gd")
+const AudioTests = preload("res://tests/audio_tests.gd")
 const DefenseTests = preload("res://tests/defense_tests.gd")
 
 var failures := 0
@@ -43,6 +44,7 @@ func _run() -> void:
 	_persistence()
 	SettlementTests.run(self)
 	InventoryUXTests.models(self)
+	await AudioTests.run(self)
 	await _scene_smoke()
 	await InventoryUXTests.ui(self)
 	print("Factory verification: %d checks, %d failures" % [checks, failures])

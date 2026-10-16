@@ -100,3 +100,5 @@ Previews are stored under the ignored `.godot/verification/` directory.
 ## Windows builds and releases
 
 See [the release guide](docs/releases.md) for local Windows packages, automated GitHub Actions builds, and draft prereleases.
+
+Music and action sounds are included. Press **Esc** for Master, Music, and Sound effects volume sliders; preferences persist between sessions. See [audio](docs/audio.md) for the palette and extension points.
