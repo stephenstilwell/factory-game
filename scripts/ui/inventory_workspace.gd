@@ -62,6 +62,8 @@ var character_scroll: ScrollContainer
 var character_panel: VBoxContainer
 var simulation_paused := false
 var run_status: Label
+var workspace_title: Label
+var transfer_help: Label
 
 func _ready() -> void:
 	add_theme_stylebox_override("panel", Style.panel(Color("19292e"), Color("6b8e89")))
@@ -71,6 +73,7 @@ func _ready() -> void:
 	var header := HBoxContainer.new()
 	box.add_child(header)
 	var title := Style.label("PACK & WORKBENCH", 20, Style.ACCENT)
+	workspace_title = title
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	run_status = Style.label("Factory running", 12, Style.MUTED)
@@ -88,6 +91,7 @@ func _ready() -> void:
 		var id: String = entry[0]
 		tabs[id] = Style.button(tab_row, entry[1], func(): open_mode(id))
 	var help := Style.label("Click to inspect / take. Right-click: 1. Shift-click: all. Drag to transfer the selected quantity.", 13, Style.MUTED)
+	transfer_help = help
 	box.add_child(help)
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -224,6 +228,8 @@ func _show_selected_recipe() -> void:
 func refresh(state: RefCounted) -> void:
 	world = state
 	if world == null or search == null: return
+	workspace_title.text = "ENGINEER • SKILLS & EQUIPMENT" if mode == "character" else "PACK & WORKBENCH"
+	transfer_help.visible = mode != "character"
 	run_status.text = "Paused [Pause]" if simulation_paused else "Factory running"
 	run_status.add_theme_color_override("font_color", Style.GOLD if simulation_paused else Style.MUTED)
 	if mode == "machine" and not world.entities.has(entity_id):
@@ -246,8 +252,8 @@ func refresh(state: RefCounted) -> void:
 	pack_hint.text = "Shift-click pack items to send them to the open destination." if not destination().is_empty() else "Select an item for details. Double-click buildings to equip."
 	details.visible = mode == "inventory"
 	crafting.visible = mode == "crafting"
-	pack_column.visible = mode != "crafting"
-	offset_top = 24 if mode == "crafting" else 80
+	pack_column.visible = mode not in ["crafting", "character"]
+	offset_top = 24 if mode in ["crafting", "character"] else 80
 	machine_scroll.visible = mode == "machine"
 	town_scroll.visible = mode == "town"
 	character_scroll.visible = mode == "character"

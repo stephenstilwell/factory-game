@@ -38,6 +38,7 @@ static func cancel(world: RefCounted, job_id: int) -> bool:
 			world.message.emit("Make pack space to refund this craft's ingredients.")
 			return false
 		world.craft_queue.remove_at(i)
+		world.craft_credit = 0
 		world.changed.emit()
 		return true
 	return false
@@ -50,5 +51,6 @@ static func cancel_all(world: RefCounted) -> bool:
 		world.message.emit("Make pack space to refund the queued ingredients.")
 		return false
 	world.craft_queue.clear()
+	world.craft_credit = 0
 	world.changed.emit()
 	return true

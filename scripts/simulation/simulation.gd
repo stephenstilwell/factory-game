@@ -18,6 +18,7 @@ static func step(world: RefCounted) -> void:
 	world.defense.step(world)
 	world.settlements.step(world)
 	_player(world)
+	world.guidance.observe(world)
 	if world.ticks % 5 == 0: world.changed.emit()
 
 static func _machines(world: RefCounted) -> void:
@@ -52,6 +53,7 @@ static func _machines(world: RefCounted) -> void:
 					_record(world, item, 1)
 					world.record("extracted:" + item)
 					world.award_automation("mine:" + item, "mining", 100)
+					world.skills.commission(world, "mine:" + item, "mining")
 				continue
 			var recipe: Dictionary = Catalog.RECIPES[entity.recipe]
 			if not entity.inventory.has_all(recipe["in"]):
@@ -67,6 +69,7 @@ static func _machines(world: RefCounted) -> void:
 				entity.inventory.exchange(recipe["in"], {})
 				world.metrics.consume(world.ticks, recipe["in"])
 				world.award_automation("line:" + entity.recipe, "fabrication", 120)
+				world.skills.commission(world, "line:" + entity.recipe, "fabrication")
 				entity.output.exchange({}, recipe["out"])
 				entity.progress = 0
 				for item in recipe["out"]:
@@ -148,7 +151,8 @@ static func _player(world: RefCounted) -> void:
 	if not world.craft_queue.is_empty():
 		var entry: Dictionary = world.craft_queue[0]
 		if int(entry.remaining) > 0:
-			var work: int = int(entry.get("work", 0)) + world.skills.work_units("fabrication")
+			var work: int = int(entry.get("work", 0)) + world.skills.work_units("fabrication") + world.craft_credit
+			world.craft_credit = maxi(0, work - int(entry.remaining) * 100)
 			entry.remaining = maxi(0, int(entry.remaining) - work / 100)
 			entry.work = work % 100 if int(entry.remaining) > 0 else 0
 		var recipe: Dictionary = Catalog.RECIPES[entry.recipe]
@@ -158,6 +162,7 @@ static func _player(world: RefCounted) -> void:
 				world.record("crafted:" + item, int(recipe["out"][item]))
 			world.metrics.consume(world.ticks, recipe["in"])
 			world.craft_queue.pop_front()
+			if world.craft_queue.is_empty(): world.craft_credit = 0
 			world.feedback_requested.emit("craft", Vector2i(world.player_position.floor()))
 			world.award_skill("fabrication", int(world.Skills.Definitions.CRAFT_XP.get(entry.recipe, 0)))
 	if not world.mining or not world.in_reach(world.mining_cell) or world.at(world.mining_cell) != null or world.settlements.at(world.mining_cell) != null:

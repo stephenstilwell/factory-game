@@ -14,6 +14,7 @@ const Skills = preload("res://scripts/model/skills.gd")
 const Transport = preload("res://scripts/simulation/transport.gd")
 const Metrics = preload("res://scripts/model/production_metrics.gd")
 const Plans = preload("res://scripts/simulation/construction_plans.gd")
+const Guidance = preload("res://scripts/model/player_guidance.gd")
 const Story = preload("res://scripts/simulation/story_state.gd")
 const PlayerCombat = preload("res://scripts/model/player_combat.gd")
 const Defense = preload("res://scripts/simulation/defense.gd")
@@ -37,6 +38,7 @@ var settlements: RefCounted
 var combat := PlayerCombat.new()
 var navigation_revision := 0
 var defense: RefCounted
+var guidance := Guidance.new()
 var story := Story.new()
 var player_position := Vector2(18.5, 18.5)
 var previous_position := Vector2(18.5, 18.5)
@@ -55,12 +57,14 @@ var automation_awards: Dictionary = {}
 var metrics := Metrics.new()
 var plans := Plans.new()
 var craft_queue: Array = []
+var craft_credit := 0 # Earned work carried only between queued jobs.
 var next_craft_id := 1
 var mining_cell := Vector2i.ZERO
 var mining_progress := 0 # Hundredths of a work tick, avoiding fractional drift.
 var mining := false
 
 func _init(world_seed: int = 74103) -> void:
+	message.connect(_remember_message)
 	terrain = Terrain.new(world_seed)
 	character = Character.new()
 	skills = Skills.new()
@@ -69,6 +73,9 @@ func _init(world_seed: int = 74103) -> void:
 	settlements = Settlements.new()
 	defense = Defense.new()
 	for kind in Catalog.BUILDINGS: by_kind[kind] = []
+
+func _remember_message(text: String) -> void:
+	guidance.remember(text, ticks)
 
 func start() -> void:
 	# A new game has no possessions or construction. All content must be earned.
@@ -87,6 +94,7 @@ func start() -> void:
 	defense = Defense.new()
 	combat = PlayerCombat.new()
 	navigation_revision += 1
+	guidance = Guidance.new()
 	story = Story.new()
 	story.fresh()
 	player_position = Vector2(24.5, 12.5)
@@ -103,6 +111,7 @@ func start() -> void:
 	metrics = Metrics.new()
 	plans = Plans.new()
 	craft_queue.clear()
+	craft_credit = 0
 	next_craft_id = 1
 	mining = false
 	mining_progress = 0
@@ -130,6 +139,9 @@ func in_reach(cell: Vector2i) -> bool:
 func interaction_reach() -> float:
 	return float(character.stat("interaction_reach"))
 
+func survey_radius() -> int:
+	return skills.survey_radius() + int(character.stat("survey_bonus"))
+
 func mining_duration() -> int:
 	return int(character.stat("mining_ticks"))
 
@@ -141,7 +153,11 @@ func award_skill(id: String, amount: int) -> void:
 	if reward.is_empty(): return
 	var leveled: bool = reward.level > reward.previous
 	skill_progressed.emit(id, int(reward.amount), int(reward.level), leveled)
-	if leveled: message.emit("%s level %d! Open Engineer [P] to see your skills and milestones." % [Skills.Definitions.SKILLS[id].name, reward.level])
+	if leveled:
+		var extra := ""
+		if skills.bonus_percent(id, reward.level) > skills.bonus_percent(id, reward.previous): extra = " Reward: +%d%% %s speed total." % [skills.bonus_percent(id), "movement" if id == "exploration" else "hand-work"]
+		if id == "exploration" and ((reward.previous < 25 and reward.level >= 25) or (reward.previous < 75 and reward.level >= 75)): extra += " Survey range expanded."
+		message.emit("%s level %d!%s Engineer [P] shows rewards and equipment." % [Skills.Definitions.SKILLS[id].name, reward.level, extra])
 
 func movement_speed() -> float:
 	return float(character.stat("movement_speed")) * skills.multiplier("exploration") * defense.morale_multiplier(self)
@@ -416,7 +432,7 @@ func repair_at(cell: Vector2i) -> bool:
 		message.emit("Craft a repair kit first (C).")
 		return false
 	if target.health == 0: navigation_revision += 1
-	target.health = mini(target.max_health(), target.health + 50)
+	target.health = mini(target.max_health(), target.health + int(character.stat("repair_power")))
 	structure_repaired.emit(cell)
 	if target.kind != "settlement_port": target.status = "Repaired"
 	if defense.phase == "recovery" and settlements.sites.town_hall.health == settlements.sites.town_hall.max_health(): defense.phase = "idle"

@@ -180,7 +180,7 @@ func refresh(state: RefCounted) -> void:
 		var recipe: Dictionary = Catalog.RECIPES[selected_id]
 		title.text = Catalog.item_name(selected_id)
 		description.text = Catalog.item_description(selected_id)
-		result_label.text = "Makes %s  |  %.1f sec / batch  |  %d Fabrication XP" % [Catalog.describe(recipe["out"]), ceilf(float(recipe.get("ticks", 5)) / world.skills.multiplier("fabrication")) / 10.0, int(world.Skills.Definitions.CRAFT_XP.get(selected_id, 0))]
+		result_label.text = "Makes %s  |  %.2f sec / batch avg  |  %d Fabrication XP" % [Catalog.describe(recipe["out"]), float(recipe.get("ticks", 5)) / world.skills.multiplier("fabrication") / 10.0, int(world.Skills.Definitions.CRAFT_XP.get(selected_id, 0))]
 		var maximum: int = world.craft_maximum(selected_id)
 		craft_one.disabled = maximum < 1
 		craft_five.disabled = maximum < 5

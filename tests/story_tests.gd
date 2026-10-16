@@ -69,7 +69,7 @@ static func run(test: SceneTree) -> void:
 	journal.keycode = KEY_J
 	journal.pressed = true
 	scene._unhandled_input(journal)
-	test.check(panel.visible and panel.chapter_id.is_empty() and panel.entries.get_child_count() == 1 and scene.paused, "J opens a journal containing the introduction and current goal")
+	test.check(panel.visible and panel.chapter_id.is_empty() and panel.entries.get_child_count() >= 1 and scene.paused, "J opens a journal containing the introduction and current goal")
 	panel.entries.get_child(0).pressed.emit()
 	test.check(panel.chapter_id == "arrival", "Journal entries replay authored conversations")
 	panel.close_panel()

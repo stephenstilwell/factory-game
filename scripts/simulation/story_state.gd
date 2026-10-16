@@ -51,6 +51,15 @@ func goal(world: RefCounted) -> String:
 	if world.defense.cleared == 0: return "Prepare the eastern defenses, then choose when to light the beacon."
 	return "Keep the eastern road safe. More families are waiting beyond the ridge."
 
+func unread(world: RefCounted) -> Array:
+	var result: Array = []
+	if not seen.has("arrival"): result.append("arrival")
+	if world.settlements.enabled:
+		for site_id in Definitions.NPCS:
+			var chapter := conversation(world, site_id)
+			if not chapter.is_empty() and not seen.has(chapter) and chapter not in result: result.append(chapter)
+	return result
+
 func journal_entries() -> Array:
 	var entries: Array = []
 	for chapter in Definitions.CHAPTERS:

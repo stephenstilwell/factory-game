@@ -45,6 +45,9 @@ signal site_withdraw_requested(id: String)
 var world: RefCounted
 var top: PanelContainer
 var bottom: PanelContainer
+var engineer_button: Button
+var goal_panel: PanelContainer
+var goal_button: Button
 var status: Label
 var objective: Label
 var lesson_hint: Label
@@ -99,7 +102,7 @@ func _ready() -> void:
 	var title := Style.label("IRONWORKS / OLDBRIDGE", 20, Style.ACCENT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
-	Style.button(row, "Pack [E]", toggle_inventory)
+	engineer_button = Style.button(row, "Engineer [P]", toggle_character)
 	Style.button(row, "Craft [C]", toggle_crafting)
 	Style.button(row, "Town [Y]", toggle_town)
 	Style.button(row, "Survey [M]", toggle_survey)
@@ -158,6 +161,18 @@ func _ready() -> void:
 	combat_box.add_child(combat_label)
 	weapon_button = Style.button(combat_box, "Draw rifle [V]", func(): weapon_requested.emit())
 	weapon_button.tooltip_text = "Craft and carry a service rifle. V draws/holsters; hold LMB or Space during a wave. Uses pack ammo; misses spend rounds. Health recovers after 5 seconds without damage. Defeat retreats without losing items."
+	goal_panel = PanelContainer.new()
+	goal_panel.position = Vector2(24, 154)
+	goal_panel.custom_minimum_size.x = 520
+	root.add_child(goal_panel)
+	var goal_row := HBoxContainer.new()
+	goal_panel.add_child(goal_row)
+	goal_button = Style.button(goal_row, "", toggle_character)
+	goal_button.custom_minimum_size.x = 450
+	goal_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	goal_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	goal_button.add_theme_font_size_override("font_size", 13)
+	Style.button(goal_row, "×", func(): world.guidance.pinned = {}; refresh())
 	backdrop = ColorRect.new()
 	backdrop.color = Color(0.025, 0.045, 0.055, 0.76)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -306,6 +321,15 @@ func _sync_context() -> void:
 
 func refresh() -> void:
 	if world == null or status == null: return
+	var equipment_state: Dictionary = world.guidance.equipment_status(world)
+	engineer_button.text = "Engineer [P]"
+	engineer_button.add_theme_color_override("font_color", Style.GOLD if equipment_state.ready > 0 or equipment_state.new > 0 else Style.TEXT)
+	engineer_button.tooltip_text = "%d READY upgrades • %d NEW tiers. Open P to inspect costs and pin a goal." % [equipment_state.ready, equipment_state.new]
+	var personal_goal: Dictionary = world.guidance.goal(world)
+	goal_panel.visible = not personal_goal.is_empty()
+	if not personal_goal.is_empty():
+		goal_button.text = ("COMPLETE • " if personal_goal.complete else "PERSONAL GOAL • ") + personal_goal.title + " [P]\n" + personal_goal.text
+		goal_button.tooltip_text = personal_goal.text
 	combat_panel.visible = world.content_available("service_rifle") or world.combat.health < 100
 	combat_label.text = "ENGINEER %d/100 • Ammo %d%s" % [world.combat.health, world.player.count("ammo"), " • Protected" if world.combat.invulnerable > 0 else ""]
 	combat_label.add_theme_color_override("font_color", Style.ERROR if world.combat.health < 35 else Style.GOLD)
@@ -338,6 +362,7 @@ func refresh() -> void:
 func world_has_pointer() -> bool:
 	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible or factory_panel.visible: return false
 	var pointer := get_viewport().get_mouse_position()
+	if goal_panel.visible and goal_panel.get_global_rect().has_point(pointer): return false
 	if combat_panel.visible and combat_panel.get_global_rect().has_point(pointer): return false
 	return not top.get_global_rect().has_point(pointer) and not bottom.get_global_rect().has_point(pointer)
 

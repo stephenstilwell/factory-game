@@ -13,6 +13,8 @@ var world: RefCounted
 var selection := ""
 var slots: Array = []
 var caption: Label
+var journal_button: Button
+var technology_button: Button
 var page_button: Button
 var picker: ColorRect
 var search: LineEdit
@@ -44,8 +46,9 @@ func _ready() -> void:
 	library.custom_minimum_size = Vector2(104, 62)
 	library.tooltip_text = "Choose a slot and assign a building. Right-click any slot to edit it."
 	var journal := Style.button(row, "Journal [J]", func(): journal_requested.emit())
+	journal_button = journal
 	journal.custom_minimum_size = Vector2(96, 62)
-	Style.button(row, "Tech [T]", func(): factory_requested.emit())
+	technology_button = Style.button(row, "Tech [T]", func(): factory_requested.emit())
 	caption = Style.label("", 13, Style.MUTED)
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.max_lines_visible = 1
@@ -111,6 +114,13 @@ func attach_picker(parent: Node) -> void:
 func refresh(state: RefCounted, selected: String) -> void:
 	world = state
 	selection = selected
+	var unread: int = world.story.unread(world).size()
+	journal_button.text = "Journal [J]" + (" •" if unread > 0 else "")
+	journal_button.add_theme_color_override("font_color", Style.GOLD if unread > 0 else Style.TEXT)
+	journal_button.tooltip_text = "%d unread conversations • Click to read; markers remain until a conversation is read." % unread
+	technology_button.text = "Tech [T]" + (" •" if world.guidance.project_new(world) else "")
+	technology_button.add_theme_color_override("font_color", Style.GOLD if world.guidance.project_new(world) else Style.TEXT)
+	technology_button.tooltip_text = "NEW workshop projects available. Choose the next project." if world.guidance.project_new(world) else "Technology [T]"
 	page_button.text = "%d / %d" % [layout.active_page + 1, Layout.PAGES]
 	for i in Layout.SLOTS:
 		var id: String = layout.item(layout.active_page, i)

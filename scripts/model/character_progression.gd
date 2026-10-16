@@ -18,7 +18,7 @@ func error(world: RefCounted, id: String, expected_rank: int) -> String:
 	var definition: Dictionary = Definitions.UPGRADES[id]
 	if level(id) >= definition.values.size(): return "This upgrade is complete."
 	if expected_rank != level(id) + 1: return "Upgrade selection changed. Review the next tier."
-	var locked := Definitions.gate(world, expected_rank)
+	var locked := Definitions.gate(world, expected_rank, id)
 	if not locked.is_empty(): return locked
 	if not world.player.has_all(definition.costs[level(id)]): return "Missing upgrade materials."
 	return ""
@@ -49,7 +49,7 @@ func restore(data) -> bool:
 
 func valid_progress(world: RefCounted) -> bool:
 	for id in levels:
-		if not Definitions.gate(world, level(id)).is_empty(): return false
+		if not Definitions.gate(world, level(id), id).is_empty(): return false
 	return true
 
 func serialize() -> Dictionary:

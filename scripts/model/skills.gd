@@ -4,6 +4,8 @@ const Definitions = preload("res://scripts/data/skill_catalog.gd")
 var xp: Dictionary = {}
 var visited: Dictionary = {}
 var patches: Dictionary = {}
+var commissions: Dictionary = {}
+const Catalog = preload("res://scripts/data/catalog.gd")
 var last_cell := Vector2i(2000000, 2000000)
 
 func _init() -> void:
@@ -13,10 +15,24 @@ func level(id: String) -> int:
 	return Definitions.level_for(int(xp.get(id, 0)))
 
 func multiplier(id: String) -> float:
-	return 1.0 + Definitions.milestone_count(level(id)) * (0.02 if id == "exploration" else 0.05)
+	return 1.0 + bonus_percent(id) / 100.0
 
 func work_units(id: String) -> int:
-	return 100 + Definitions.milestone_count(level(id)) * 5
+	return 100 + bonus_percent(id)
+
+func bonus_percent(id: String, at_level: int = -1) -> int:
+	var count := Definitions.milestone_count(level(id) if at_level < 0 else at_level, id)
+	return 0 if count == 0 else int((Definitions.MOVE_BONUSES if id == "exploration" else Definitions.WORK_BONUSES)[count - 1])
+
+func commission(world: RefCounted, key: String, skill: String) -> void:
+	var count: int = int(commissions.get(key, 0)) + 1
+	commissions[key] = mini(2000000000, count)
+	var index: int = Definitions.COMMISSIONS.find(count)
+	if index < 0: return
+	var reward: int = Definitions.COMMISSION_XP[index]
+	world.award_skill(skill, reward)
+	var item: String = key.get_slice(":", 1)
+	world.message.emit("Working supply line: %s • %d automated batches • +%d %s XP [P]" % [Catalog.item_name(item), count, reward, Definitions.SKILLS[skill].name])
 
 func survey_radius() -> int:
 	return 3 + (1 if level("exploration") >= 25 else 0) + (1 if level("exploration") >= 75 else 0)
@@ -53,7 +69,7 @@ func serialize() -> Dictionary:
 	for coordinate in visited: areas.append([coordinate.x, coordinate.y])
 	var discoveries: Array = []
 	for center in patches: discoveries.append([center.x, center.y, patches[center]])
-	return {"version": 1, "xp": xp.duplicate(), "visited": areas, "patches": discoveries}
+	return {"version": 1, "xp": xp.duplicate(), "visited": areas, "patches": discoveries, "commissions": commissions.duplicate()}
 
 func _integer(value, minimum: int, maximum: int) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) and float(value) == floor(float(value)) and value >= minimum and value <= maximum
@@ -78,6 +94,15 @@ func restore(data, terrain: RefCounted) -> bool:
 		var center := Vector2i(int(entry[0]), int(entry[1]))
 		if restored_patches.has(center) or not terrain.has_patch(center, entry[2]): return false
 		restored_patches[center] = entry[2]
+	var saved_commissions = data.get("commissions", {})
+	if not saved_commissions is Dictionary or saved_commissions.size() > Catalog.RECIPES.size() + terrain.RESOURCE_IDS.size(): return false
+	var restored_commissions := {}
+	for key in saved_commissions:
+		if not key is String or not _integer(saved_commissions[key], 1, 2000000000): return false
+		var parts: PackedStringArray = key.split(":")
+		if parts.size() != 2 or not ((parts[0] == "mine" and parts[1] in terrain.RESOURCE_IDS) or (parts[0] == "line" and Catalog.RECIPES.has(parts[1]))): return false
+		restored_commissions[key] = int(saved_commissions[key])
+	commissions = restored_commissions
 	xp = restored_xp
 	visited = restored_areas
 	patches = restored_patches

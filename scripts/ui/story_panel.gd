@@ -115,11 +115,20 @@ func open_journal(state: RefCounted) -> void:
 	for node in entries.get_children():
 		entries.remove_child(node)
 		node.queue_free()
+	var unread: Array = world.story.unread(world)
 	var chapters: Array = world.story.journal_entries()
 	for id in chapters:
 		var button := Style.button(entries, Definitions.CHAPTERS[id].title + "  •  Replay", func(): present(world, id))
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	if chapters.is_empty(): entries.add_child(Style.label("Speak with Mira at the ruined trading post to begin.", 16))
+	for id in unread:
+		var button := Style.button(entries, "NEW • " + Definitions.CHAPTERS[id].title, func(): present(world, id))
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	if chapters.is_empty() and unread.is_empty(): entries.add_child(Style.label("Speak with Mira at the ruined trading post to begin.", 16))
+	if not world.guidance.history.is_empty():
+		entries.add_child(Style.label("RECENT ACTIVITY", 14, Style.GOLD))
+		for i in range(world.guidance.history.size() - 1, maxi(-1, world.guidance.history.size() - 11), -1):
+			var entry: Dictionary = world.guidance.history[i]
+			entries.add_child(Style.label("%.1fm • %s" % [entry.tick / 600.0, entry.text], 14, Style.MUTED))
 	goal.text = "WHAT WE'RE WORKING TOWARD\n" + world.story.goal(world)
 	if world.story.seen.has("oren_after"): goal.text += "\n\nUNANSWERED\nThe relay plate reads: 'Cut the chain before it answers.' Who wrote it?"
 	project_button.text = "View town projects"
@@ -128,7 +137,7 @@ func open_journal(state: RefCounted) -> void:
 
 func close_panel() -> void:
 	if not visible: return
-	var completed := chapter_id
+	var completed := chapter_id if not chapter_id.is_empty() and page == Definitions.CHAPTERS[chapter_id].pages.size() - 1 else ""
 	hide()
 	chapter_id = ""
 	finished.emit(completed)

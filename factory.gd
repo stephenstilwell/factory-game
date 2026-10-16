@@ -147,7 +147,7 @@ func _process(delta: float) -> void:
 	var pointer: bool = hud.world_has_pointer()
 	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible, paused)
 	if not view.resource_target.is_empty() and world.terrain.tile(view.resource_target.cell).is_empty():
-		view.resource_target = world.terrain.find_resource(view.resource_target.item, Vector2i(world.player_position.floor()), world.skills.survey_radius())
+		view.resource_target = world.terrain.find_resource(view.resource_target.item, Vector2i(world.player_position.floor()), world.survey_radius())
 		hud.show_notice("Tracked tile exhausted. Survey marker updated to remaining resources." if not view.resource_target.is_empty() else "No remaining patch found nearby. Explore farther and press M to survey again.")
 	world.move_direction = Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),

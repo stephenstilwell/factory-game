@@ -122,6 +122,7 @@ func refresh() -> void:
 		sections[id].visible = id == tab
 		Style.select(tabs[id], id == tab)
 	if tab == "research":
+		world.guidance.view_projects(world)
 		var active: String = world.current_research()
 		research_status.text = "Choose what Oldbridge needs next - click an available project" if active.is_empty() else "ACTIVE: %s  •  %d / %d dossiers" % [Catalog.technology(active).name, world.research_progress, Catalog.technology(active).cost]
 		for definition in Catalog.TECHNOLOGIES:

@@ -138,8 +138,10 @@ func step(world: RefCounted) -> void:
 		if site.shipment_ticks == 0:
 			var previous_district := district_level()
 			site.shipments += 1
-			for threshold in [1, 5, 10]:
-				if site.shipments >= threshold: world.award_automation("delivery:%s:%d" % [id, threshold], "fabrication", 150)
+			var milestones: Array = world.skills.Definitions.DELIVERY_MILESTONES
+			for i in range(milestones.size()):
+				if site.shipments == milestones[i]: world.award_automation("delivery:%s:%d" % [id, milestones[i]], "fabrication", world.skills.Definitions.DELIVERY_XP[i])
+			if id == "town_hall" and site.shipments in [3, 6, 9]: world.award_automation("delivery:town_hall:%d" % site.shipments, "fabrication", 500 * (site.shipments / 3))
 			if district_level() > previous_district:
 				world.message.emit("A neighborhood is restored! District %d/3. New coal gains another 5%% working time." % district_level())
 				world.feedback_requested.emit("success", site.port())

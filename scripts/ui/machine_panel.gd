@@ -124,6 +124,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 			if entity.inventory.count(item) < int(recipe["in"][item]): missing.append("%s %d/%d" % [Catalog.item_name(item), entity.inventory.count(item), recipe["in"][item]])
 		if not missing.is_empty(): status_label.text += "\nNeeds: " + ", ".join(missing)
 		status_label.text += "\nRated output: %.1f batches / min" % (600.0 / float(recipe.ticks))
+	repair_button.text = "Repair [H] (+%d)" % int(world.character.stat("repair_power"))
 	repair_button.visible = entity.health < entity.max_health()
 	repair_button.disabled = not reachable or world.player.count("repair_kit") == 0
 	var reclaim_blocker: String = world.reclaim_reason(entity.cell)

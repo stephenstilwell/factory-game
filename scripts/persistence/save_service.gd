@@ -21,9 +21,9 @@ static func encode(world: RefCounted) -> Dictionary:
 		depletion.append([cell.x, cell.y, world.terrain.depleted[cell]])
 	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "resource_scale": world.terrain.stock_scale, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
-		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(),
+		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(),
 		"researched": world.researched.duplicate(), "research_progress": world.research_progress, "research_target": world.current_research(), "research_banks": world.research_banks.duplicate(), "automation_awards": world.automation_awards.duplicate(), "plans": world.plans.serialize(),
-		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
+		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "craft_credit": world.craft_credit, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
 
 static func save_world(world: RefCounted, path: String = PATH) -> String:
 	var temporary := path + ".tmp"
@@ -142,11 +142,12 @@ static func decode(data) -> Dictionary:
 	for id in Catalog.RECIPES: allowed_awards.append("line:" + id)
 	for id in World.Terrain.RESOURCE_IDS: allowed_awards.append("mine:" + id)
 	for site_id in world.settlements.sites:
-		for threshold in [1, 5, 10]: allowed_awards.append("delivery:%s:%d" % [site_id, threshold])
+		for threshold in world.skills.Definitions.DELIVERY_MILESTONES: allowed_awards.append("delivery:%s:%d" % [site_id, threshold])
+	for threshold in [3, 6, 9]: allowed_awards.append("delivery:town_hall:%d" % threshold)
 	for key in awards:
 		if key not in allowed_awards or not awards[key] is bool or awards[key] != true: return {"error": "Invalid automation milestone."}
 	world.automation_awards = awards.duplicate()
-	if not character.valid_progress(world): return {"error": "Engineer upgrades lack required progression."}
+
 	var research_limit: int = int(Catalog.technology(world.research_target).cost) - 1 if not world.research_target.is_empty() else 0
 	if not _integer(data.get("research_progress"), 0, research_limit): return {"error": "Invalid research progress."}
 	world.research_progress = int(data.research_progress)
@@ -218,11 +219,15 @@ static func decode(data) -> Dictionary:
 		world.craft_queue.append({"id": int(job_id), "recipe": entry.recipe, "remaining": int(entry.remaining), "work": int(work)})
 	if not _integer(data.get("next_craft_id", maximum_job_id + 1), maximum_job_id + 1): return {"error": "Invalid next crafting job ID."}
 	world.next_craft_id = int(data.get("next_craft_id", maximum_job_id + 1))
+	if not _integer(data.get("craft_credit", 0), 0, 124) or (world.craft_queue.is_empty() and data.get("craft_credit", 0) != 0): return {"error": "Invalid carried crafting work."}
+	world.craft_credit = int(data.get("craft_credit", 0))
 	if data.has("combat") and not world.combat.restore(data.combat, world): return {"error": "Invalid engineer combat state."}
 	if data.has("defense") and not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
+	if not character.valid_progress(world): return {"error": "Engineer upgrades lack required progression."}
 	for wave in world.settlements.relief_waves:
 		if wave > world.defense.cleared: return {"error": "Relief reward lacks a completed defense."}
 	if data.has("story") and not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
+	if data.has("guidance") and not world.guidance.restore(data.guidance, world.ticks): return {"error": "Invalid player goals or notices."}
 	if data.has("plans") and not world.plans.restore(data.plans, world): return {"error": "Invalid construction plans."}
 	return {"world": world, "error": ""}
 

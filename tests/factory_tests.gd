@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ProgressionGuidanceTests = preload("res://tests/progression_guidance_tests.gd")
 const PacingTests = preload("res://tests/pacing_tests.gd")
 const CombatTests = preload("res://tests/combat_tests.gd")
 const PresentationTests = preload("res://tests/presentation_tests.gd")
@@ -36,6 +37,7 @@ func advance(world: RefCounted, count: int) -> void:
 	for i in range(count): Simulation.step(world)
 
 func _run() -> void:
+	ProgressionGuidanceTests.run(self)
 	PacingTests.run(self)
 	ExpansionTests.run(self)
 	_inventory()
@@ -59,6 +61,7 @@ func _run() -> void:
 	await ExpansionTests.ui(self)
 	await PresentationTests.run(self)
 	await CombatTests.ui(self)
+	await ProgressionGuidanceTests.ui(self)
 	await PacingTests.ui(self)
 	await _scene_smoke()
 	await InventoryUXTests.ui(self)
@@ -450,7 +453,7 @@ func _scene_smoke() -> void:
 	await process_frame
 	check(scene.hud.story_panel.visible and scene.paused, "New arrivals get a skippable story scene before the mining lesson")
 	scene.hud.story_panel.close_panel()
-	check(scene.world.story.seen.has("arrival") and not scene.paused, "Dismissing the introduction records it and resumes the empty-world tutorial")
+	check(not scene.world.story.seen.has("arrival") and not scene.paused, "Dismissing an unfinished introduction preserves its unread marker and resumes the tutorial")
 	check(scene.world.entities.is_empty() and scene.world.player.total() == 0, "Playable scene starts without buildings or supplies")
 	check(scene.hud.objective.visible and scene.hud.objective.text.contains("Gather stone"), "New player sees the first mining lesson")
 	check(not scene.hud.hotbar.available("drill") and scene.hud.hotbar.available("furnace"), "Hotbar introduces tools gradually without moving shortcut slots")

@@ -153,6 +153,7 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	else: order_button.tooltip_text = "20 coal + 10 ammunition + 2 repair kits delivered to your pack. Costs 20 trade / relief credits."
 	beacon_button.visible = defense_status.visible
 	cancel_beacon_button.visible = defense_status.visible and world.defense.phase == "warning"
+	damage_button.text = "Repair with kit [H] (+%d health)" % int(world.character.stat("repair_power"))
 	damage_button.visible = site.repaired and site.health < site.max_health()
 	damage_button.disabled = not reachable or world.player.count("repair_kit") == 0
 	if defense_status.visible:

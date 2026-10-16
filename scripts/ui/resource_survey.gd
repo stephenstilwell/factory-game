@@ -54,7 +54,7 @@ func refresh() -> void:
 	seed_label.text = "World seed: %d | Generator: %d | Local survey" % [world.terrain.seed_value, world.terrain.generator_version]
 	results.clear()
 	for item in rows:
-		var found: Dictionary = world.terrain.find_resource(item, Vector2i(world.player_position.floor()), world.skills.survey_radius())
+		var found: Dictionary = world.terrain.find_resource(item, Vector2i(world.player_position.floor()), world.survey_radius())
 		rows[item].button.disabled = found.is_empty()
 		if found.is_empty():
 			rows[item].label.text = "%s: no remaining patch found nearby. Explore farther and survey again." % Catalog.item_name(item)
