@@ -4,7 +4,7 @@ Oldbridge should feel like a place worth bringing back: mossy ground, weathered 
 
 ## Visual rules
 
-- **Nature:** muted olive and moss, subtle broad ground variation, small grass clumps, pale flowers, and occasional pebbles. Decorative scenery is passable and never implies new solid trees or rocks.
+- **Nature:** muted olive and moss, subtle broad ground variation, small grass clumps, pale flowers, and occasional pebbles. Ground decoration is passable. The living-frontier pass adds seeded groves with passable, removable trees, birds, butterflies, and distinct landmark silhouettes; canopies fade near the player and during building.
 - **Production:** cool teal steel, brass/copper mechanisms, ivory highlights, and consistent bottom-right shadows. Machines have distinct silhouettes rather than sharing one colored square.
 - **Home:** warm stone, patinated roofs, amber windows, flagstone courtyards, winding tracks, planters, awnings, and residents on restored porches. Ruins keep broken rafters, boarded windows, rubble, and ivy. Disabled civic buildings lose their working lights and activity.
 - **Threat:** rust-colored salvage machines, restrained amber tracers and impact flashes, clear health bars, and an eastern approach that stays readable against the grass. The beacon is dim while idle, and pulses warmly only during preparation or combat.
@@ -16,7 +16,7 @@ The permanent terrain grid is removed. Equipping a building reveals a local grid
 
 The engineer has boots, work clothes, a pack, goggles, a brass helmet, a scarf, and a small lantern. Walking animates the stride; active hand mining uses a directional pick swing. Successful extraction throws a small resource-colored chip burst; successful repair throws warm sparks.
 
-Drills turn their augers and gears and throw restrained dust while working. Furnaces have brick bodies, chimneys, warm animated fire, and light smoke only when producing. Belts move their slats and interpolate carried goods when the next belt is open. Inserter arms and their carried items share the same travel position. Assemblers have turning gears; labs have glass highlights and reagent motion. Turrets track targets, recoil, flash, and display short shot/impact effects.
+Drills turn their augers and gears and throw restrained dust while working. Furnaces have brick bodies, chimneys, warm animated fire, and light smoke only when producing. Belts move their slats and interpolate carried goods when the next belt is open. Inserter arms and their carried items share the same travel position. Assemblers have turning gears; drafting benches have papers, ink, and moving pencils. Turrets track targets, recoil, flash, and display short shot/impact effects.
 
 Smoke, particles, and motion pause with the simulation. These are visual approximations of authoritative work/transport; they do not grant items, move inventories, or change timers. Restored residents are decorative characters, not a population simulation.
 

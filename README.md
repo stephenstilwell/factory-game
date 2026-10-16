@@ -14,6 +14,8 @@ The engineer can join voluntary defenses with a **service rifle [V]**. Hold **le
 
 See [the Oldbridge pacing pass](docs/oldbridge-pacing.md) for shared fuel service, resource migration, clearer projects, and arrival rewards.
 
+The world now has seeded groves, birds and butterflies, and three recoverable landmarks. Open **Discoveries [L]** or **Journal [J]** to follow survey notes, recover orchard cuttings for a visible town garden, and solve the old depot’s loaned-conveyor puzzle. Rewards improve surveys and civic fuel service. See [the living frontier](docs/living-frontier.md).
+
 ## Play
 
 New games start with **an empty inventory and no working factory buildings**. Three abandoned civic landmarks are waiting to be restored using your production. You appear near stone at (26, 9). The learning guide shows one objective at a time, with a direction arrow and a highlighted resource/machine where relevant. Hold **right mouse** over a nearby deposit to mine by hand.
@@ -59,6 +61,7 @@ Nearby starting deposits: iron around **(14, 16)**, copper **(28, 23)**, coal **
 | Technology / workshop projects | T / Tech button |
 | Production and construction plans | F |
 | Town projects | Y / Town button |
+| Discoveries, landmark leads, and depot puzzle | L / Journal → Discoveries |
 | Survey and track remaining resource patches | M / Survey button |
 | Personal upgrades and character stats | P / Engineer tab |
 | Repair hovered or inspected structure using a kit | H / Repair button |

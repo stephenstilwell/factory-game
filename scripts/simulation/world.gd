@@ -14,6 +14,7 @@ const Skills = preload("res://scripts/model/skills.gd")
 const Transport = preload("res://scripts/simulation/transport.gd")
 const Metrics = preload("res://scripts/model/production_metrics.gd")
 const Plans = preload("res://scripts/simulation/construction_plans.gd")
+const Frontier = preload("res://scripts/model/frontier.gd")
 const Guidance = preload("res://scripts/model/player_guidance.gd")
 const Story = preload("res://scripts/simulation/story_state.gd")
 const PlayerCombat = preload("res://scripts/model/player_combat.gd")
@@ -38,6 +39,7 @@ var settlements: RefCounted
 var combat := PlayerCombat.new()
 var navigation_revision := 0
 var defense: RefCounted
+var frontier := Frontier.new()
 var guidance := Guidance.new()
 var story := Story.new()
 var player_position := Vector2(18.5, 18.5)
@@ -94,6 +96,7 @@ func start() -> void:
 	defense = Defense.new()
 	combat = PlayerCombat.new()
 	navigation_revision += 1
+	frontier = Frontier.new()
 	guidance = Guidance.new()
 	story = Story.new()
 	story.fresh()
@@ -115,6 +118,7 @@ func start() -> void:
 	next_craft_id = 1
 	mining = false
 	mining_progress = 0
+	frontier.install(self)
 	changed.emit()
 
 func content_available(id: String) -> bool:
@@ -140,7 +144,7 @@ func interaction_reach() -> float:
 	return float(character.stat("interaction_reach"))
 
 func survey_radius() -> int:
-	return skills.survey_radius() + int(character.stat("survey_bonus"))
+	return skills.survey_radius() + int(character.stat("survey_bonus")) + (1 if frontier.claimed("camp") else 0)
 
 func mining_duration() -> int:
 	return int(character.stat("mining_ticks"))
@@ -171,6 +175,7 @@ func can_build(kind: String, cell: Vector2i) -> String:
 	if at(cell) != null: return "Tile is occupied."
 	if defense.occupied(cell): return "A construct occupies this tile."
 	if settlements.at(cell) != null: return "This land belongs to a settlement project."
+	if frontier.at(cell) != "": return "This land belongs to a frontier landmark."
 	if not unlocked(Catalog.BUILDINGS[kind]): return "Research " + Catalog.technology(Catalog.BUILDINGS[kind].technology).name + " first."
 	if not content_available(kind): return "Follow the current learning objective to discover this building."
 	if player.count(kind) == 0: return "Craft more %s (C)." % Catalog.item_name(kind)
@@ -183,6 +188,7 @@ func build(kind: String, cell: Vector2i, direction: int, exit_mode: bool = false
 	if not reason.is_empty():
 		message.emit(reason)
 		return false
+	frontier.clear_tree(self, cell, false)
 	player.remove(kind)
 	metrics.record(ticks, "used", kind, 1)
 	var entity = spawn(kind, cell, direction)
@@ -401,7 +407,7 @@ func transfer_source(entity: RefCounted):
 
 func solid(cell: Vector2i) -> bool:
 	var entity = at(cell)
-	return settlements.at(cell) != null or (entity != null and entity.health > 0 and Catalog.BUILDINGS[entity.kind].solid)
+	return settlements.at(cell) != null or frontier.blocks(cell) or (entity != null and entity.health > 0 and Catalog.BUILDINGS[entity.kind].solid)
 
 func damage_structure(cell: Vector2i, damage: int) -> void:
 	if damage <= 0: return
@@ -448,7 +454,7 @@ func burner_fuel_duration() -> int:
 	return Catalog.FUEL_TICKS + settlements.effect("burner_ticks")
 
 func supply_radius() -> int:
-	return 8 + mini(4, defense.cleared / 2) if settlements.enabled and settlements.services_online() else 8
+	return 8 + mini(4, defense.cleared / 2) + frontier.hearth_bonus(self) if settlements.enabled and settlements.services_online() else 8
 
 func _site_in_reach(id: String) -> bool:
 	if not settlements.enabled or not settlements.sites.has(id): return false

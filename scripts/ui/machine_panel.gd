@@ -192,7 +192,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	if entity.kind == "chest": summary.text = "Drop pack items into storage, or Shift-click them in your pack to transfer all. Ctrl-click stacks only item types already stored here; it never dumps unrelated supplies."
 	if Catalog.Combat.TURRETS.has(entity.kind): summary.text = "Load ammunition into INPUT manually or by inserter. Guns stop scouts, cannons counter armor, and pulses slow groups. Walls shape routes; scouts can go around isolated barriers. Select a turret to see its range."
 	if entity.kind == "fuel_depot":
-		summary.text = "Covers %d tiles. Delivers one real coal per nearby burner each tick, keeping a small 3-coal reserve. Load once here or automate an inserter supply. No coal is created. Returning crews expand coverage." % world.supply_radius()
+		summary.text = "Covers %d tiles. Delivers one real coal per nearby burner each tick, keeping a small 3-coal reserve. Load once here or automate an inserter supply. No coal is created. Returning crews and restored depot runners expand coverage." % world.supply_radius()
 		status_label.text += "\n%d / 200 shared coal • Coverage %d tiles" % [entity.inventory.count("coal"), world.supply_radius()]
 		supply_button.text = "Load all coal"
 	if entity.kind == "wall": summary.text = "Blocks the marked approach until its health reaches zero. Disabled walls stay in place as passable ruins; repair them with kits [H]. Damaged structures must be repaired before reclamation."

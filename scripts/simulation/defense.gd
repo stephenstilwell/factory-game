@@ -52,8 +52,8 @@ func spawn_enemy(kind: String, cell: Vector2i) -> Dictionary:
 
 func reward_preview(world: RefCounted) -> String:
 	if cleared >= MAX_WAVES: return "Eastern route secure. All ten arrivals rescued."
-	var coverage := 8 + mini(4, (cleared + 1) / 2)
-	return "ON VICTORY: +%d relief credits and 3 families home.\nCrew services: +5%% movement; hearth coverage %d tiles. Every second arrival extends coverage, up to 12. Services require an operational Town Hall.\nSpend credits on civic restoration or supply bundles at the trading post [Y]. Failure pays nothing; repair and retry." % [world.settlements.defense_reward(cleared + 1), coverage]
+	var coverage: int = 8 + mini(4, (cleared + 1) / 2) + world.frontier.hearth_bonus(world)
+	return "ON VICTORY: +%d relief credits and 3 families home.\nCrew services: +5%% movement; hearth coverage %d tiles. Every second arrival extends coverage up to 12, plus restored depot runners. Services require an operational Town Hall.\nSpend credits on civic restoration or supply bundles at the trading post [Y]. Failure pays nothing; repair and retry." % [world.settlements.defense_reward(cleared + 1), coverage]
 
 func ready_reason(world: RefCounted) -> String:
 	if not world.settlements.enabled or not hub(world).repaired: return "Restore the Town Hall first."

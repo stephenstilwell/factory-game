@@ -140,6 +140,7 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	talk_button.disabled = not reachable and not world.in_reach(world.story.npc_cell(world, id))
 	talk_button.tooltip_text = npc.role + ". Walk close to the person or the delivery hatch to talk."
 	state_label.text = region.status(id) + ("\nOut of reach - walk to the hatch." if not reachable else "")
+	if id == "trading_post" and site.repaired and world.frontier.claimed("orchard"): state_label.text += "\nIona tends the community garden: orchard cuttings recovered."
 	if site.repaired: state_label.text += "\nHealth: %d / %d" % [site.health, site.max_health()]
 	if id == "town_hall" and site.repaired:
 		state_label.text += "\nNEIGHBORHOODS %d / 3 • Housing deliveries %d / 3" % [region.district_level(), site.shipments % 3]
@@ -160,7 +161,7 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 		defense_status.text = "%s\nNEXT: %s\n%s\nRifle [V], turrets, walls, and repair kits. No automatic waves." % [world.defense.summary(), Catalog.Combat.composition(world.defense.cleared), "Central eastern gate." if world.defense.cleared == 0 else "Three marked eastern gates. Scouts flank walls; dismantlers break through; haulers resist ordinary rounds."]
 		if world.defense.cleared == world.defense.MAX_WAVES: defense_status.text = "%s\n%d families sheltered. Road crews remain active while the hall is operational." % [world.defense.summary(), world.defense.cleared * 3]
 		if world.defense.cleared < world.defense.MAX_WAVES:
-			defense_status.text = "NEXT: %s\nVICTORY: +%d relief credits • 3 families home\nCREWS: +5%% movement • Hearth coverage %d tiles\n15-second warning. Voluntary; failure pays no reward." % [Catalog.Combat.composition(world.defense.cleared), region.defense_reward(world.defense.cleared + 1), 8 + mini(4, (world.defense.cleared + 1) / 2)]
+			defense_status.text = "NEXT: %s\nVICTORY: +%d relief credits • 3 families home\nCREWS: +5%% movement • Hearth coverage %d tiles\n15-second warning. Voluntary; failure pays no reward." % [Catalog.Combat.composition(world.defense.cleared), region.defense_reward(world.defense.cleared + 1), 8 + mini(4, (world.defense.cleared + 1) / 2) + world.frontier.hearth_bonus(world)]
 		beacon_button.tooltip_text = world.defense.reward_preview(world)
 		var blocked: String = world.defense.ready_reason(world)
 		beacon_button.disabled = not reachable or not blocked.is_empty()

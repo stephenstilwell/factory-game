@@ -19,6 +19,7 @@ static func step(world: RefCounted) -> void:
 	world.settlements.step(world)
 	_player(world)
 	world.guidance.observe(world)
+	if world.ticks % 5 == 0: world.frontier.observe(world)
 	if world.ticks % 5 == 0: world.changed.emit()
 
 static func _machines(world: RefCounted) -> void:
@@ -168,7 +169,15 @@ static func _player(world: RefCounted) -> void:
 	if not world.mining or not world.in_reach(world.mining_cell) or world.at(world.mining_cell) != null or world.settlements.at(world.mining_cell) != null:
 		world.mining_progress = 0
 		return
-	if world.terrain.tile(world.mining_cell).is_empty() or world.player.total() >= world.player.capacity:
+	if world.terrain.tile(world.mining_cell).is_empty():
+		if world.frontier.tree_at(world, world.mining_cell):
+			world.mining_progress += 100
+			if world.mining_progress >= 600:
+				world.frontier.clear_tree(world, world.mining_cell)
+				world.mining_progress = 0
+		else: world.mining_progress = 0
+		return
+	if world.player.total() >= world.player.capacity:
 		world.mining_progress = 0
 		return
 	world.mining_progress += world.skills.work_units("mining")

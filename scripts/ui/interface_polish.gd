@@ -31,12 +31,12 @@ func configure(hud: CanvasLayer, world_view: Node2D) -> void:
 	box.add_child(reduced_control)
 	reduced_control.toggled.connect(func(value): reduced_motion = value; apply_preferences(); save_preferences())
 	ambient_control = CheckButton.new()
-	ambient_control.text = "Ambient light and particles"
-	ambient_control.tooltip_text = "Soft furnace and settlement light, drifting motes, and action effects. Turning this off keeps the world fully readable."
+	ambient_control.text = "Ambient light, wildlife and birdsong"
+	ambient_control.tooltip_text = "Soft light, wildlife, birdsong, drifting motes, and action effects. Turning this off keeps the world fully readable."
 	ambient_control.button_pressed = ambient_enabled
 	box.add_child(ambient_control)
 	ambient_control.toggled.connect(func(value): ambient_enabled = value; apply_preferences(); save_preferences())
-	for panel in [hud.workspace, hud.factory_panel, hud.story_panel, hud.survey, hud.pause_menu, hud.hotbar.picker]:
+	for panel in [hud.workspace, hud.frontier_panel, hud.factory_panel, hud.story_panel, hud.survey, hud.pause_menu, hud.hotbar.picker]:
 		panel.visibility_changed.connect(_panel_changed.bind(panel))
 	_watch(hud)
 	get_tree().node_added.connect(_node_added)

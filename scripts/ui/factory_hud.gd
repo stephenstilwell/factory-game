@@ -3,6 +3,7 @@ extends CanvasLayer
 
 const Catalog = preload("res://scripts/data/catalog.gd")
 const Style = preload("res://scripts/ui/ui_style.gd")
+const FrontierPanel = preload("res://scripts/ui/frontier_panel.gd")
 const FactoryPanel = preload("res://scripts/ui/factory_panel.gd")
 const StoryPanel = preload("res://scripts/ui/story_panel.gd")
 const Hotbar = preload("res://scripts/ui/build_hotbar.gd")
@@ -65,6 +66,7 @@ var pause_button: Button
 var fullscreen_button: Button
 var hotbar: VBoxContainer
 var story_panel: ColorRect
+var frontier_panel: ColorRect
 var factory_panel: ColorRect
 var workspace: PanelContainer
 var backdrop: ColorRect
@@ -237,7 +239,7 @@ func _ready() -> void:
 	menu.add_theme_constant_override("separation", 12)
 	scroll.add_child(menu)
 	menu.add_child(Style.label("PAUSED", 26, Style.ACCENT))
-	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nT — Technology / workshop projects\nY — Settlement projects\nF — Production rates and construction plans\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nV — Draw / holster rifle • LMB / Space — Fire\nPause key — Pause or resume • F11 — Fullscreen", 16)
+	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nT — Technology / workshop projects\nY — Settlement projects\nL — Discoveries and expedition leads\nF — Production rates and construction plans\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nV — Draw / holster rifle • LMB / Space — Fire\nPause key — Pause or resume • F11 — Fullscreen", 16)
 	controls_help.hide()
 	Style.button(menu, "Controls and shortcuts", func(): controls_help.visible = not controls_help.visible)
 	menu.add_child(controls_help)
@@ -250,6 +252,9 @@ func _ready() -> void:
 	hotbar.attach_picker(root)
 	factory_panel = FactoryPanel.new()
 	root.add_child(factory_panel)
+	frontier_panel = FrontierPanel.new()
+	root.add_child(frontier_panel)
+	frontier_panel.close_requested.connect(func(): frontier_panel.hide())
 	story_panel = StoryPanel.new()
 	root.add_child(story_panel)
 	survey.close_requested.connect(func(): survey.hide())
@@ -360,7 +365,7 @@ func refresh() -> void:
 		site_id = workspace.site_id if workspace.mode == "town" else ""
 
 func world_has_pointer() -> bool:
-	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible or factory_panel.visible: return false
+	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible or factory_panel.visible or frontier_panel.visible: return false
 	var pointer := get_viewport().get_mouse_position()
 	if goal_panel.visible and goal_panel.get_global_rect().has_point(pointer): return false
 	if combat_panel.visible and combat_panel.get_global_rect().has_point(pointer): return false

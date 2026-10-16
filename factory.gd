@@ -93,6 +93,7 @@ func _ready() -> void:
 	hud.site_talk_requested.connect(func(id): world.talk_to_site(id))
 	hud.journal_requested.connect(_open_journal)
 	hud.story_panel.finished.connect(_story_finished)
+	hud.story_panel.discoveries_requested.connect(func(): hud.story_panel.close_panel(); _open_frontier())
 	hud.story_panel.project_requested.connect(_inspect_site)
 	hud.site_withdraw_requested.connect(func(id): world.withdraw_site(id))
 	var rng := RandomNumberGenerator.new()
@@ -112,6 +113,7 @@ func _bind_world(state: RefCounted) -> void:
 		if paused != story_was_paused: _toggle_pause()
 	if world != null and world.story_requested.is_connected(_open_story): world.story_requested.disconnect(_open_story)
 	hud.factory_panel.close_panel()
+	hud.frontier_panel.hide()
 	_cancel_planning()
 	firing_held = false
 	world = state
@@ -145,14 +147,14 @@ func _bind_world(state: RefCounted) -> void:
 func _process(delta: float) -> void:
 	var mouse_cell := _mouse_cell()
 	var pointer: bool = hud.world_has_pointer()
-	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible, paused)
+	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible or hud.frontier_panel.visible, paused)
 	if not view.resource_target.is_empty() and world.terrain.tile(view.resource_target.cell).is_empty():
 		view.resource_target = world.terrain.find_resource(view.resource_target.item, Vector2i(world.player_position.floor()), world.survey_radius())
 		hud.show_notice("Tracked tile exhausted. Survey marker updated to remaining resources." if not view.resource_target.is_empty() else "No remaining patch found nearby. Explore farther and press M to survey again.")
 	world.move_direction = Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
-	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible or paused:
+	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible or hud.frontier_panel.visible or paused:
 		world.move_direction = Vector2.ZERO
 		painting = false
 		mining_held = false
@@ -196,6 +198,8 @@ func _process(delta: float) -> void:
 		elif entity != null: text += Catalog.item_name(entity.kind) + " - " + entity.status + "  |  Hold right mouse to pick up"
 		elif not npc.is_empty(): text += world.story.Definitions.NPCS[npc].name + " • Click to talk [Q clears build cursor]"
 		elif site != null: text += world.settlements.Definitions.SITES[site.id].name + " - " + world.settlements.status(site.id)
+		elif world.frontier.at(mouse_cell) != "": text += world.frontier.Definitions.SITES[world.frontier.at(mouse_cell)].name + " • Click to investigate [L]"
+		elif world.frontier.tree_at(world, mouse_cell): text += "Grove tree • Hold right mouse to clear • Building clears brush automatically"
 		elif not deposit.is_empty(): text += "%s: %d remaining  |  Hold right mouse to mine" % [Catalog.item_name(deposit.item), deposit.amount]
 		else: text += "Grassland"
 		if not world.in_reach(mouse_cell): text += "  |  Out of reach"
@@ -205,6 +209,7 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if hud.story_panel.visible: hud.story_panel.close_panel()
+		elif hud.frontier_panel.visible: hud.frontier_panel.hide()
 		elif hud.factory_panel.visible: hud.factory_panel.close_panel()
 		elif copy_mode or pasting: _cancel_planning()
 		elif hud.hotbar.picker.visible: hud.hotbar.close_picker()
@@ -249,6 +254,9 @@ func _update_display_button() -> void:
 	hud.fullscreen_button.text = "Window [F11]" if fullscreen else "Fullscreen [F11]"
 
 func _unhandled_input(event: InputEvent) -> void:
+	if hud.frontier_panel.visible:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_L: hud.frontier_panel.hide()
+		return
 	if hud.story_panel.visible:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_J and hud.story_panel.chapter_id.is_empty(): hud.story_panel.close_panel()
 		return
@@ -265,7 +273,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M: hud.survey.hide()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_Y, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J, KEY_F, KEY_G, KEY_V]: return
+		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_Y, KEY_L, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J, KEY_F, KEY_G, KEY_V]: return
 		if not hud.workspace.visible and event.ctrl_pressed and event.keycode in [KEY_C, KEY_V]:
 			if event.keycode == KEY_C: _start_copy()
 			else: _start_paste()
@@ -310,6 +318,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					if tunnel != null: world.set_underground_exit(cell, not tunnel.underground_exit)
 			KEY_PAUSE: _toggle_pause()
 			KEY_J: _open_journal()
+			KEY_L: _open_frontier()
 			KEY_C: hud.toggle_crafting()
 			KEY_P: hud.toggle_character()
 			KEY_H:
@@ -406,7 +415,22 @@ func _select(kind: String) -> void:
 	painting = false
 	hud.refresh()
 
+func _open_frontier(id: String = "") -> void:
+	_cancel_planning()
+	painting = false
+	mining_held = false
+	firing_held = false
+	hud.close_workspace()
+	hud.factory_panel.close_panel()
+	hud.survey.hide()
+	hud.hotbar.close_picker()
+	hud.frontier_panel.open_panel(world, id)
+
 func _inspect(cell: Vector2i) -> void:
+	var landmark: String = world.frontier.at(cell)
+	if not landmark.is_empty():
+		_open_frontier(landmark)
+		return
 	var npc: String = world.story.npc_at(world, cell)
 	if not npc.is_empty():
 		world.talk_to_site(npc)
@@ -486,6 +510,7 @@ func _prepare_story() -> void:
 	world.combat.firing = false
 	_cancel_planning()
 	hud.factory_panel.close_panel()
+	hud.frontier_panel.hide()
 	story_was_paused = paused
 	if not paused: _toggle_pause()
 	painting = false
@@ -525,6 +550,7 @@ func _load_save() -> void:
 	_bind_world(result.world)
 	if not world.story.seen.has("arrival"): _open_story("arrival")
 	hud.show_notice("Legacy factory imported; old file preserved. Add inserters between belts and machines." if result.get("legacy", false) else "Factory restored.")
+	if result.get("frontier_added", false): hud.show_notice("Factory restored. New exploration leads await in Discoveries [L / J].")
 
 func _cancel_planning() -> void:
 	copy_mode = false

@@ -2,6 +2,7 @@ extends ColorRect
 const Definitions = preload("res://scripts/data/story_catalog.gd")
 const Style = preload("res://scripts/ui/ui_style.gd")
 const Portrait = preload("res://scripts/ui/npc_portrait.gd")
+signal discoveries_requested
 signal finished(chapter: String)
 signal project_requested(site_id: String)
 var world: RefCounted
@@ -61,6 +62,7 @@ func _ready() -> void:
 	journal_content.add_theme_constant_override("separation", 12)
 	box.add_child(journal_content)
 	journal_content.add_child(Style.label("PEOPLE, PROMISES & THE QUIET", 14, Style.GOLD))
+	Style.button(journal_content, "Discoveries & expedition leads [L]", func(): discoveries_requested.emit())
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(650, 205)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

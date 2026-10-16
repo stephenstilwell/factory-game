@@ -21,7 +21,7 @@ static func encode(world: RefCounted) -> Dictionary:
 		depletion.append([cell.x, cell.y, world.terrain.depleted[cell]])
 	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "resource_scale": world.terrain.stock_scale, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
-		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(),
+		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(), "frontier": world.frontier.serialize(),
 		"researched": world.researched.duplicate(), "research_progress": world.research_progress, "research_target": world.current_research(), "research_banks": world.research_banks.duplicate(), "automation_awards": world.automation_awards.duplicate(), "plans": world.plans.serialize(),
 		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "craft_credit": world.craft_credit, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
 
@@ -223,13 +223,16 @@ static func decode(data) -> Dictionary:
 	world.craft_credit = int(data.get("craft_credit", 0))
 	if data.has("combat") and not world.combat.restore(data.combat, world): return {"error": "Invalid engineer combat state."}
 	if data.has("defense") and not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
+	if data.has("frontier"):
+		if not world.frontier.restore(world, data.frontier): return {"error": "Invalid frontier discoveries."}
+	elif world.settlements.enabled: world.frontier.install(world)
 	if not character.valid_progress(world): return {"error": "Engineer upgrades lack required progression."}
 	for wave in world.settlements.relief_waves:
 		if wave > world.defense.cleared: return {"error": "Relief reward lacks a completed defense."}
 	if data.has("story") and not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
 	if data.has("guidance") and not world.guidance.restore(data.guidance, world.ticks): return {"error": "Invalid player goals or notices."}
 	if data.has("plans") and not world.plans.restore(data.plans, world): return {"error": "Invalid construction plans."}
-	return {"world": world, "error": ""}
+	return {"world": world, "error": "", "frontier_added": not data.has("frontier") and world.frontier.enabled}
 
 static func _legacy(data: Dictionary) -> Dictionary:
 	if not data.get("buildings") is Array or not data.get("items") is Array or data.buildings.size() > MAX_ENTITIES: return {"error": "Invalid legacy save."}
@@ -254,4 +257,5 @@ static func _legacy(data: Dictionary) -> Dictionary:
 		var storage = world.transfer_source(entity)
 		storage.add("iron_ore" if record.item == "ore" else "iron_plate")
 	if not world.settlements.install_legacy(world): return {"error": "No vacant land for settlement projects."}
+	world.frontier.install(world)
 	return {"world": world, "error": "", "legacy": true}

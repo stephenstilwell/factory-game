@@ -1,5 +1,6 @@
 extends SceneTree
 
+const FrontierTests = preload("res://tests/frontier_tests.gd")
 const ProgressionGuidanceTests = preload("res://tests/progression_guidance_tests.gd")
 const PacingTests = preload("res://tests/pacing_tests.gd")
 const CombatTests = preload("res://tests/combat_tests.gd")
@@ -37,6 +38,7 @@ func advance(world: RefCounted, count: int) -> void:
 	for i in range(count): Simulation.step(world)
 
 func _run() -> void:
+	FrontierTests.run(self)
 	ProgressionGuidanceTests.run(self)
 	PacingTests.run(self)
 	ExpansionTests.run(self)
@@ -61,6 +63,7 @@ func _run() -> void:
 	await ExpansionTests.ui(self)
 	await PresentationTests.run(self)
 	await CombatTests.ui(self)
+	await FrontierTests.ui(self)
 	await ProgressionGuidanceTests.ui(self)
 	await PacingTests.ui(self)
 	await _scene_smoke()

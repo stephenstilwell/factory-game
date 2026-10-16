@@ -18,7 +18,7 @@ func observe(world: RefCounted) -> void:
 	if introduced or not world.guide.enabled or Equipment.gate(world, 1) != "": return
 	introduced = true
 	if pinned.is_empty(): pinned = {"kind": "equipment", "id": "boots", "target": 1}
-	world.message.emit("Engineer equipment unlocked! Press P for skills and permanent upgrades. Your first boots are tracked below.")
+	world.message.emit("Engineer equipment unlocked! Press P for skills and permanent upgrades. Your first boots are tracked below. Discoveries [L / J] has leads beyond town.")
 
 func equipment_status(world: RefCounted) -> Dictionary:
 	var ready := 0

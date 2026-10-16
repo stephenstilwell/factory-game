@@ -116,7 +116,7 @@ static func category(id: String) -> String:
 
 static func item_description(id: String) -> String:
 	var descriptions := {
-		"fuel_depot": "Shared coal storage. Automatically delivers real coal to healthy drills and furnaces within 8 tiles. Returning beacon crews extend coverage up to 12 tiles. Load all carried coal with Load coal, or feed continuously by inserter.",
+		"fuel_depot": "Shared coal storage. Automatically delivers real coal to healthy drills and furnaces within 8 tiles. Returning beacon crews extend coverage up to 12 tiles; restored depot runners add one more. Load all carried coal with Load coal, or feed continuously by inserter.",
 		"service_rifle": "Carry in your pack. V draws/holsters it; hold left mouse or Space while drawn to fire during a wave. Uses one ammo per shot. Range 8, damage 16; armor reduces damage. Shots can miss.",
 		"cannon_turret": "Range 8, 32 armor-piercing damage. Uses 2 ammunition every 1.5 seconds. Prioritizes armored haulers. Supply by inserter or manual loading.",
 		"pulse_turret": "Range 4.5, 8 armor-piercing damage in a 1.8-tile burst. Slows targets for 2.5 seconds. Uses 2 ammunition per pulse. Combine with guns and cannons.",

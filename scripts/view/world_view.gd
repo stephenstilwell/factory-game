@@ -8,6 +8,8 @@ const SettlementView = preload("res://scripts/view/settlement_view.gd")
 const DefenseView = preload("res://scripts/view/defense_view.gd")
 const LandscapeView = preload("res://scripts/view/landscape_view.gd")
 const MachineArt = preload("res://scripts/view/machine_art.gd")
+const FrontierView = preload("res://scripts/view/frontier_view.gd")
+const NatureAudio = preload("res://scripts/audio/nature_audio.gd")
 const NpcArt = preload("res://scripts/view/npc_art.gd")
 const EngineerArt = preload("res://scripts/view/engineer_art.gd")
 const Art = preload("res://scripts/view/art.gd")
@@ -41,8 +43,11 @@ var plan_layer: Node2D
 var copy_rect := Rect2i()
 var reduced_motion := false
 var ambient_enabled := true
+var nature_audio: AudioStreamPlayer2D
 
 func _ready() -> void:
+	nature_audio = NatureAudio.new()
+	add_child(nature_audio)
 	placement = PlacementPreview.new()
 	add_child(placement)
 	placement.hide()
@@ -107,6 +112,7 @@ func _process(delta: float) -> void:
 			if not chunks.has(coordinate):
 				var node := ChunkView.new()
 				node.terrain = world.terrain
+				node.frontier = world.frontier
 				node.chunk = coordinate
 				node.position = Vector2(coordinate) * 16 * TILE
 				node.z_index = -1
@@ -118,6 +124,7 @@ func _process(delta: float) -> void:
 	if world.terrain.chunks.size() > 128:
 		for coordinate in world.terrain.chunks.keys():
 			if not visible_chunks.grow(2).has_point(coordinate): world.terrain.chunks.erase(coordinate)
+	nature_audio.step(delta, self)
 	queue_redraw()
 
 func _draw() -> void:
@@ -129,6 +136,14 @@ func _draw() -> void:
 	DefenseView.draw_route(self, world, visible_cells, selected_site)
 	var engineer: Vector2 = world.previous_position.lerp(world.player_position, interpolation) * TILE
 	var drawables: Array = []
+	if world.frontier.enabled:
+		for id in world.frontier.sites:
+			var rect: Rect2i = world.frontier.footprint(id)
+			if visible_cells.intersects(rect.grow(3)): drawables.append({"kind": "landmark", "data": id, "depth": rect.end.y * TILE - 10})
+		for y in range(visible_cells.position.y - 1, visible_cells.end.y + 2):
+			for x in range(visible_cells.position.x - 1, visible_cells.end.x + 2):
+				var cell := Vector2i(x, y)
+				if world.frontier.tree_at(world, cell): drawables.append({"kind": "tree", "data": cell, "depth": y * TILE + 35})
 	if world.settlements.enabled:
 		for site in world.settlements.sites.values():
 			if visible_cells.intersects(site.footprint().grow(3)): drawables.append({"kind": "site", "data": site, "depth": (site.origin.y + 3) * TILE - 6})
@@ -152,6 +167,8 @@ func _draw() -> void:
 				SettlementView.draw_site(self, drawable.data, selected_site, world.defense.phase, animation_time)
 				NpcArt.draw_homecoming(self, drawable.data, world.defense.cleared, world.defense.phase, animation_time)
 				if drawable.data.id == "town_hall": NpcArt.draw_neighborhoods(self, drawable.data, world.settlements.district_level(), animation_time)
+			"landmark": FrontierView.landmark(self, world, drawable.data, animation_time)
+			"tree": FrontierView.tree(self, world, drawable.data, 0.0 if reduced_motion or not ambient_enabled else animation_time, world.player_position.distance_to(Vector2(drawable.data) + Vector2.ONE * 0.5) < 2.5 or (pointer_in_world and not ghost_kind.is_empty()))
 			"npc": NpcArt.draw_npc(self, world, drawable.data, animation_time, pointer_in_world and hover == world.story.npc_cell(world, drawable.data))
 			"machine": _machine(drawable.data)
 			"enemy": DefenseView.draw_enemy(self, drawable.data, world.defense.enemy_health(drawable.data.kind), animation_time, world.ticks, reduced_motion)
@@ -160,6 +177,17 @@ func _draw() -> void:
 				var facing := (Vector2(world.mining_cell) * TILE + Vector2.ONE * 24 - engineer).normalized() if mining else engineer_facing
 				if world.combat.armed: facing = (world.combat.aim - world.player_position).normalized()
 				EngineerArt.draw(self, engineer, facing, animation_time, not paused and world.previous_position != world.player_position, mining, Vector2(world.mining_cell) * TILE + Vector2.ONE * 24)
+	if world.frontier.enabled:
+		FrontierView.garden(self, world, 0.0 if reduced_motion or not ambient_enabled else animation_time, visible_cells)
+		if ambient_enabled and not reduced_motion: FrontierView.wildlife(self, world, visible_cells, animation_time)
+		var tracked: String = world.frontier.target
+		if world.frontier.sites.has(tracked):
+			var destination := (Vector2(world.frontier.port(tracked)) + Vector2.ONE * 0.5) * TILE
+			var toward := destination - engineer
+			var pointer := engineer + toward.normalized() * minf(96, toward.length())
+			var axis := toward.normalized()
+			draw_colored_polygon(PackedVector2Array([pointer + axis * 10, pointer - axis * 7 + axis.orthogonal() * 7, pointer - axis * 7 - axis.orthogonal() * 7]), Art.AMBER)
+			draw_string(ThemeDB.fallback_font, engineer + Vector2(-100, -64), "%s • %d tiles" % [world.frontier.Definitions.SITES[tracked].name, ceili(toward.length() / TILE)], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Art.AMBER)
 	DefenseView.draw_shots(self, world, reduced_motion or not ambient_enabled)
 	DefenseView.draw_player(self, world, pointer_in_world, reduced_motion, engineer)
 	if world.at(selected) != null and world.at(selected).kind == "fuel_depot":
@@ -192,7 +220,8 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([pointer + forward * 9, pointer - forward * 7 + side * 6, pointer - forward * 7 - side * 6]), Color("dfc68d"))
 	if world.mining and world.mining_progress > 0:
 		var target := Vector2(world.mining_cell) * TILE + Vector2.ONE * 24
-		draw_arc(target, 20, -PI / 2, -PI / 2 + TAU * world.mining_progress / float(world.mining_duration() * 100), 24, TEAL, 3)
+		var required: int = 600 if world.frontier.tree_at(world, world.mining_cell) else world.mining_duration() * 100
+		draw_arc(target, 20, -PI / 2, -PI / 2 + TAU * world.mining_progress / float(required), 24, TEAL, 3)
 	if world.at(selected) != null:
 		draw_rect(Rect2(Vector2(selected) * TILE - Vector2.ONE * 2, Vector2.ONE * 52), TEAL, false, 2)
 	if pointer_in_world:

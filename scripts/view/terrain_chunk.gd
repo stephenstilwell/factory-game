@@ -1,9 +1,11 @@
 extends Node2D
 
 const Catalog = preload("res://scripts/data/catalog.gd")
+const Frontier = preload("res://scripts/model/frontier.gd")
 const Art = preload("res://scripts/view/art.gd")
 const TILE := 48
 var terrain: RefCounted
+var frontier: RefCounted
 var chunk := Vector2i.ZERO
 var noise := FastNoiseLite.new()
 
@@ -20,6 +22,8 @@ func _draw() -> void:
 			var moisture := noise.get_noise_2d(cell.x, cell.y)
 			var ground := Color("4c6247").lerp(Color("667155"), clampf(moisture + 0.25, 0, 0.6))
 			ground = ground.lerp(Color("786b50"), clampf(-moisture - 0.05, 0, 0.38))
+			if frontier != null and frontier.enabled:
+				ground = ground.lerp([Color("858365"), Color("3b6853"), Color("71825a")][Frontier.biome(cell, terrain.seed_value)], 0.14)
 			ground = ground.lightened((variation % 5) * 0.002)
 			draw_rect(Rect2(origin, Vector2.ONE * TILE), ground)
 			for i in range(3):
