@@ -53,8 +53,9 @@ const CHAPTERS := {
 		"title": "Room for a name", "speaker": "town_hall", "site": "town_hall",
 		"pages": [
 			"Dry bedding. A sound roof. Space to write a family's name beside a door instead of a number on a camp list. You've given them somewhere they can stay.",
+			"The hall is a beginning. Research Construction engineering at your factory workbench with F, then send construction kits, steel, and copper to our hatch. Every three housing deliveries will restore another neighborhood. Returning crews will help our burners use coal better. A steady supply line means real homes.",
 			"When you're ready, light the beacon from the Town Hall project. There will be fifteen seconds to prepare before the sentries arrive. You can cancel during that warning. Until you choose to signal, we keep building."
-		], "goal": "Prepare loaded turrets and walls. Light the beacon only when you are ready."
+		], "goal": "Restore neighborhoods with housing deliveries. Prepare defenses and signal when you choose."
 	},
 	"first_homecoming": {
 		"title": "A place to come home to", "speaker": "town_hall", "site": "town_hall",

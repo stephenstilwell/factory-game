@@ -59,3 +59,14 @@ static func draw_homecoming(canvas: Node2D, site: RefCounted, cleared: int, phas
 			Art.box(canvas, Rect2(p + Vector2(26 + i * 33, 121), Vector2(22, 8)), Color("bcb794"), 2)
 		if cleared > 0 and phase == "idle":
 			for i in range(3): person(canvas, p + Vector2(23 + i * 43, 139), "visitor", time + i, 0.55)
+static func draw_neighborhoods(canvas: Node2D, site: RefCounted, level: int, time: float) -> void:
+	if not site.repaired or site.health <= 0: return
+	# Small restored cottages occupy the Hall's reserved front terrace.
+	var p := Vector2(site.origin) * 48
+	for i in range(level):
+		var at := p + Vector2(28 + i * 42, 123)
+		Art.box(canvas, Rect2(at + Vector2(-14, -11), Vector2(28, 21)), Color("ccb894"), 2)
+		canvas.draw_colored_polygon(PackedVector2Array([at + Vector2(-18, -10), at + Vector2(0, -24), at + Vector2(18, -10)]), Color("718f87"))
+		Art.box(canvas, Rect2(at + Vector2(-3, -2), Vector2(7, 12)), Color("655440"), 1)
+		Art.box(canvas, Rect2(at + Vector2(-11, -7), Vector2(5, 6)), Art.AMBER, 1)
+		person(canvas, at + Vector2(14, 12), "visitor", time + i, 0.4)

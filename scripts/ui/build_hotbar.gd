@@ -6,6 +6,7 @@ const Slot = preload("res://scripts/ui/hotbar_slot.gd")
 const Tile = preload("res://scripts/ui/item_tile.gd")
 signal build_selected(id: String)
 signal journal_requested
+signal factory_requested
 signal notice(text: String)
 var layout := Layout.new()
 var world: RefCounted
@@ -26,7 +27,7 @@ func _ready() -> void:
 	add_theme_constant_override("separation", 4)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 6)
+	row.add_theme_constant_override("separation", 4)
 	add_child(row)
 	var previous := Style.button(row, "‹", func(): change_page(-1))
 	previous.tooltip_text = "Previous hotbar page [Shift+Tab]"
@@ -44,6 +45,7 @@ func _ready() -> void:
 	library.tooltip_text = "Choose a slot and assign a building. Right-click any slot to edit it."
 	var journal := Style.button(row, "Journal [J]", func(): journal_requested.emit())
 	journal.custom_minimum_size = Vector2(96, 62)
+	Style.button(row, "Factory [F]", func(): factory_requested.emit())
 	caption = Style.label("", 13, Style.MUTED)
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.max_lines_visible = 1

@@ -2,7 +2,7 @@
 
 ## Direction
 
-Use **guided learning milestones for the opening, followed by a branching science-funded research tree**. Equipment and machine upgrades belong to research branches. Experience levels and free item rewards are not needed: learning a new production method and building it is the progression.
+Use **guided learning milestones for the opening, followed by a branching science-funded research tree**. Material-funded engineer equipment and optional 1–99 skills complement research. One-time automation commissions reward replacing manual work with production lines; no free item rewards are used.
 
 Milestones teach a specific action and reveal the next relevant recipe/tool. Research consumes produced resources and unlocks lasting capabilities. Keep the two systems separate, so adding onboarding text does not change technology costs or network behavior.
 
@@ -34,21 +34,23 @@ Only the current lesson and relevant recipes/tools are displayed. Controls, ingr
 
 Definitions live in `scripts/simulation/onboarding.gd`. Its counters are fed by successful world commands and simulation events, not UI clicks or current inventory counts. Guide state is saved and validated independently of research. The entire resource-only path through first research is covered by an integration test. Test-only worlds can omit onboarding to exercise individual systems directly. Existing saves without guide state remain unrestricted.
 
-## Planned research tree
+## Implemented research branches
 
-The current prototype still has a **linear two-technology chain**: Logistics I (10 science packs, fast belts), then Metallurgy (20 packs, steel). A branching graph, technology selection screen, and upgrade tiers have not been implemented yet.
+Logistics I (10 science packs) opens both Metallurgy (20, steel) and Advanced routing (20, splitters and underground conveyors). Construction engineering (25, construction kits) follows Metallurgy. Press F to choose an available project; switching preserves completed science investment. Labs consume real packs. Research continues automatically into an available project after completion, and can be redirected.
 
-The intended next research model gives each technology a stable ID, prerequisite IDs, science ingredients/counts, and explicit unlock effects. Players choose an available technology and labs contribute to that shared project. New science tiers require combining more production chains, providing concrete goals for factory expansion.
+Construction kits feed Town Hall housing deliveries: each three deliveries restores a neighborhood, up to three, each adding +5% base coal working time. This gives the steel branch a settlement purpose. Routing improves distribution and reuse of layouts. All placeable buildings can now be manufactured in assemblers. See [factory expansion](factory-expansion.md) for controls, costs, metrics, and saved construction plans.
 
-| Planned branch | Capabilities |
+Future work should add real capabilities:
+
+| Future branch work | Capabilities |
 | --- | --- |
-| Logistics | Splitters, underground belts, faster belts, better inserters |
+| Logistics | Filter/priority routing and better inserters |
 | Energy | Electricity, poles, generation, storage, improved energy systems |
-| Production | Steel, advanced assemblers, new materials and recipes |
+| Production | New materials and recipes, advanced assemblers |
 | Chemistry | Fluids, oil processing, plastics, chemical science |
 | Transportation | Rails, trains, stations, automated supply networks |
 | Engineer equipment | Better tools, inventory capacity, movement and construction aids |
 
 Prioritize unlocks that change layouts and decisions over repeated percentage bonuses. Efficiency/speed upgrades can follow once the systems they modify exist. Research definitions must reference real implemented content; planned branches should not appear as functional unlocks before those systems are built.
 
-Introductory milestones may remain linear to control teaching order. Research branches should provide choices without letting the player bypass the material dependencies needed to bootstrap a factory. Future blueprints, remote construction, and resource exploration should be introduced when factory scale creates a reason to use them.
+Introductory milestones may remain linear to control teaching order. Research branches should provide choices without letting the player bypass the material dependencies needed to bootstrap a factory. Remote construction and broader exploration should grow from actual factory-scale needs; configuration copy/paste and finite resource exploration are already available.

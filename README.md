@@ -8,6 +8,8 @@ The game starts in **borderless fullscreen**. Press **F11** or use the top-bar d
 
 Your first regional goal is to **reopen Oldbridge's ruined trading post**, supply its neighbors, and fund the engineers' workshop. Press **T** for town projects, or click a landmark in the world. See [docs/settlements.md](docs/settlements.md) for repair costs, contracts, delivery automation, and the first global bonus.
 
+Press **F** for the new factory workbench: choose research, compare recent production and consumption, inspect stalled production, and manage construction plans. Assemblers can manufacture every placeable building. After Logistics I, choose routing tools or steel production; Construction engineering turns steel into housing supplies for a growing Oldbridge. See [factory expansion](docs/factory-expansion.md).
+
 ## Play
 
 New games start with **an empty inventory and no working factory buildings**. Three abandoned civic landmarks are waiting to be restored using your production. You appear near stone at (26, 9). The learning guide shows one objective at a time, with a direction arrow and a highlighted resource/machine where relevant. Hold **right mouse** over a nearby deposit to mine by hand.

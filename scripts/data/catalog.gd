@@ -2,7 +2,11 @@ extends RefCounted
 ## Stable string IDs are shared by simulation, saves, crafting, and presentation.
 ## Durations are integer simulation ticks (10 ticks = 1 second).
 
+const TRANSPORT := ["belt", "fast_belt", "splitter", "underground_belt"]
 const ITEMS := {
+	"splitter": {"name": "Splitter junction", "color": "c9a46c"},
+	"underground_belt": {"name": "Underground conveyor", "color": "8bb3ab"},
+	"construction_kit": {"name": "Construction kit", "color": "b69b72"},
 	"wall": {"name": "Stone wall", "color": "b1a48a"},
 	"turret": {"name": "Gun turret", "color": "85a6a6"},
 	"ammo": {"name": "Ammo rounds", "color": "e2b06b"},
@@ -29,6 +33,8 @@ const ITEMS := {
 
 const BUILD_ORDER := ["belt", "drill", "furnace", "inserter", "chest", "assembler", "lab", "fast_belt"]
 const BUILDINGS := {
+	"splitter": {"capacity": 1, "solid": false, "technology": "routing"},
+	"underground_belt": {"capacity": 1, "solid": false, "technology": "routing"},
 	"wall": {"capacity": 0, "solid": true, "health": 120},
 	"turret": {"capacity": 30, "solid": true, "health": 100, "technology": "logistics"},
 	"belt": {"capacity": 1, "solid": false},
@@ -37,13 +43,16 @@ const BUILDINGS := {
 	"furnace": {"capacity": 30, "solid": true, "fuel": true, "recipes": ["iron_plate", "copper_plate", "steel"]},
 	"inserter": {"capacity": 1, "solid": false},
 	"chest": {"capacity": 200, "solid": true},
-	"assembler": {"capacity": 40, "solid": true, "recipes": ["gear", "wire", "science", "ammo", "repair_kit"]},
+	"assembler": {"capacity": 40, "solid": true, "recipes": ["gear", "wire", "science", "ammo", "repair_kit", "belt", "inserter", "chest", "drill", "furnace", "assembler", "lab", "fast_belt", "wall", "turret", "splitter", "underground_belt", "construction_kit"]},
 	"lab": {"capacity": 40, "solid": true},
 }
 
 const RECIPES := {
-	"wall": {"in": {"stone": 5}, "out": {"wall": 1}, "ticks": 5, "hand": true},
-	"turret": {"in": {"iron_plate": 12, "gear": 5, "copper_plate": 5}, "out": {"turret": 1}, "ticks": 40, "hand": true, "technology": "logistics"},
+	"splitter": {"in": {"iron_plate": 4, "gear": 2}, "out": {"splitter": 1}, "ticks": 20, "hand": true, "machine": "assembler", "technology": "routing"},
+	"underground_belt": {"in": {"iron_plate": 6, "belt": 4}, "out": {"underground_belt": 2}, "ticks": 20, "hand": true, "machine": "assembler", "technology": "routing"},
+	"construction_kit": {"in": {"steel": 2, "gear": 2, "wire": 4}, "out": {"construction_kit": 1}, "ticks": 40, "machine": "assembler", "technology": "construction"},
+	"wall": {"in": {"stone": 5}, "out": {"wall": 1}, "ticks": 5, "hand": true, "machine": "assembler"},
+	"turret": {"in": {"iron_plate": 12, "gear": 5, "copper_plate": 5}, "out": {"turret": 1}, "ticks": 40, "hand": true, "machine": "assembler", "technology": "logistics"},
 	"ammo": {"in": {"iron_plate": 2}, "out": {"ammo": 5}, "ticks": 15, "machine": "assembler", "hand": true, "technology": "logistics"},
 	"repair_kit": {"in": {"iron_plate": 2, "copper_plate": 1}, "out": {"repair_kit": 1}, "ticks": 20, "machine": "assembler", "hand": true},
 	"iron_plate": {"in": {"iron_ore": 1}, "out": {"iron_plate": 1}, "ticks": 32, "machine": "furnace"},
@@ -52,20 +61,27 @@ const RECIPES := {
 	"gear": {"in": {"iron_plate": 2}, "out": {"gear": 1}, "ticks": 10, "machine": "assembler", "hand": true},
 	"wire": {"in": {"copper_plate": 1}, "out": {"wire": 2}, "ticks": 5, "machine": "assembler", "hand": true},
 	"science": {"in": {"iron_plate": 1, "gear": 1, "copper_plate": 1}, "out": {"science": 1}, "ticks": 40, "machine": "assembler", "hand": true},
-	"belt": {"in": {"iron_plate": 1}, "out": {"belt": 2}, "hand": true},
-	"drill": {"in": {"iron_plate": 5, "gear": 3, "stone": 5}, "out": {"drill": 1}, "hand": true},
-	"furnace": {"in": {"stone": 5}, "out": {"furnace": 1}, "hand": true},
-	"inserter": {"in": {"iron_plate": 1, "gear": 1}, "out": {"inserter": 1}, "hand": true},
-	"chest": {"in": {"iron_plate": 2}, "out": {"chest": 1}, "hand": true},
-	"assembler": {"in": {"iron_plate": 9, "gear": 5}, "out": {"assembler": 1}, "hand": true},
-	"lab": {"in": {"iron_plate": 10, "gear": 5, "wire": 5}, "out": {"lab": 1}, "hand": true},
-	"fast_belt": {"in": {"belt": 1, "gear": 2}, "out": {"fast_belt": 1}, "hand": true, "technology": "logistics"},
+	"belt": {"in": {"iron_plate": 1}, "out": {"belt": 2}, "ticks": 10, "hand": true, "machine": "assembler"},
+	"drill": {"in": {"iron_plate": 5, "gear": 3, "stone": 5}, "out": {"drill": 1}, "ticks": 30, "hand": true, "machine": "assembler"},
+	"furnace": {"in": {"stone": 5}, "out": {"furnace": 1}, "ticks": 15, "hand": true, "machine": "assembler"},
+	"inserter": {"in": {"iron_plate": 1, "gear": 1}, "out": {"inserter": 1}, "ticks": 15, "hand": true, "machine": "assembler"},
+	"chest": {"in": {"iron_plate": 2}, "out": {"chest": 1}, "ticks": 10, "hand": true, "machine": "assembler"},
+	"assembler": {"in": {"iron_plate": 9, "gear": 5}, "out": {"assembler": 1}, "ticks": 40, "hand": true, "machine": "assembler"},
+	"lab": {"in": {"iron_plate": 10, "gear": 5, "wire": 5}, "out": {"lab": 1}, "ticks": 40, "hand": true, "machine": "assembler"},
+	"fast_belt": {"in": {"belt": 1, "gear": 2}, "out": {"fast_belt": 1}, "ticks": 15, "hand": true, "machine": "assembler", "technology": "logistics"},
 }
 
 const TECHNOLOGIES := [
-	{"id": "logistics", "name": "Logistics I", "cost": 10, "unlock": "Fast conveyors"},
-	{"id": "metallurgy", "name": "Metallurgy", "cost": 20, "unlock": "Steel smelting"},
+	{"id": "logistics", "name": "Logistics I", "cost": 10, "requires": [], "unlock": "Fast conveyors"},
+	{"id": "metallurgy", "name": "Metallurgy", "cost": 20, "requires": ["logistics"], "unlock": "Steel smelting"},
+	{"id": "routing", "name": "Advanced routing", "cost": 20, "requires": ["logistics"], "unlock": "Splitters and underground conveyors"},
+	{"id": "construction", "name": "Construction engineering", "cost": 25, "requires": ["metallurgy"], "unlock": "Construction kits and housing supply lines"},
 ]
+
+static func technology(id: String) -> Dictionary:
+	for definition in TECHNOLOGIES:
+		if definition.id == id: return definition
+	return {}
 
 static func item_name(id: String) -> String:
 	return ITEMS.get(id, {}).get("name", id)
@@ -86,6 +102,9 @@ static func category(id: String) -> String:
 
 static func item_description(id: String) -> String:
 	var descriptions := {
+		"splitter": "A one-tile junction. Alternates items between forward and RIGHT outputs, bypassing blocked branches. Feed from behind; R rotates.",
+		"underground_belt": "A pair crosses up to six tiles. Both ends face the flow direction. G toggles entrance/exit while building; the inspector can change existing ends.",
+		"construction_kit": "Automated steel, gear, and wire supplies for Town Hall housing deliveries. Three deliveries restore a neighborhood.",
 		"wall": "A 120-health barrier. Equip from your pack and place across the marked eastern approach. Scavengers must break it to advance. Repair with H.",
 		"turret": "Fires at scavengers within six tiles. Each shot consumes one ammunition. Load by drag, Ctrl-click, or inserter. Equip from your pack to build.",
 		"ammo": "Five rounds per batch. Gun turrets consume one per shot; automate production and delivery with an assembler and inserters.",

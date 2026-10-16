@@ -22,7 +22,7 @@ static func encode(world: RefCounted) -> Dictionary:
 	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
 		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "story": world.story.serialize(),
-		"researched": world.researched.duplicate(), "research_progress": world.research_progress,
+		"researched": world.researched.duplicate(), "research_progress": world.research_progress, "research_target": world.current_research(), "research_banks": world.research_banks.duplicate(), "automation_awards": world.automation_awards.duplicate(), "plans": world.plans.serialize(),
 		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
 
 static func save_world(world: RefCounted, path: String = PATH) -> String:
@@ -76,7 +76,7 @@ static func _restore_guide(world: RefCounted, data) -> bool:
 		var parts: PackedStringArray = key.split(":")
 		if parts.size() != 2: return false
 		if parts[0] == "researched":
-			if parts[1] not in ["logistics", "metallurgy"]: return false
+			if Catalog.technology(parts[1]).is_empty(): return false
 		elif parts[0] not in ["mined", "crafted", "placed", "fed", "collected", "extracted", "smelted", "assembled", "stored", "produced"] or not Catalog.ITEMS.has(parts[1]): return false
 	world.guide.enabled = data.enabled
 	world.guide.counters = _counts(data.counters)
@@ -110,17 +110,37 @@ static func decode(data) -> Dictionary:
 	world.player_position = Vector2(float(position[0]), float(position[1]))
 	world.previous_position = world.player_position
 	world.ticks = int(data.ticks)
+	world.metrics.start_tick = world.ticks
 	world.next_id = int(data.next_id)
 	# Older v2 saves had no guide. Preserve their unrestricted progression and layout.
 	if data.has("onboarding") and not _restore_guide(world, data.onboarding): return {"error": "Invalid learning progress."}
 	if data.has("settlements") and not SettlementSave.restore(world, data.settlements): return {"error": "Invalid settlement economy."}
 	var research = data.get("researched")
 	if not research is Array or research.size() > Catalog.TECHNOLOGIES.size(): return {"error": "Invalid research."}
-	for i in range(research.size()):
-		if research[i] != Catalog.TECHNOLOGIES[i].id: return {"error": "Invalid technology order."}
-	world.researched = research.duplicate()
+	for id in research:
+		if not id is String or not world.research_available(id): return {"error": "Invalid technology prerequisites."}
+		world.researched.append(id)
+	var target = data.get("research_target", world.current_research())
+	if not target is String or (not target.is_empty() and not world.research_available(target)): return {"error": "Invalid research target."}
+	if target.is_empty() and world.researched.size() != Catalog.TECHNOLOGIES.size(): return {"error": "Missing research target."}
+	world.research_target = target
+	var banks = data.get("research_banks", {})
+	if not banks is Dictionary or banks.size() > Catalog.TECHNOLOGIES.size(): return {"error": "Invalid research investments."}
+	for id in banks:
+		if id == target or not world.research_available(id) or not _integer(banks[id], 1, int(Catalog.technology(id).cost) - 1): return {"error": "Invalid research investment."}
+	world.research_banks = _counts(banks)
+	var awards = data.get("automation_awards", {})
+	if not awards is Dictionary or awards.size() > 128: return {"error": "Invalid automation milestones."}
+	var allowed_awards: Array = []
+	for id in Catalog.RECIPES: allowed_awards.append("line:" + id)
+	for id in World.Terrain.RESOURCE_IDS: allowed_awards.append("mine:" + id)
+	for site_id in world.settlements.sites:
+		for threshold in [1, 5, 10]: allowed_awards.append("delivery:%s:%d" % [site_id, threshold])
+	for key in awards:
+		if key not in allowed_awards or not awards[key] is bool or awards[key] != true: return {"error": "Invalid automation milestone."}
+	world.automation_awards = awards.duplicate()
 	if not character.valid_progress(world): return {"error": "Engineer upgrades lack required progression."}
-	var research_limit: int = int(Catalog.TECHNOLOGIES[research.size()].cost) - 1 if research.size() < Catalog.TECHNOLOGIES.size() else 0
+	var research_limit: int = int(Catalog.technology(world.research_target).cost) - 1 if not world.research_target.is_empty() else 0
 	if not _integer(data.get("research_progress"), 0, research_limit): return {"error": "Invalid research progress."}
 	world.research_progress = int(data.research_progress)
 	for record in data.entities:
@@ -135,10 +155,17 @@ static func decode(data) -> Dictionary:
 		if not _integer(record.get("health", entity.max_health()), 0, entity.max_health()) or not _integer(record.get("attack_cooldown", 0), 0, 4): return {"error": "Invalid structure health or combat timer."}
 		entity.health = int(record.get("health", entity.max_health()))
 		entity.attack_cooldown = int(record.get("attack_cooldown", 0))
+		if not _integer(record.get("routing_cursor", 0), 0, 1) or not _integer(record.get("merge_cursor", 0)) or not record.get("underground_exit", false) is bool: return {"error": "Invalid transport state."}
+		entity.routing_cursor = int(record.get("routing_cursor", 0))
+		entity.merge_cursor = int(record.get("merge_cursor", 0))
+		entity.underground_exit = record.get("underground_exit", false)
+		if entity.kind != "splitter" and entity.routing_cursor != 0: return {"error": "Invalid splitter state."}
+		if entity.kind not in Catalog.TRANSPORT and entity.merge_cursor != 0: return {"error": "Invalid merge state."}
+		if entity.kind != "underground_belt" and entity.underground_exit: return {"error": "Invalid tunnel state."}
 		if entity.kind != "turret" and entity.attack_cooldown != 0: return {"error": "Invalid turret timer."}
 		if not entity.recipe.is_empty() and not world.unlocked(Catalog.RECIPES[entity.recipe]): return {"error": "Recipe is not researched."}
 		var duration: int = int(Catalog.RECIPES[entity.recipe].ticks) if not entity.recipe.is_empty() else (30 if entity.kind == "lab" else 15)
-		var fuel_limit := 96 if world.settlements.sites.workshop.repaired else 80
+		var fuel_limit: int = (96 if world.settlements.sites.workshop.repaired else 80) + world.settlements.district_level() * 4
 		if not _integer(record.get("progress"), 0, duration - 1) or not _integer(record.get("burn_ticks"), 0, fuel_limit) or not _integer(record.get("cooldown"), 0, 2): return {"error": "Invalid machine timers."}
 		if not record.get("carried") is String or (record.carried != "" and (entity.kind != "inserter" or not Catalog.ITEMS.has(record.carried))): return {"error": "Invalid inserter hand."}
 		entity.inventory.contents = _counts(record.inventory)
@@ -183,6 +210,7 @@ static func decode(data) -> Dictionary:
 	world.next_craft_id = int(data.get("next_craft_id", maximum_job_id + 1))
 	if data.has("defense") and not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
 	if data.has("story") and not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
+	if data.has("plans") and not world.plans.restore(data.plans, world): return {"error": "Invalid construction plans."}
 	return {"world": world, "error": ""}
 
 static func _legacy(data: Dictionary) -> Dictionary:

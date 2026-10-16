@@ -85,7 +85,7 @@ static func run(test: SceneTree) -> void:
 	automated.spawn("assembler", Vector2i(19, 15), 0).inventory.add("iron_plate", 4)
 	automated.spawn("drill", Vector2i(14, 16), 0).inventory.add("coal", 5)
 	test.advance(automated, 40)
-	test.check(automated.skills.xp.mining == 0 and automated.skills.xp.fabrication == 0 and automated.skills.xp.exploration == 0, "Automated factories and idle engineers do not generate personal XP")
+	test.check(automated.skills.xp.mining == 100 and automated.skills.xp.fabrication == 120 and automated.skills.xp.exploration == 0, "First automated resource and recipe batches grant commissioning XP without idle XP")
 	var explorer := World.new(123)
 	explorer.start()
 	explorer.move_direction = Vector2.RIGHT

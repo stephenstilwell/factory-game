@@ -12,7 +12,9 @@ const NpcArt = preload("res://scripts/view/npc_art.gd")
 const EngineerArt = preload("res://scripts/view/engineer_art.gd")
 const Art = preload("res://scripts/view/art.gd")
 const Effects = preload("res://scripts/view/visual_effects.gd")
+const PlanLayer = preload("res://scripts/view/plan_layer.gd")
 const PlacementPreview = preload("res://scripts/view/placement_preview.gd")
+const Transport = preload("res://scripts/simulation/transport.gd")
 const TILE := 48
 const TEAL := Color("80d8ba")
 
@@ -25,6 +27,7 @@ var selected_site := ""
 var hover := Vector2i.ZERO
 var ghost_kind := ""
 var facing := 0
+var underground_exit := false
 var pointer_in_world := false
 var animation_time := 0.0
 var paused := false
@@ -33,17 +36,26 @@ var resource_target: Dictionary = {}
 var effects := Effects.new()
 var engineer_facing := Vector2.DOWN
 var placement: Node2D
+var plan_layer: Node2D
+var copy_rect := Rect2i()
 
 func _ready() -> void:
 	placement = PlacementPreview.new()
 	add_child(placement)
 	placement.hide()
+	plan_layer = PlanLayer.new()
+	plan_layer.z_index = 2
+	add_child(plan_layer)
 
 func bind(state: RefCounted, view_camera: Camera2D) -> void:
 	if world != null:
 		if world.hand_resource_extracted.is_connected(_on_mined): world.hand_resource_extracted.disconnect(_on_mined)
 		if world.structure_repaired.is_connected(_on_repaired): world.structure_repaired.disconnect(_on_repaired)
 	world = state
+	plan_layer.world = world
+	for node in plan_layer.nodes.values(): node.queue_free()
+	plan_layer.nodes.clear()
+	plan_layer.pasting = false
 	world.hand_resource_extracted.connect(_on_mined)
 	world.structure_repaired.connect(_on_repaired)
 	effects.particles.clear()
@@ -55,7 +67,9 @@ func bind(state: RefCounted, view_camera: Camera2D) -> void:
 func _process(delta: float) -> void:
 	if world == null: return
 	placement.visible = pointer_in_world and not ghost_kind.is_empty() and world.at(hover) == null
-	if placement.visible: placement.show_building(ghost_kind, hover, facing, world.can_build(ghost_kind, hover).is_empty())
+	if placement.visible:
+		placement.show_building(ghost_kind, hover, facing, world.can_build(ghost_kind, hover).is_empty())
+		placement.preview.underground_exit = underground_exit and ghost_kind == "underground_belt"
 	if not paused:
 		animation_time += delta
 		effects.step(delta)
@@ -64,6 +78,7 @@ func _process(delta: float) -> void:
 	var minimum := Vector2i(((camera.position - half_size) / TILE).floor()) - Vector2i.ONE
 	var maximum := Vector2i(((camera.position + half_size) / TILE).ceil()) + Vector2i.ONE
 	visible_cells = Rect2i(minimum, maximum - minimum)
+	plan_layer.visible_cells = visible_cells
 	var min_chunk: Vector2i = world.terrain.chunk_at(minimum)
 	var max_chunk: Vector2i = world.terrain.chunk_at(maximum)
 	var visible_chunks := Rect2i(min_chunk, max_chunk - min_chunk + Vector2i.ONE)
@@ -98,7 +113,9 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	if world == null: return
+	if copy_rect.has_area(): draw_rect(Rect2(Vector2(copy_rect.position) * TILE, Vector2(copy_rect.size) * TILE), Color(0.4, 0.8, 1.0, 0.6), false, 3)
 	LandscapeView.draw(self, world.settlements, visible_cells)
+	_draw_tunnel_link()
 	if pointer_in_world and not ghost_kind.is_empty(): _build_grid()
 	DefenseView.draw_route(self, world, visible_cells, selected_site)
 	var engineer: Vector2 = world.previous_position.lerp(world.player_position, interpolation) * TILE
@@ -109,7 +126,7 @@ func _draw() -> void:
 	for y in range(visible_cells.position.y, visible_cells.end.y):
 		for x in range(visible_cells.position.x, visible_cells.end.x):
 			var entity = world.at(Vector2i(x, y))
-			if entity != null: drawables.append({"kind": "machine", "data": entity, "depth": y * TILE + (18 if entity.kind in ["belt", "fast_belt"] else 43)})
+			if entity != null: drawables.append({"kind": "machine", "data": entity, "depth": y * TILE + (18 if entity.kind in Catalog.TRANSPORT else 43)})
 	if world.settlements.enabled:
 		for id in world.story.Definitions.NPCS:
 			var cell: Vector2i = world.story.npc_cell(world, id)
@@ -123,6 +140,7 @@ func _draw() -> void:
 			"site":
 				SettlementView.draw_site(self, drawable.data, selected_site, world.defense.phase, animation_time)
 				NpcArt.draw_homecoming(self, drawable.data, world.defense.cleared, world.defense.phase, animation_time)
+				if drawable.data.id == "town_hall": NpcArt.draw_neighborhoods(self, drawable.data, world.settlements.district_level(), animation_time)
 			"npc": NpcArt.draw_npc(self, world, drawable.data, animation_time, pointer_in_world and hover == world.story.npc_cell(world, drawable.data))
 			"machine": _machine(drawable.data)
 			"enemy": DefenseView.draw_enemy(self, drawable.data, world.defense.enemy_health(), animation_time)
@@ -185,17 +203,17 @@ func _machine(entity: RefCounted) -> void:
 				aim = Vector2(shot.to - entity.cell).normalized()
 				firing = true
 	MachineArt.draw(self, entity, center, animation_time, aim, firing, interpolation)
-	if entity.kind in ["belt", "fast_belt"] and entity.inventory.total() > 0:
+	if entity.kind in Catalog.TRANSPORT and entity.inventory.total() > 0:
 		var item_position := center
 		var next = world.at(entity.cell + World.DIRS[entity.direction])
-		if entity.health > 0 and next != null and next.health > 0 and next.kind in ["belt", "fast_belt"] and next.inventory.total() == 0:
+		if entity.health > 0 and next != null and next.health > 0 and next.kind in Catalog.TRANSPORT and next.inventory.total() == 0:
 			var travel := interpolation if entity.kind == "fast_belt" else (posmod(world.ticks, 2) + interpolation) / 2.0
 			item_position += Vector2(World.DIRS[entity.direction]) * (travel - 0.5) * TILE
 		_item(item_position, entity.inventory.contents.keys()[0])
 	if entity.kind == "inserter" and entity.carried != "":
 		_item(center + Vector2(World.DIRS[entity.direction]) * MachineArt.hand_extension(entity, interpolation), entity.carried, 0.7)
-	if entity.kind not in ["belt", "fast_belt", "inserter", "chest", "wall"]:
-		var working: bool = entity.status in ["Working", "Researching", "Firing"] or entity.status.begins_with("Mining")
+	if entity.kind not in (Catalog.TRANSPORT + ["inserter", "chest", "wall"]):
+		var working: bool = entity.status in ["Working", "Firing"] or entity.status.begins_with("Researching") or entity.status.begins_with("Mining")
 		var indicator := Color("9dccab") if working else Color("ddae6f")
 		draw_circle(center + Vector2(17, 13), 3.5, Art.INK)
 		draw_circle(center + Vector2(17, 12), 2.2, indicator if entity.health > 0 else Color("bd7563"))
@@ -241,3 +259,23 @@ func _item(center: Vector2, id: String, scale_factor: float = 1.0) -> void:
 	else:
 		draw_circle(center + Vector2(1, 2), 7 * scale_factor, Color("202824"))
 		draw_circle(center, 6 * scale_factor, color)
+
+func _draw_tunnel_link() -> void:
+	if not pointer_in_world: return
+	var entry = world.at(hover)
+	if entry == null or entry.kind != "underground_belt": return
+	if entry.underground_exit:
+		var found = null
+		for distance in range(1, Transport.UNDERGROUND_SPAN + 1):
+			var candidate = world.at(entry.cell - World.DIRS[entry.direction] * distance)
+			if candidate != null and candidate.kind == "underground_belt" and candidate.direction == entry.direction:
+				if not candidate.underground_exit and Transport.partner(world, candidate) == entry: found = candidate
+				break
+		entry = found
+	if entry == null: return
+	var exit = Transport.partner(world, entry)
+	if exit == null: return
+	var start := (Vector2(entry.cell) + Vector2.ONE * 0.5) * TILE
+	var end := (Vector2(exit.cell) + Vector2.ONE * 0.5) * TILE
+	draw_dashed_line(start, end, TEAL, 3, 8)
+	draw_rect(Rect2(Vector2(exit.cell) * TILE, Vector2.ONE * TILE), TEAL, false, 2)

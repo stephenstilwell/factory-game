@@ -11,6 +11,9 @@ const Transfers = preload("res://scripts/simulation/inventory_transfers.gd")
 const Crafting = preload("res://scripts/simulation/crafting.gd")
 const Character = preload("res://scripts/model/character_progression.gd")
 const Skills = preload("res://scripts/model/skills.gd")
+const Transport = preload("res://scripts/simulation/transport.gd")
+const Metrics = preload("res://scripts/model/production_metrics.gd")
+const Plans = preload("res://scripts/simulation/construction_plans.gd")
 const Story = preload("res://scripts/simulation/story_state.gd")
 const Defense = preload("res://scripts/simulation/defense.gd")
 const DIRS := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
@@ -43,6 +46,11 @@ var ticks := 0
 var production: Dictionary = {}
 var researched: Array = []
 var research_progress := 0
+var research_target := "logistics"
+var research_banks: Dictionary = {}
+var automation_awards: Dictionary = {}
+var metrics := Metrics.new()
+var plans := Plans.new()
 var craft_queue: Array = []
 var next_craft_id := 1
 var mining_cell := Vector2i.ZERO
@@ -84,6 +92,11 @@ func start() -> void:
 	production.clear()
 	researched.clear()
 	research_progress = 0
+	research_target = "logistics"
+	research_banks.clear()
+	automation_awards.clear()
+	metrics = Metrics.new()
+	plans = Plans.new()
 	craft_queue.clear()
 	next_craft_id = 1
 	mining = false
@@ -93,6 +106,7 @@ func start() -> void:
 func content_available(id: String) -> bool:
 	if id in ["wall", "repair_kit"]: return settlements.enabled and settlements.sites.trading_post.repaired
 	if id in ["turret", "ammo"]: return settlements.enabled and settlements.sites.workshop.repaired
+	if id in ["splitter", "underground_belt", "construction_kit"]: return guide.available("assembler")
 	return guide.available(id)
 
 func record(key: String, amount: int = 1) -> void:
@@ -135,20 +149,23 @@ func can_build(kind: String, cell: Vector2i) -> String:
 	if at(cell) != null: return "Tile is occupied."
 	if defense.occupied(cell): return "A scavenger occupies this tile."
 	if settlements.at(cell) != null: return "This land belongs to a settlement project."
-	if not unlocked(Catalog.BUILDINGS[kind]): return "Research Logistics I first."
+	if not unlocked(Catalog.BUILDINGS[kind]): return "Research " + Catalog.technology(Catalog.BUILDINGS[kind].technology).name + " first."
 	if not content_available(kind): return "Follow the current learning objective to discover this building."
 	if player.count(kind) == 0: return "Craft more %s (C)." % Catalog.item_name(kind)
 	if Catalog.BUILDINGS[kind].solid and Rect2(Vector2(cell), Vector2.ONE).grow(0.22).has_point(player_position): return "Move away from the construction tile."
 	if kind == "drill" and terrain.tile(cell).is_empty(): return "Drills require a resource deposit."
 	return ""
 
-func build(kind: String, cell: Vector2i, direction: int) -> bool:
+func build(kind: String, cell: Vector2i, direction: int, exit_mode: bool = false) -> bool:
 	var reason := can_build(kind, cell)
 	if not reason.is_empty():
 		message.emit(reason)
 		return false
 	player.remove(kind)
-	spawn(kind, cell, direction)
+	metrics.record(ticks, "used", kind, 1)
+	var entity = spawn(kind, cell, direction)
+	entity.underground_exit = exit_mode if kind == "underground_belt" else false
+	plans.ghosts.erase(cell)
 	record("placed:" + kind)
 	feedback_requested.emit("build", cell)
 	changed.emit()
@@ -224,7 +241,7 @@ func collect_output(cell: Vector2i) -> void:
 	if entity.kind == "inserter":
 		if entity.carried != "": transfer_item(entity.carried, 0, {"kind": "hand", "entity_id": entity.id}, {"kind": "player"})
 		return
-	var kind := "input" if entity.kind in ["chest", "belt", "fast_belt", "turret"] else "output"
+	var kind := "input" if entity.kind in (["chest", "turret"] + Catalog.TRANSPORT) else "output"
 	var storage = entity.inventory if kind == "input" else entity.output
 	for item in storage.contents.keys(): transfer_item(item, 0, {"kind": kind, "entity_id": entity.id}, {"kind": "player"})
 
@@ -244,7 +261,7 @@ func deposit(cell: Vector2i, item: String, amount: int = 5) -> void:
 		message.emit("This machine does not accept " + Catalog.item_name(item) + ".")
 		return
 	var limit := amount
-	if entity.kind not in ["chest", "belt", "fast_belt"]: limit = mini(amount, maxi(0, 10 - entity.inventory.count(item)))
+	if entity.kind not in (["chest"] + Catalog.TRANSPORT): limit = mini(amount, maxi(0, input_limit(entity, item) - entity.inventory.count(item)))
 	var moved: int = player.move_to(entity.inventory, item, limit)
 	if entity.kind == "furnace": record("fed:" + item, moved)
 	message.emit("Inserted %d %s." % [moved, Catalog.item_name(item)])
@@ -267,7 +284,7 @@ func supply(cell: Vector2i) -> void:
 	var accepted := 0
 	for item in Catalog.ITEMS:
 		if accepts(entity, item):
-			var moved: int = player.move_to(entity.inventory, item, mini(5, maxi(0, 10 - entity.inventory.count(item))))
+			var moved: int = player.move_to(entity.inventory, item, mini(5, maxi(0, input_limit(entity, item) - entity.inventory.count(item))))
 			accepted += moved
 			if entity.kind == "furnace": record("fed:" + item, moved)
 	message.emit("Supplied %d items." % accepted)
@@ -298,18 +315,60 @@ func set_recipe(cell: Vector2i, recipe_id: String) -> bool:
 	changed.emit()
 	return true
 
+func input_limit(entity: RefCounted, item: String) -> int:
+	if item == "coal" and Catalog.BUILDINGS[entity.kind].get("fuel", false): return 10
+	if not entity.recipe.is_empty(): return maxi(10, int(Catalog.RECIPES[entity.recipe]["in"].get(item, 0)) * 2)
+	return 10
+
+func set_underground_exit(cell: Vector2i, enabled: bool) -> bool:
+	var entity = at(cell)
+	if entity == null or entity.kind != "underground_belt" or not in_reach(cell): return false
+	entity.underground_exit = enabled
+	changed.emit()
+	return true
+
+func research_available(id: String) -> bool:
+	var definition: Dictionary = Catalog.technology(id)
+	if definition.is_empty() or id in researched: return false
+	for required in definition.requires:
+		if required not in researched: return false
+	return true
+
+func current_research() -> String:
+	if research_available(research_target): return research_target
+	for definition in Catalog.TECHNOLOGIES:
+		if research_available(definition.id): return definition.id
+	return ""
+
+func select_research(id: String) -> bool:
+	if not research_available(id) or not content_available("lab"): return false
+	var previous := current_research()
+	if previous == id: return true
+	if not previous.is_empty() and research_progress > 0: research_banks[previous] = research_progress
+	research_target = id
+	research_progress = int(research_banks.get(id, 0))
+	research_banks.erase(id)
+	changed.emit()
+	return true
+
+func award_automation(key: String, skill: String, xp_amount: int) -> void:
+	if automation_awards.has(key): return
+	automation_awards[key] = true
+	award_skill(skill, xp_amount)
+	message.emit("Automation milestone! +%d %s XP. Your factory is doing the work." % [xp_amount, Skills.Definitions.SKILLS[skill].name])
+
 func accepts(entity: RefCounted, item: String) -> bool:
 	if entity.kind == "settlement_port": return settlements.receiving_limit(entity.id, item) > 0
 	if entity.health <= 0: return false
 	if entity.kind == "turret": return item == "ammo" and entity.inventory.count(item) < 10
-	if entity.kind in ["belt", "fast_belt", "chest"]: return true
-	if entity.kind == "lab": return item == "science" and researched.size() < Catalog.TECHNOLOGIES.size()
+	if entity.kind in (Catalog.TRANSPORT + ["chest"]): return true
+	if entity.kind == "lab": return item == "science" and not current_research().is_empty()
 	if item == "coal" and Catalog.BUILDINGS[entity.kind].get("fuel", false): return entity.inventory.count("coal") < 10
-	if not entity.recipe.is_empty(): return Catalog.RECIPES[entity.recipe]["in"].has(item) and entity.inventory.count(item) < 10
+	if not entity.recipe.is_empty(): return Catalog.RECIPES[entity.recipe]["in"].has(item) and entity.inventory.count(item) < input_limit(entity, item)
 	return false
 
 func transfer_source(entity: RefCounted):
-	return entity.inventory if entity.kind in ["belt", "fast_belt", "chest"] else entity.output
+	return entity.inventory if entity.kind in (Catalog.TRANSPORT + ["chest"]) else entity.output
 
 func solid(cell: Vector2i) -> bool:
 	var entity = at(cell)

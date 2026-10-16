@@ -46,11 +46,12 @@ static func run(test: SceneTree) -> void:
 	var losing := Fixtures.defense_town(false)
 	losing.upgrade_character("boots", 1)
 	losing.award_skill("mining", 500)
+	var preserved_xp: int = losing.skills.xp.mining
 	losing.defense.begin(losing)
 	test.advance(losing, 1000)
 	var broken = losing.settlements.sites.town_hall
 	test.check(losing.defense.phase == "recovery" and broken.health == 0 and losing.defense.enemies.is_empty() and losing.defense.cleared == 0, "Undefended waves breach the hub, withdraw, and enter a recoverable setback")
-	test.check(losing.character.level("boots") == 1 and losing.skills.xp.mining == 500 and losing.researched == ["logistics"] and losing.entities.size() > 0, "Defeat preserves personal equipment, skill XP, research, and the factory")
+	test.check(losing.character.level("boots") == 1 and losing.skills.xp.mining == preserved_xp and losing.researched == ["logistics"] and losing.entities.size() > 0, "Defeat preserves personal equipment, skill XP, research, and the factory")
 	test.check(losing.settlements.effect("burner_ticks") == 0 and not losing.settlements.services_online(), "A breached Town Hall suspends regional services and workshop bonuses")
 	var credits: int = losing.settlements.credits
 	losing.player_position = Vector2(28.5, 15.5)

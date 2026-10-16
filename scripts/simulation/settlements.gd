@@ -45,6 +45,7 @@ func receiving_limit(site_id: String, item: String) -> int:
 	var definition: Dictionary = Definitions.SITES[site_id]
 	var wanted: Dictionary = definition.repair
 	if site.repaired and site.health == 0: return 0
+	if site_id == "town_hall" and district_level() >= 3: return 0
 	var multiplier := 1
 	if site.repaired:
 		if not definition.has("contract"): return 0
@@ -74,11 +75,15 @@ func restore(site_id: String) -> String:
 	site.health = site.max_health()
 	return ""
 
+func district_level() -> int:
+	return mini(3, int(sites.town_hall.shipments) / 3) if enabled and sites.town_hall.repaired else 0
+
 func effect(name: String) -> int:
 	if not enabled or not services_online(): return 0
 	var value := 0
 	for id in sites:
 		if sites[id].repaired and sites[id].health > 0: value = maxi(value, int(Definitions.SITES[id].get("effect", {}).get(name, 0)))
+	if name == "burner_ticks": value += district_level() * 4
 	return value
 
 func step(world: RefCounted) -> void:
@@ -88,16 +93,25 @@ func step(world: RefCounted) -> void:
 		var definition: Dictionary = Definitions.SITES[id]
 		if not site.repaired or site.health <= 0 or not definition.has("contract"): continue
 		var contract: Dictionary = Definitions.CONTRACTS[definition.contract]
+		if id == "town_hall" and district_level() >= 3: continue
 		if site.shipment_ticks == 0:
 			if not site.inventory.exchange(contract.goods, {}): continue
+			world.metrics.consume(world.ticks, contract.goods)
 			site.shipment_ticks = int(contract.ticks)
 		site.shipment_ticks -= 1
 		if site.shipment_ticks == 0:
+			var previous_district := district_level()
 			site.shipments += 1
+			for threshold in [1, 5, 10]:
+				if site.shipments >= threshold: world.award_automation("delivery:%s:%d" % [id, threshold], "fabrication", 150)
+			if district_level() > previous_district:
+				world.message.emit("A neighborhood is restored! District %d/3. New coal gains another 5%% working time." % district_level())
+				world.feedback_requested.emit("success", site.port())
 			credits += int(contract.reward)
 			total_earned += int(contract.reward)
 			var next_step := "Keep our neighbors supplied." if sites.workshop.repaired else "Fund the engineers' workshop next."
-			world.message.emit("Mira: Shipment delivered! +%d trade credits. %s" % [contract.reward, next_step])
+			if id != "town_hall": world.message.emit("Supply delivery complete! +%d trade credits. %s" % [contract.reward, next_step])
+			elif district_level() == previous_district: world.message.emit("Housing supplies delivered: %d/3 toward the next neighborhood." % (site.shipments % 3))
 			world.changed.emit()
 
 func status(site_id: String) -> String:
@@ -116,7 +130,8 @@ func objective_text() -> String:
 	if not sites.workshop.repaired: return "Earn 60 trade credits and restore the engineers' workshop. [T] Town"
 	if not sites.town_hall.repaired: return "Rebuild Oldbridge Town Hall and prepare its beacon defenses. [T] Town"
 	if not services_online(): return "Repair the breached Town Hall with kits [H] to restore town services."
-	return "Town Hall restored! Prepare walls, loaded turrets, and repair kits; light the beacon when ready. [T] Town"
+	if district_level() < 3: return "Restore neighborhoods %d/3: research Construction engineering [F], then automate housing deliveries [T]." % district_level()
+	return "Oldbridge neighborhoods restored! Prepare defenses and light the beacon when ready. [T] Town"
 
 func objective_target() -> Dictionary:
 	if not enabled: return {}

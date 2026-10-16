@@ -65,3 +65,7 @@ When the extension is absent, ruins are added on vacant land using deterministic
 Tests include the entire progression from an empty pack through both projects using mined/crafted materials, automated delivery, stock shortages, full buffers, blocked hands, exactly-once payments, save/load during transit, bonus application, currency reconciliation, migration around existing construction, and UI command wiring.
 
 Town Hall requires the Engineers' Workshop to be restored first. Materials delivered early remain stored, including across saves. The project status shows this blocker beside the Restore control and offers a direct button to view the required project.
+
+## Expanded production goals
+
+The repaired workshop now accepts recurring shipments of 2 gears and 4 wire, delivering 12 credits every 40 supplied simulated seconds. Restored Town Hall accepts 2 construction kits, 4 steel, and 4 copper plates for a 60-second housing delivery. Kits require Construction engineering research and assembler production. Three deliveries restore each neighborhood, up to three, with cottage/resident art and +5% base coal working time each. Housing stops after nine deliveries; excess stock can be withdrawn. Existing neighborhoods persist through shortages; bonuses suspend on a breached hub. See [factory expansion](factory-expansion.md) for details.

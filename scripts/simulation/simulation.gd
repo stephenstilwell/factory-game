@@ -3,39 +3,19 @@ extends RefCounted
 ## Belts resolve from a snapshot; inserters reserve an item in their hand.
 
 const Catalog = preload("res://scripts/data/catalog.gd")
+const Transport = preload("res://scripts/simulation/transport.gd")
 const World = preload("res://scripts/simulation/world.gd")
 
 static func step(world: RefCounted) -> void:
 	world.ticks += 1
-	_belts(world)
+	Transport.step(world)
+	world.metrics.prune(world.ticks)
 	_machines(world)
 	_inserters(world)
 	world.defense.step(world)
 	world.settlements.step(world)
 	_player(world)
 	if world.ticks % 5 == 0: world.changed.emit()
-
-static func _belts(world: RefCounted) -> void:
-	var occupied: Dictionary = {}
-	var belt_ids: Array = world.by_kind.belt + world.by_kind.fast_belt
-	belt_ids.sort()
-	for id in belt_ids:
-		var entity = world.entities[id]
-		if entity.inventory.total() > 0: occupied[entity.cell] = true
-	var reservations: Dictionary = {}
-	var moves: Array = []
-	for id in belt_ids:
-		var entity = world.entities[id]
-		if entity.health <= 0: continue
-		if entity.kind == "belt" and world.ticks % 2 != 0: continue
-		if entity.inventory.total() == 0: continue
-		var target_cell: Vector2i = entity.cell + World.DIRS[entity.direction]
-		var receiver = world.at(target_cell)
-		if receiver == null or receiver.health <= 0 or receiver.kind not in ["belt", "fast_belt"]: continue
-		if occupied.has(target_cell) or reservations.has(target_cell): continue
-		reservations[target_cell] = true
-		moves.append([entity, receiver, entity.inventory.contents.keys()[0]])
-	for move in moves: move[0].inventory.move_to(move[1].inventory, move[2])
 
 static func _machines(world: RefCounted) -> void:
 	for kind in ["drill", "furnace", "assembler", "lab"]:
@@ -50,7 +30,7 @@ static func _machines(world: RefCounted) -> void:
 			if kind == "drill":
 				# Burner drills have a built-in chute; other machines need inserters.
 				var target = world.at(entity.cell + World.DIRS[entity.direction])
-				if target != null and target.kind in ["belt", "fast_belt"] and entity.output.total() > 0:
+				if target != null and target.kind in Catalog.TRANSPORT and entity.output.total() > 0:
 					entity.output.move_to(target.inventory, entity.output.contents.keys()[0])
 				var deposit: Dictionary = world.terrain.tile(entity.cell)
 				if deposit.is_empty():
@@ -68,6 +48,7 @@ static func _machines(world: RefCounted) -> void:
 					entity.output.add(item)
 					_record(world, item, 1)
 					world.record("extracted:" + item)
+					world.award_automation("mine:" + item, "mining", 100)
 				continue
 			var recipe: Dictionary = Catalog.RECIPES[entity.recipe]
 			if not entity.inventory.has_all(recipe["in"]):
@@ -81,6 +62,8 @@ static func _machines(world: RefCounted) -> void:
 			entity.progress += 1
 			if entity.progress >= int(recipe.ticks):
 				entity.inventory.exchange(recipe["in"], {})
+				world.metrics.consume(world.ticks, recipe["in"])
+				world.award_automation("line:" + entity.recipe, "fabrication", 120)
 				entity.output.exchange({}, recipe["out"])
 				entity.progress = 0
 				for item in recipe["out"]:
@@ -92,6 +75,7 @@ static func _fuel(world: RefCounted, entity: RefCounted) -> bool:
 		if entity.inventory.remove("coal") == 0:
 			entity.status = "No fuel - insert coal"
 			return false
+		world.metrics.record(world.ticks, "used", "coal", 1)
 		entity.burn_ticks = world.burner_fuel_duration()
 	entity.burn_ticks -= 1
 	return true
@@ -131,23 +115,30 @@ static func _inserters(world: RefCounted) -> void:
 			break
 
 static func _lab(world: RefCounted, entity: RefCounted) -> void:
-	if world.researched.size() >= Catalog.TECHNOLOGIES.size():
+	var id: String = world.current_research()
+	if id.is_empty():
 		entity.status = "All research complete"
 		return
+	world.research_target = id
 	if entity.inventory.count("science") == 0:
 		entity.status = "Needs science packs"
 		return
-	entity.status = "Researching"
+	entity.status = "Researching " + Catalog.technology(id).name
 	entity.progress += 1
 	if entity.progress < 30: return
 	entity.progress = 0
 	entity.inventory.remove("science")
+	world.metrics.record(world.ticks, "used", "science", 1)
 	world.research_progress += 1
-	var technology: Dictionary = Catalog.TECHNOLOGIES[world.researched.size()]
+	var technology: Dictionary = Catalog.technology(id)
 	if world.research_progress >= int(technology.cost):
-		world.researched.append(technology.id)
-		world.record("researched:" + technology.id)
+		world.researched.append(id)
+		world.record("researched:" + id)
 		world.research_progress = 0
+		world.research_target = ""
+		world.research_target = world.current_research()
+		world.research_progress = int(world.research_banks.get(world.research_target, 0))
+		world.research_banks.erase(world.research_target)
 		world.feedback_requested.emit("success", Vector2i(world.player_position.floor()))
 		world.message.emit("Research complete: %s. Unlocked %s." % [technology.name, technology.unlock])
 
@@ -165,6 +156,7 @@ static func _player(world: RefCounted) -> void:
 			for item in recipe["out"]:
 				_record(world, item, int(recipe["out"][item]))
 				world.record("crafted:" + item, int(recipe["out"][item]))
+			world.metrics.consume(world.ticks, recipe["in"])
 			world.craft_queue.pop_front()
 			world.feedback_requested.emit("craft", Vector2i(world.player_position.floor()))
 			world.award_skill("fabrication", int(world.Skills.Definitions.CRAFT_XP.get(entry.recipe, 0)))
@@ -186,4 +178,5 @@ static func _player(world: RefCounted) -> void:
 
 static func _record(world: RefCounted, item: String, amount: int) -> void:
 	world.production[item] = int(world.production.get(item, 0)) + amount
+	world.metrics.record(world.ticks, "made", item, amount)
 	world.record("produced:" + item, amount)

@@ -3,6 +3,7 @@ extends CanvasLayer
 
 const Catalog = preload("res://scripts/data/catalog.gd")
 const Style = preload("res://scripts/ui/ui_style.gd")
+const FactoryPanel = preload("res://scripts/ui/factory_panel.gd")
 const StoryPanel = preload("res://scripts/ui/story_panel.gd")
 const Hotbar = preload("res://scripts/ui/build_hotbar.gd")
 const Workspace = preload("res://scripts/ui/inventory_workspace.gd")
@@ -11,11 +12,13 @@ const SkillDefinitions = preload("res://scripts/data/skill_catalog.gd")
 
 signal build_selected(kind: String)
 signal journal_requested
+signal factory_requested
 signal upgrade_requested(id: String, rank: int)
 signal beacon_requested
 signal beacon_cancel_requested
 signal structure_repair_requested
 signal building_pickup_requested
+signal underground_mode_requested(enabled: bool)
 signal save_requested
 signal load_requested
 signal pause_requested
@@ -54,6 +57,7 @@ var pause_button: Button
 var fullscreen_button: Button
 var hotbar: VBoxContainer
 var story_panel: ColorRect
+var factory_panel: ColorRect
 var workspace: PanelContainer
 var backdrop: ColorRect
 var pause_menu: ColorRect
@@ -132,6 +136,7 @@ func _ready() -> void:
 	hotbar.build_selected.connect(func(id): build_selected.emit(id))
 	hotbar.notice.connect(show_notice)
 	hotbar.journal_requested.connect(func(): journal_requested.emit())
+	hotbar.factory_requested.connect(func(): factory_requested.emit())
 	notice_label = Style.label("", 13, Style.GOLD)
 	notice_label.max_lines_visible = 1
 	bottom_box.add_child(notice_label)
@@ -156,6 +161,7 @@ func _ready() -> void:
 	workspace.beacon_cancel_requested.connect(func(): beacon_cancel_requested.emit())
 	workspace.structure_repair_requested.connect(func(): structure_repair_requested.emit())
 	workspace.building_pickup_requested.connect(func(): building_pickup_requested.emit())
+	workspace.underground_mode_requested.connect(func(enabled): underground_mode_requested.emit(enabled))
 	workspace.context_changed.connect(_sync_context)
 	workspace.build_requested.connect(func(id): build_selected.emit(id))
 	workspace.transfer_requested.connect(func(item, amount, from, to, token): transfer_requested.emit(item, amount, from, to, token))
@@ -196,7 +202,7 @@ func _ready() -> void:
 	menu.add_theme_constant_override("separation", 12)
 	scroll.add_child(menu)
 	menu.add_child(Style.label("PAUSED", 26, Style.ACCENT))
-	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nPause key — Pause or resume • F11 — Fullscreen", 16)
+	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nF — Research, production rates, and plans\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nPause key — Pause or resume • F11 — Fullscreen", 16)
 	controls_help.hide()
 	Style.button(menu, "Controls and shortcuts", func(): controls_help.visible = not controls_help.visible)
 	menu.add_child(controls_help)
@@ -207,6 +213,8 @@ func _ready() -> void:
 	survey = Survey.new()
 	root.add_child(survey)
 	hotbar.attach_picker(root)
+	factory_panel = FactoryPanel.new()
+	root.add_child(factory_panel)
 	story_panel = StoryPanel.new()
 	root.add_child(story_panel)
 	survey.close_requested.connect(func(): survey.hide())
@@ -287,11 +295,12 @@ func refresh() -> void:
 		lesson_hint.text = world.guide.current().get("hint", "")
 	research.visible = not world.guide.enabled or world.content_available("lab")
 	status.text = "Credits %d  |  %d machines  |  Pack %d / %d  |  WASD move • Hold RMB mine • E inventory • Esc menu" % [world.settlements.credits, world.entities.size(), world.player.total(), world.player.capacity]
-	if world.settlements.effect("burner_ticks") > 0: status.text += "  |  Fuel +20%"
-	if world.researched.size() < Catalog.TECHNOLOGIES.size():
-		var tech: Dictionary = Catalog.TECHNOLOGIES[world.researched.size()]
-		research.text = "RESEARCH  %s  %d / %d science packs  •  %s" % [tech.name, world.research_progress, tech.cost, tech.unlock]
-	else: research.text = "RESEARCH COMPLETE  •  Logistics I + Metallurgy"
+	if world.settlements.effect("burner_ticks") > 0: status.text += "  |  Coal +%d%%" % (world.settlements.effect("burner_ticks") * 100 / 80)
+	var active: String = world.current_research()
+	if not active.is_empty():
+		var tech: Dictionary = Catalog.technology(active)
+		research.text = "RESEARCH  %s  %d / %d science  •  [F] Factory" % [tech.name, world.research_progress, tech.cost]
+	else: research.text = "RESEARCH COMPLETE  •  [F] Production and plans"
 	hotbar.refresh(world, selection)
 	inventory_label.text = "PACK %d  [E]" % world.player.total()
 	notice_label.text = notice if notice_time > 0 else "E inventory • Hold RMB mine • Q clear/pick • Ctrl-click load • Esc menu"
@@ -302,7 +311,7 @@ func refresh() -> void:
 		site_id = workspace.site_id if workspace.mode == "town" else ""
 
 func world_has_pointer() -> bool:
-	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible: return false
+	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible or factory_panel.visible: return false
 	var pointer := get_viewport().get_mouse_position()
 	return not top.get_global_rect().has_point(pointer) and not bottom.get_global_rect().has_point(pointer)
 

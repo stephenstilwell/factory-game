@@ -95,7 +95,7 @@ For a new recipe using an existing machine:
 
 1. Add any new output item to `Catalog.ITEMS` with its stable ID/name/color.
 2. Add `RECIPES[id]` with input/output dictionaries, duration in ticks, and machine ID. Add `hand: true` only if the engineer can craft it. Optionally name a prerequisite technology.
-3. Add the recipe ID to the machine's `BUILDINGS[kind].recipes` list. The inspector cycles unlocked recipes; inserter input filtering follows the active recipe automatically.
+3. Add the recipe ID to the machine's `BUILDINGS[kind].recipes` list. The inspector offers an unlocked recipe picker; inserter input filtering follows the active recipe automatically.
 4. Add quantity/timing/unlock checks to the integration tests. If changing saved state or procedural terrain, add a schema migration rather than silently interpreting old data differently.
 
 For a new building behavior, add a definition/build recipe and a simulation phase or focused system. Register its transient indexes when spawning/loading/reclaiming. Rendering can draw a new icon without modifying recipe/transport rules. Persist only authoritative state, then validate and test its round trip and deterministic continuation.
@@ -108,10 +108,20 @@ The optional `skills` extension stores XP and unique area/patch discovery ledger
 
 The optional `character` extension stores purchased personal upgrade ranks. Saves without it retain base stats. Loading derives inventory capacity before validating item counts, then checks upgrade prerequisites after restoring lessons, research, and settlement state. See [character-progression.md](character-progression.md).
 
-Schema v2 validates known IDs, numeric ranges, capacities, coordinates, unique entity IDs/tiles, recipe ownership, research order, crafting queues, and depletion bounds. JSON numbers are normalized back to integer counts/timers. A decoded world replaces the live world only after successful validation. The writer flushes a temporary file, preserves a backup, then renames the temporary file into the slot. File-system write/backup/rename failures are reported; there is no autosave or automatic backup recovery yet.
+Schema v2 validates known IDs, numeric ranges, capacities, coordinates, unique entity IDs/tiles, recipe ownership, research prerequisites and investments, crafting queues, and depletion bounds. JSON numbers are normalized back to integer counts/timers. A decoded world replaces the live world only after successful validation. The writer flushes a temporary file, preserves a backup, then renames the temporary file into the slot. File-system write/backup/rename failures are reported; there is no autosave or automatic backup recovery yet.
 
 The optional `onboarding` v2 extension stores enabled state, action counters, and completed lesson IDs. Completed lessons must match definition order and satisfied goals. Saves from before this extension load with onboarding disabled, preserving their established factories without new lesson gates. Adding/reordering published milestone IDs requires a compatibility strategy, just as changing recipes or terrain does.
 
 The optional `settlements` extension has its own schema version. It validates civic stock quotas, shipment timers, repair prerequisites, wallet reconciliation, and non-overlapping footprints. Saves predating the extension gain ruined landmarks on vacant land; existing construction and the engineer are preserved. Fixed landmarks live outside the craftable entity registry and connect to inserters through `World.logistics_receiver`. See [settlements.md](settlements.md) for the economy and extension rules.
 
 `tests/factory_tests.gd` exercises behavior without rendering, plus a small scene/UI smoke test. `tests/capture_preview.gd` renders inspection/crafting previews. The legacy `verify_factory.gd` entry point remains usable.
+
+## Factory expansion systems
+
+Transport routing lives in simulation/transport.gd. It separates route candidates from snapshot reservation/commit, with persistent splitter alternation and receiver merge cursors. Underground ends pair through bounded spatial lookup; no hidden item inventory exists. Stable entity IDs determine arbitration across saves.
+
+ConstructionPlans owns configuration-only clipboard records and validated persistent ghosts. Stamping is atomic; nearby construction calls the normal material-consuming World.build command. Rendering uses a bounded preview layer and cannot build or transfer items.
+
+ProductionMetrics keeps at most 60 per-second buckets of actual production and selected consumption events. It is transient and resets its observation window on load. Research definitions carry prerequisite IDs; shared project selection banks consumed science under inactive IDs. Commissioning awards use stable persistent keys, independent of lifetime production counters and manual XP.
+
+Settlement neighborhood level derives from completed housing deliveries, and bonuses derive from current service availability. No separate writable neighborhood count can drift out of sync. Optional v2 fields preserve existing worlds; all persistent extensions are validated before replacing the live world. See factory-expansion.md for controls and limits.

@@ -8,8 +8,18 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 	var healthy: bool = entity.health > 0
 	var working: bool = healthy and (entity.status == "Working" or entity.status.begins_with("Mining"))
 	var direction: Vector2 = DIRS[entity.direction]
-	if kind in ["belt", "fast_belt"]:
+	if kind in Catalog.TRANSPORT:
 		_belt(canvas, entity, center, time if healthy else 0.0)
+		if kind == "splitter":
+			Art.box(canvas, Rect2(center - Vector2(10, 10), Vector2(20, 20)), Art.COPPER, 3)
+			for axis in [direction, direction.rotated(PI / 2)]:
+				canvas.draw_line(center, center + axis * 22, Art.CREAM, 3, true)
+		elif kind == "underground_belt":
+			Art.box(canvas, Rect2(center - Vector2(18, 18), Vector2(36, 36)), Art.STEEL, 4, Art.INK)
+			var mouth := center + direction * (13 if entity.underground_exit else -13)
+			Art.box(canvas, Rect2(mouth - Vector2(8, 7), Vector2(16, 14)), Art.INK, 2)
+			canvas.draw_line(center - direction * 6, center + direction * 8, Art.AMBER, 3, true)
+			canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-8, -21), "OUT" if entity.underground_exit else "IN", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Art.CREAM)
 		return
 	Art.shadow(canvas, center + Vector2(0, 9), Vector2(22, 13))
 	if kind == "inserter":
@@ -67,7 +77,7 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 			_gear(canvas, center + Vector2(8, -1), 6, -angle, Art.COPPER)
 			canvas.draw_line(center + Vector2(-17, 11), center + Vector2(17, 11), Art.COPPER, 3, true)
 		"lab":
-			var research_time := time if healthy and entity.status == "Researching" else 0.0
+			var research_time := time if healthy and entity.status.begins_with("Researching") else 0.0
 			Art.box(canvas, Rect2(center + Vector2(-18, -18), Vector2(36, 31)), Color("6f9b90"), 7, Art.INK)
 			Art.ellipse(canvas, center + Vector2(0, -14), Vector2(16, 14), Color("a4cec0"))
 			Art.ellipse(canvas, center + Vector2(0, -16), Vector2(12, 10), Color("3e6c6c"))

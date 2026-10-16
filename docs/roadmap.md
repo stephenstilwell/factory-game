@@ -1,22 +1,22 @@
-# Toward a fuller factory game
+# Factory development roadmap
 
-The prototype lacked both the material economy and the separation needed to extend it. Work is ordered by dependencies: stable state and item ownership first, logistics and production next, progression after that, then networks and world pressure.
+The playable loop is now: learn extraction and smelting, build automated component/science lines, choose routing or metallurgy, manufacture expansion equipment, and supply Oldbridge's reconstruction.
 
-| Layer | Implemented now | Next step |
+| Layer | Implemented | Next step |
 | --- | --- | --- |
-| Simulation foundation | Scene-independent world, fixed ticks, stable entity IDs, occupancy/type indexes, catalog definitions, behavioral tests | Command queue/replay if multiplayer or replays become a real requirement |
-| World | Seeded chunk generation, negative coordinates, finite iron/copper/coal/stone, cached visible terrain | Biomes, water, collision terrain, map/minimap and resource preview |
-| Engineer and economy | Walking/collision, interaction reach, hand mining, bounded inventory, material-based construction, queued crafting and refunds | Slot/stack inventory, individual withdrawals, equipment and crafting dependencies |
-| Logistics | Snapshot belts with backpressure, inserter hands and input filters, storage, two belt speeds, lossless reclaim | Splitters and fair merge policies, underground belts, two lanes and sub-tile item spacing |
-| Production | Fuel/energy budgets, input/output buffers, iron/copper/steel smelting, configurable assemblers, gear/wire/science recipes | Electricity and a consistent energy contract for powered machines |
-| Progression | Empty start, 15 guided learning milestones, gradual recipe/tool disclosure, automated science consumption, two technologies, persisted learning counters | Branching research graph with selectable projects, science tiers, equipment upgrades and production-rate graphs; see progression.md |
-| Settlement restoration | Oldbridge trading post, physical-goods supply contract, recurring trade credits, engineers' workshop crew payment, global burner-efficiency bonus | More project choices and spending goals, specialist services, distinct settlement needs and transport connections; see settlements.md |
-| Persistence | Validated schema, complete in-progress state, backup writes, v1 import | Multiple named slots, autosave rotation, backup recovery UI |
-| Usability | Inspector with wait reasons, construction ghost/reach, continuous painting, recipe and inventory controls | Recipe picker instead of cycling, hotbar rebinding, alerts, blueprint ghosts, copy/paste, undo |
-| Later networks | Extension points in model and tick phases | Fluids before oil processing; rails before trains; pollution before enemies |
+| Simulation | Fixed ticks, stable IDs, item transactions, deterministic save continuation | Profile larger factories before sleeping machines or compressed transport |
+| World | Finite seeded deposits, exploration, resource survey | Biomes, terrain obstacles, minimap |
+| Logistics | Snapshot belts, fair merges, splitter junctions, underground pairs, filtered inserters | Priorities and filters, richer routing; lanes only with a deliberate simulation redesign |
+| Production | Smelting, components, science, automated manufacture of all buildings | Electricity and meaningful new production dependencies |
+| Progression | Empty start, 15 lessons, four selectable prerequisite technologies, preserved research investments | Additional science tiers tied to real systems |
+| Settlement | Three repair projects, recurring post/workshop contracts, housing deliveries, three visible neighborhoods, civic buffs | Specialist services, branching projects, more reasons to spend credits |
+| Engineer | Material-funded equipment, three skills to 99, automation commissioning milestones | Further equipment only when new exploration/building problems justify it |
+| Building UX | Customizable hotbar, recipe picker, production rates, missing ingredients, copy/paste configuration ghosts | Undo, ghost shortages grouped by available supplies, richer production graphs |
+| Defense/story | Three keepers, persistent journal, voluntary ten-wave beacon defense, recoverable breach | Broader enemy behavior and settlement-driven story events |
+| Persistence | Validated v2 extensions, backups, older-world compatibility | Named slots and autosave recovery UI |
 
-## Recommended next implementation: electricity
+## Next substantial system: electricity
 
-Add generation, consumption, and connectivity as a separate simulation system with explicit definitions for fuel energy, power production, and work energy demand. Introduce poles and a network graph updated when a pole/machine is placed, rotated, or removed. Calculate network supply/demand before production and gate recipe progress using the allocated work budget. Keep topology, energy buffers, and powered state separate from UI indicators. Tests should cover disconnected machines, insufficient generation, graph splitting/merging, energy conservation, and in-progress save/load.
+Introduce generation, consumption, and connectivity as a separate simulation system. Define fuel energy, production capacity, and work demand explicitly. Update topology on construction/removal, allocate supply before production, and present disconnected or underpowered states. Verify conservation, network splitting/merging, shortages, and saved in-progress energy. Avoid adding more percentage upgrades before this creates fresh layout choices.
 
-After electricity, expand transport with splitters/underground belts and inventory UX. Add fluids only when solid-item production and network behavior are stable. Trains, combat, pollution, and multiplayer each introduce substantial state and performance requirements; keep them out of the core inventory/recipe code until their own models and tests are designed.
+Fluids and trains should follow new material and distance problems. The present game has no electricity, fluids, train network, belt lanes, construction robots, or multiplayer. See [factory expansion](factory-expansion.md) for the current routing, research, production feedback, housing, and plan contracts.

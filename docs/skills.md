@@ -16,7 +16,8 @@ Skill bonuses multiply the relevant equipment stat; they do not change machine p
 
 - Mining awards XP only after one real terrain item is extracted into the pack. Unfinished work, exhausted deposits, blocked reach, and full packs award none.
 - Fabrication awards once per completed recipe batch, after output delivery. Queuing, canceling, refunding, and waiting for pack room award none. Multiple outputs such as two wire still receive one batch reward.
-- Automated drills, assemblers, furnaces, labs, building placement/reclamation, transfers, and equipment installation do not award personal skill XP.
+- Commissioning the first automated extraction of each resource grants 100 Mining XP. The first completed automated batch of each recipe grants 120 Fabrication XP. Deliveries 1, 5, and 10 at each civic site grant 150 Fabrication XP each. These persistent milestones reward new production capabilities; repeat batches, rebuilding machines, and reloading cannot repeat them.
+- Labs, building placement/reclamation, transfers, and equipment installation grant no XP. Automation does not generate continuous personal XP.
 - Exploration requires actual player movement. Standing still, camera movement, rendering terrain, and running surveys do not discover areas or patches for XP. Persistent ledgers prevent revisits and cache eviction from repeating rewards.
 - Patch identity is its generated center and resource type, so crossing a chunk boundary or discovering another edge of the same patch cannot repeat its reward. Ledger validation also supports legacy overlapping patches.
 
@@ -30,4 +31,4 @@ The optional version-1 `skills` save extension stores XP, visited area coordinat
 
 Discovery tracking is independent of terrain/render caches. It stores at most 100,000 areas and 100,000 patches, matching save validation limits. Ordinary simulation checks only when the player enters a different tile; it does not scan distant regions every frame.
 
-Combat skills can later use the same reward boundary when actual kills, defenses, and repairs exist. No combat XP, enemies, or unused combat stats are introduced here.
+Combat skills can later use the same reward boundary when actual kills, defenses, and repairs exist. Beacon defense exists separately; combat XP is not currently awarded.

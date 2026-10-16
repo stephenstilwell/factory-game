@@ -10,6 +10,7 @@ signal supply_requested
 signal collect_requested
 signal repair_requested
 signal reclaim_requested
+signal underground_mode_requested(enabled: bool)
 
 var world: RefCounted
 var entity = null
@@ -23,6 +24,7 @@ var supply_button: Button
 var collect_button: Button
 var repair_button: Button
 var reclaim_button: Button
+var underground_button: Button
 var input_box: VBoxContainer
 var output_box: VBoxContainer
 var fuel_box: VBoxContainer
@@ -45,6 +47,7 @@ func _ready() -> void:
 	collect_button = Style.button(actions, "Collect output [X]", func(): collect_requested.emit())
 	repair_button = Style.button(actions, "Repair [H]", func(): repair_requested.emit())
 	reclaim_button = Style.button(self, "Pick up building", func(): reclaim_requested.emit())
+	underground_button = Style.button(self, "", func(): underground_mode_requested.emit(not entity.underground_exit))
 	recipe_picker = OptionButton.new()
 	recipe_picker.item_selected.connect(func(index): recipe_requested.emit(recipe_ids[index]))
 	add_child(recipe_picker)
@@ -95,7 +98,7 @@ func _drop(data: Dictionary, target: Dictionary) -> void:
 
 func _click_item(grid: VBoxContainer, item: String, gesture: String) -> void:
 	var amount := 1 if gesture == "one" else (0 if gesture == "all" else quantity)
-	if grid == output_grid or (grid == input_grid and entity.kind in ["chest", "belt", "fast_belt"]):
+	if grid == output_grid or (grid == input_grid and entity.kind in (["chest"] + Catalog.TRANSPORT)):
 		transfer_requested.emit(item, amount, grid.descriptor, {"kind": "player"}, world.get_instance_id())
 	elif grid.buttons[item].amount > 0:
 		transfer_requested.emit(item, amount, grid.descriptor, {"kind": "player"}, world.get_instance_id())
@@ -109,8 +112,18 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	if entity == null or title == null: return
 	title.text = Catalog.item_name(entity.kind)
 	var reachable: bool = world.in_reach(entity.cell)
+	underground_button.visible = entity.kind == "underground_belt"
+	underground_button.disabled = not reachable
+	underground_button.text = ("Exit → set as entrance" if entity.underground_exit else "Entrance → set as exit") + " [G]"
 	status_label.text = entity.status + ("  •  Out of reach" if not reachable else "")
 	status_label.text += " • Health %d/%d" % [entity.health, entity.max_health()]
+	if not entity.recipe.is_empty():
+		var recipe: Dictionary = Catalog.RECIPES[entity.recipe]
+		var missing := PackedStringArray()
+		for item in recipe["in"]:
+			if entity.inventory.count(item) < int(recipe["in"][item]): missing.append("%s %d/%d" % [Catalog.item_name(item), entity.inventory.count(item), recipe["in"][item]])
+		if not missing.is_empty(): status_label.text += "\nNeeds: " + ", ".join(missing)
+		status_label.text += "\nRated output: %.1f batches / min" % (600.0 / float(recipe.ticks))
 	repair_button.visible = entity.health < entity.max_health()
 	repair_button.disabled = not reachable or world.player.count("repair_kit") == 0
 	var reclaim_blocker: String = world.reclaim_reason(entity.cell)
@@ -123,7 +136,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 		status_label.text += "\n%d units remaining under this drill" % int(deposit.get("amount", 0)) if not deposit.is_empty() else "\nPress M to survey another deposit, then hold right mouse to reclaim and relocate this drill."
 	supply_button.text = "Stack matching" if entity.kind == "chest" else "Load ingredients"
 	supply_button.disabled = not reachable or entity.kind == "inserter"
-	collect_button.text = "Take all [X]" if entity.kind in ["chest", "belt", "fast_belt"] else ("Recover hand [X]" if entity.kind == "inserter" else "Collect output [X]")
+	collect_button.text = "Take all [X]" if entity.kind in (["chest"] + Catalog.TRANSPORT) else ("Recover hand [X]" if entity.kind == "inserter" else "Collect output [X]")
 	collect_button.disabled = not reachable
 	if entity.kind == "turret": collect_button.text = "Unload ammo [X]"
 	if entity.kind == "wall": collect_button.visible = false
@@ -148,7 +161,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	fuel_box.visible = Catalog.BUILDINGS[entity.kind].get("fuel", false)
 	if fuel_box.visible: input.erase("coal")
 	input_box.visible = entity.kind not in ["inserter", "wall"]
-	output_box.visible = entity.kind not in ["chest", "belt", "fast_belt", "turret", "wall"]
+	output_box.visible = entity.kind not in (["chest", "turret", "wall"] + Catalog.TRANSPORT)
 	input_grid.grid.columns = 6 if entity.kind == "chest" else 3
 	var descriptor := {"kind": "input", "entity_id": entity.id}
 	for grid in [input_grid, fuel_grid, output_grid]:

@@ -2,12 +2,12 @@ extends RefCounted
 const LEVEL_CAP := 99
 const MILESTONES := [10, 25, 50, 75, 99]
 const SKILLS := {
-	"mining": {"name": "Mining", "description": "Earn XP when hand-mined resources enter your pack. Each milestone grants +5% hand-mining work speed."},
-	"fabrication": {"name": "Fabrication", "description": "Earn XP when a hand-craft finishes and delivers its output. Each milestone grants +5% hand-crafting work speed."},
+	"mining": {"name": "Mining", "description": "Earn XP from hand mining and commissioning your first drill for each resource. Each milestone grants +5% hand-mining work speed."},
+	"fabrication": {"name": "Fabrication", "description": "Earn XP from completed hand crafts, commissioning each automated recipe, and reliable settlement deliveries. Each milestone grants +5% hand-crafting work speed."},
 	"exploration": {"name": "Exploration", "description": "Earn 20 XP per new 16x16 area and 40 XP per resource patch encountered nearby. Milestones grant +2% movement speed; levels 25 and 75 expand surveys."},
 }
 const MINING_XP := {"stone": 10, "coal": 10, "iron_ore": 12, "copper_ore": 12}
-const CRAFT_XP := {"wall": 10, "turret": 75, "ammo": 10, "repair_kit": 16, "gear": 12, "wire": 6, "science": 30, "belt": 8, "drill": 60, "furnace": 20, "inserter": 20, "chest": 16, "assembler": 80, "lab": 100, "fast_belt": 24}
+const CRAFT_XP := {"splitter": 32, "underground_belt": 40, "wall": 10, "turret": 75, "ammo": 10, "repair_kit": 16, "gear": 12, "wire": 6, "science": 30, "belt": 8, "drill": 60, "furnace": 20, "inserter": 20, "chest": 16, "assembler": 80, "lab": 100, "fast_belt": 24}
 
 static func threshold(level: int) -> int:
 	# Cumulative XP, with approachable early levels and a long mastery tail.

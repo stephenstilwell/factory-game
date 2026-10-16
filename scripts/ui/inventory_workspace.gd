@@ -29,6 +29,7 @@ signal beacon_requested
 signal beacon_cancel_requested
 signal structure_repair_requested
 signal building_pickup_requested
+signal underground_mode_requested(enabled: bool)
 
 var world: RefCounted
 var mode := "inventory"
@@ -148,6 +149,7 @@ func _ready() -> void:
 	machine.collect_requested.connect(func(): collect_requested.emit())
 	machine.repair_requested.connect(func(): structure_repair_requested.emit())
 	machine.reclaim_requested.connect(func(): building_pickup_requested.emit())
+	machine.underground_mode_requested.connect(func(enabled): underground_mode_requested.emit(enabled))
 	town_scroll = _scroll(right)
 	town = TownPanel.new()
 	town.size_flags_horizontal = Control.SIZE_EXPAND_FILL

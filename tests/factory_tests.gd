@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ExpansionTests = preload("res://tests/expansion_tests.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Simulation = preload("res://scripts/simulation/simulation.gd")
 const Inventory = preload("res://scripts/model/inventory.gd")
@@ -32,6 +33,7 @@ func advance(world: RefCounted, count: int) -> void:
 	for i in range(count): Simulation.step(world)
 
 func _run() -> void:
+	ExpansionTests.run(self)
 	_inventory()
 	_terrain()
 	TerrainGenerationTests.run(self)
@@ -49,6 +51,7 @@ func _run() -> void:
 	await AudioTests.run(self)
 	await HotbarTests.run(self)
 	await StoryTests.run(self)
+	await ExpansionTests.ui(self)
 	await _scene_smoke()
 	await InventoryUXTests.ui(self)
 	print("Factory verification: %d checks, %d failures" % [checks, failures])
@@ -224,7 +227,7 @@ func _progression() -> void:
 	furnace.recipe = "steel"
 	furnace.inventory.contents = {"coal": 1, "iron_plate": 5}
 	advance(world, 80)
-	check(furnace.output.count("steel") == 1 and lab.status == "All research complete", "Metallurgy enables steel recipe and completes research")
+	check(furnace.output.count("steel") == 1 and lab.status == "Needs science packs", "Metallurgy enables steel while further research awaits science")
 
 func _mine_for_lesson(world: RefCounted, item: String, amount: int) -> void:
 	var cells := {"stone": Vector2i(26, 9), "iron_ore": Vector2i(14, 16), "coal": Vector2i(9, 23), "copper_ore": Vector2i(28, 23)}

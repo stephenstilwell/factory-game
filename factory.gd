@@ -15,6 +15,11 @@ var world: RefCounted
 var view: Node2D
 var hud: CanvasLayer
 var camera: Camera2D
+var copy_mode := false
+var copy_dragging := false
+var copy_origin := Vector2i.ZERO
+var pasting := false
+var underground_exit := false
 var selected_kind := ""
 var facing := 0
 var paused := false
@@ -43,6 +48,13 @@ func _ready() -> void:
 	hud.pause_content.move_child(sound_controls, 1)
 	audio.create_controls(sound_controls)
 	audio.watch_ui(hud)
+	hud.factory_requested.connect(_open_factory)
+	hud.factory_panel.research_requested.connect(func(id): world.select_research(id); hud.refresh())
+	hud.factory_panel.copy_requested.connect(_start_copy)
+	hud.factory_panel.paste_requested.connect(_start_paste)
+	hud.factory_panel.build_requested.connect(_build_plans)
+	hud.factory_panel.clear_requested.connect(func(): world.plans.ghosts.clear(); world.changed.emit())
+	hud.underground_mode_requested.connect(func(enabled): world.set_underground_exit(selected_cell, enabled))
 	hud.build_selected.connect(_select)
 	hud.upgrade_requested.connect(func(id, rank): world.upgrade_character(id, rank))
 	hud.beacon_requested.connect(func(): world.defense.begin(world))
@@ -91,6 +103,8 @@ func _bind_world(state: RefCounted) -> void:
 		hud.story_panel.dismiss_silently()
 		if paused != story_was_paused: _toggle_pause()
 	if world != null and world.story_requested.is_connected(_open_story): world.story_requested.disconnect(_open_story)
+	hud.factory_panel.close_panel()
+	_cancel_planning()
 	world = state
 	world.story_requested.connect(_open_story)
 	audio.bind_world(world)
@@ -122,14 +136,14 @@ func _bind_world(state: RefCounted) -> void:
 func _process(delta: float) -> void:
 	var mouse_cell := _mouse_cell()
 	var pointer: bool = hud.world_has_pointer()
-	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible, paused)
+	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible, paused)
 	if not view.resource_target.is_empty() and world.terrain.tile(view.resource_target.cell).is_empty():
 		view.resource_target = world.terrain.find_resource(view.resource_target.item, Vector2i(world.player_position.floor()), world.skills.survey_radius())
 		hud.show_notice("Tracked tile exhausted. Survey marker updated to remaining resources." if not view.resource_target.is_empty() else "No remaining patch found nearby. Explore farther and press M to survey again.")
 	world.move_direction = Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
-	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or paused:
+	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible or paused:
 		world.move_direction = Vector2.ZERO
 		painting = false
 		mining_held = false
@@ -148,7 +162,11 @@ func _process(delta: float) -> void:
 	view.hover = mouse_cell
 	view.selected_site = hud.site_id
 	view.pointer_in_world = pointer
-	view.ghost_kind = selected_kind
+	view.ghost_kind = "" if pasting or copy_mode else selected_kind
+	view.underground_exit = underground_exit
+	view.plan_layer.pasting = pasting and pointer
+	view.plan_layer.paste_origin = mouse_cell
+	view.copy_rect = _copy_rectangle(mouse_cell) if copy_dragging else Rect2i()
 	view.facing = facing
 	view.paused = paused
 	if painting and pointer and mouse_cell != last_painted and not selected_kind.is_empty(): _paint_to(mouse_cell)
@@ -170,6 +188,8 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 		if hud.story_panel.visible: hud.story_panel.close_panel()
+		elif hud.factory_panel.visible: hud.factory_panel.close_panel()
+		elif copy_mode or pasting: _cancel_planning()
 		elif hud.hotbar.picker.visible: hud.hotbar.close_picker()
 		elif hud.pause_menu.visible: _close_menu()
 		elif hud.survey.visible: hud.survey.hide()
@@ -186,7 +206,12 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
 		_toggle_fullscreen()
 		get_viewport().set_input_as_handled()
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed: painting = false
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+		painting = false
+		if copy_dragging:
+			var error: String = world.plans.capture(world, _copy_rectangle(_mouse_cell()))
+			hud.show_notice(error if not error.is_empty() else "Copied %d buildings. Ctrl+V to stamp a plan." % world.plans.clipboard.size())
+			_cancel_planning()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and not event.pressed:
 		mining_held = false
 		reclaim_progress = 0.0
@@ -204,12 +229,23 @@ func _unhandled_input(event: InputEvent) -> void:
 	if hud.story_panel.visible:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_J and hud.story_panel.chapter_id.is_empty(): hud.story_panel.close_panel()
 		return
+	if hud.factory_panel.visible:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F: hud.factory_panel.close_panel()
+		return
 	if hud.pause_menu.visible or hud.hotbar.picker.visible: return
 	if hud.survey.visible:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M: hud.survey.hide()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J]: return
+		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J, KEY_F, KEY_G]: return
+		if not hud.workspace.visible and event.ctrl_pressed and event.keycode in [KEY_C, KEY_V]:
+			if event.keycode == KEY_C: _start_copy()
+			else: _start_paste()
+			get_viewport().set_input_as_handled()
+			return
+		if pasting and event.keycode == KEY_R:
+			world.plans.rotate()
+			return
 		var slot := 9 if event.keycode == KEY_0 else int(event.keycode - KEY_1)
 		if slot >= 0 and slot < 10:
 			if event.alt_pressed:
@@ -230,6 +266,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				facing = posmod(facing + turn, 4)
 				var entity = world.at(_mouse_cell())
 				if selected_kind == "" and entity != null and world.in_reach(entity.cell): entity.direction = posmod(entity.direction + turn, 4)
+			KEY_F: _open_factory()
+			KEY_B: _build_plans()
+			KEY_G:
+				if not hud.workspace.visible and selected_kind == "underground_belt": underground_exit = not underground_exit
+				else:
+					var cell := selected_cell if hud.workspace.visible else _mouse_cell()
+					var tunnel = world.at(cell)
+					if tunnel != null: world.set_underground_exit(cell, not tunnel.underground_exit)
 			KEY_PAUSE: _toggle_pause()
 			KEY_J: _open_journal()
 			KEY_C: hud.toggle_crafting()
@@ -249,7 +293,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				if hud.site_id != "": world.withdraw_site(hud.site_id)
 				elif not hud.workspace.visible or hud.workspace.mode == "machine": world.collect_output(selected_cell)
 			KEY_Q:
-				if selected_kind != "": _select("")
+				if copy_mode or pasting: _cancel_planning()
+				elif selected_kind != "": _select("")
 				else:
 					var hovered = world.at(_mouse_cell())
 					if hovered != null: _select(hovered.kind)
@@ -257,7 +302,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:
 				var cell := _mouse_cell()
-				if event.ctrl_pressed:
+				if copy_mode:
+					copy_origin = cell
+					copy_dragging = true
+				elif pasting:
+					var error: String = world.plans.place(world, cell)
+					hud.show_notice(error if not error.is_empty() else "Plan placed. B builds reachable ghosts using your pack.")
+				elif event.shift_pressed and not selected_kind.is_empty():
+					var error: String = world.plans.place_single(world, selected_kind, cell, facing, underground_exit)
+					if not error.is_empty(): hud.show_notice(error)
+				elif event.ctrl_pressed:
 					var site = world.settlements.at(cell)
 					if site != null: world.supply_site(site.id)
 					else: world.supply(cell)
@@ -266,16 +320,20 @@ func _unhandled_input(event: InputEvent) -> void:
 				else:
 					painting = true
 					last_painted = cell
-					world.build(selected_kind, cell, facing)
+					world.build(selected_kind, cell, facing, underground_exit)
 			MOUSE_BUTTON_RIGHT:
 				painting = false
-				mining_held = true
+				if world.plans.ghosts.has(_mouse_cell()):
+					world.plans.ghosts.erase(_mouse_cell())
+					world.changed.emit()
+				else: mining_held = true
 				reclaim_progress = 0.0
 			MOUSE_BUTTON_WHEEL_UP: camera.zoom = Vector2.ONE * minf(1.7, camera.zoom.x + 0.1)
 			MOUSE_BUTTON_WHEEL_DOWN: camera.zoom = Vector2.ONE * maxf(0.65, camera.zoom.x - 0.1)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		copy_dragging = false
 		painting = false
 		mining_held = false
 		reclaim_progress = 0.0
@@ -291,8 +349,10 @@ func _select(kind: String) -> void:
 		hud.show_notice("This tool appears after its learning milestone. Follow the objective above.")
 		return
 	if kind != "" and not world.unlocked(Catalog.BUILDINGS[kind]):
-		hud.show_notice("Research Logistics I to unlock fast conveyors.")
+		hud.show_notice("Research %s to unlock this building." % Catalog.technology(Catalog.BUILDINGS[kind].get("technology", "")).get("name", "the required technology"))
 		return
+	_cancel_planning()
+	underground_exit = false
 	selected_kind = kind
 	hud.close_workspace()
 	hud.selection = kind
@@ -327,7 +387,7 @@ func _paint_to(cell: Vector2i) -> void:
 		var offset := cell - cursor
 		if absi(offset.x) >= absi(offset.y): cursor.x += signi(offset.x)
 		else: cursor.y += signi(offset.y)
-		if world.at(cursor) == null and world.can_build(selected_kind, cursor).is_empty(): world.build(selected_kind, cursor, facing)
+		if world.at(cursor) == null and world.can_build(selected_kind, cursor).is_empty(): world.build(selected_kind, cursor, facing, underground_exit)
 	last_painted = cell
 
 func _toggle_pause() -> void:
@@ -375,6 +435,8 @@ func _update_reclaim(cell: Vector2i, held: bool, delta: float) -> void:
 		reclaim_progress = 0.0
 
 func _prepare_story() -> void:
+	_cancel_planning()
+	hud.factory_panel.close_panel()
 	story_was_paused = paused
 	if not paused: _toggle_pause()
 	painting = false
@@ -414,3 +476,46 @@ func _load_save() -> void:
 	_bind_world(result.world)
 	if not world.story.seen.has("arrival"): _open_story("arrival")
 	hud.show_notice("Legacy factory imported; old file preserved. Add inserters between belts and machines." if result.get("legacy", false) else "Factory restored.")
+
+func _cancel_planning() -> void:
+	copy_mode = false
+	copy_dragging = false
+	pasting = false
+	painting = false
+
+func _copy_rectangle(end: Vector2i) -> Rect2i:
+	var corner := Vector2i(mini(copy_origin.x, end.x), mini(copy_origin.y, end.y))
+	return Rect2i(corner, Vector2i(absi(end.x - copy_origin.x) + 1, absi(end.y - copy_origin.y) + 1))
+
+func _start_copy() -> void:
+	_cancel_planning()
+	hud.close_workspace()
+	hud.factory_panel.close_panel()
+	copy_mode = true
+	hud.show_notice("Drag a rectangle around a factory module. Esc cancels.")
+
+func _start_paste() -> void:
+	_cancel_planning()
+	if world.plans.clipboard.is_empty():
+		hud.show_notice("Copy a factory area with Ctrl+C first.")
+		return
+	hud.close_workspace()
+	hud.factory_panel.close_panel()
+	pasting = true
+	hud.show_notice("Click to stamp ghosts. R rotates; B builds nearby; Esc finishes.")
+
+func _build_plans() -> void:
+	var count: int = world.plans.build_nearby(world)
+	hud.show_notice("Built %d planned buildings. Remaining ghosts need buildings in your pack and interaction reach." % count)
+	hud.refresh()
+
+func _open_factory() -> void:
+	if hud.factory_panel.visible:
+		hud.factory_panel.close_panel()
+		return
+	_cancel_planning()
+	mining_held = false
+	hud.close_workspace()
+	hud.survey.hide()
+	hud.hotbar.close_picker()
+	hud.factory_panel.open_panel(world)

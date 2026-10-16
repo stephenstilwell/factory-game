@@ -14,10 +14,10 @@ const SITES := {
 		"repair": {"iron_plate": 20, "gear": 5, "copper_plate": 10}, "credits": 60, "requires": "trading_post",
 		"description": "Fund a construction crew and reopen the region's maintenance workshop.",
 		"keeper": "Oren, the engineer", "greeting": "The workshop is back. We've tuned every burner in the region to make its coal last longer.",
-		"effect": {"burner_ticks": 16}, "reward": "GLOBAL: each new coal burns for 20% more active work in drills and furnaces.",
+		"contract": "workshop_parts", "effect": {"burner_ticks": 16}, "reward": "GLOBAL: each new coal burns for 20% more active work in drills and furnaces.",
 	},
 	"town_hall": {
-		"name": "Oldbridge Town Hall", "origin": Vector2i(42, 12), "size": Vector2i(3, 3), "port": Vector2i(0, 1),
+		"name": "Oldbridge Town Hall", "contract": "housing", "origin": Vector2i(42, 12), "size": Vector2i(3, 3), "port": Vector2i(0, 1),
 		"repair": {"stone": 40, "iron_plate": 40, "gear": 10, "wire": 10}, "credits": 0, "requires": "workshop", "health": 300,
 		"description": "Rebuild Oldbridge's heart and signal beacon. The light guides families home, but draws old salvage sentries down the eastern road. Light it only when your defenses are ready.",
 		"keeper": "Ada, the warden", "greeting": "The hall is our shelter. Prepare walls, gun turrets, ammunition, and repair kits before we light the beacon.",
@@ -26,5 +26,7 @@ const SITES := {
 }
 
 const CONTRACTS := {
+	"workshop_parts": {"name": "Keep the repair crews working", "goods": {"gear": 2, "wire": 4}, "ticks": 400, "reward": 12, "buffer_batches": 10},
+	"housing": {"name": "Homes along the crossing", "goods": {"construction_kit": 2, "steel": 4, "copper_plate": 4}, "ticks": 600, "reward": 0, "buffer_batches": 5},
 	"machine_parts": {"name": "Parts for our neighbors", "goods": {"iron_plate": 4, "gear": 1}, "ticks": 300, "reward": 10, "buffer_batches": 10},
 }

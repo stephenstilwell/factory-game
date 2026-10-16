@@ -137,6 +137,10 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	talk_button.tooltip_text = npc.role + ". Walk close to the person or the delivery hatch to talk."
 	state_label.text = region.status(id) + ("\nOut of reach - walk to the hatch." if not reachable else "")
 	if site.repaired: state_label.text += "\nHealth: %d / %d" % [site.health, site.max_health()]
+	if id == "town_hall" and site.repaired:
+		state_label.text += "\nNEIGHBORHOODS %d / 3 • Housing deliveries %d / 3" % [region.district_level(), site.shipments % 3]
+		state_label.text += "\nAll neighborhoods restored; housing deliveries complete." if region.district_level() >= 3 else "\nSupply construction kits, steel, and copper to grow the town. Shortages pause growth."
+		if region.district_level() > 0: state_label.text += "\nRegional coal efficiency: +%d%% from neighborhoods." % (region.district_level() * 5)
 	defense_status.visible = id == "town_hall" and site.repaired
 	beacon_button.visible = defense_status.visible
 	cancel_beacon_button.visible = defense_status.visible and world.defense.phase == "warning"
@@ -186,8 +190,10 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 		text += "%s\n\"%s\"\n\n" % [definition.keeper, definition.greeting]
 		if definition.has("contract"):
 			var contract: Dictionary = Definitions.CONTRACTS[definition.contract]
-			text += "CONTRACT: %s\n%s\n%d credits per %.0f-second shipment.\n\nBuffered: %s\nDelivered shipments: %d\n" % [contract.name, Catalog.describe(contract.goods), contract.reward, contract.ticks / 10.0, Catalog.describe(site.inventory.contents), site.shipments]
-			text += "\nGoods are committed when a shipment departs. Income pauses when supplies run out. Repairs remain complete.\n"
+			var benefit := "Housing progress" if id == "town_hall" else "%d credits" % contract.reward
+			text += "CONTRACT: %s\n%s\n%s per %.0f-second shipment.\n\nBuffered: %s\nDelivered shipments: %d\n" % [contract.name, Catalog.describe(contract.goods), benefit, contract.ticks / 10.0, Catalog.describe(site.inventory.contents), site.shipments]
+			if id == "town_hall": text += "\nEvery 3 housing deliveries restores a neighborhood (3 total). Each adds 5% coal working time. Dispatch stops at full restoration.\n"
+			else: text += "\nGoods are committed when a shipment departs. Income pauses when supplies run out. Repairs remain complete.\n"
 		else: text += "RESTORATION REWARD\n" + definition.reward + "\n"
 	text += "\nDELIVERY HATCH (%d, %d)\nManual: delivery button / Ctrl-click supplies; X withdraws.\nAutomation: inserter at (%d, %d), facing EAST; pickup at (%d, %d).\n" % [port.x, port.y, port.x - 1, port.y, port.x - 2, port.y]
 	information.text = text

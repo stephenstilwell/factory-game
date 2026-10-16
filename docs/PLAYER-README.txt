@@ -17,6 +17,12 @@ Right mouse (hold): Mine nearby deposits / reclaim buildings
 Left mouse: Place a selected building or inspect a machine
 E: Inventory and crafting
 C: Crafting
+F: Factory workbench (research, production rates, construction plans)
+Ctrl+C: Drag to copy a factory area
+Ctrl+V: Stamp copied construction ghosts; R rotates the module
+Shift+left mouse with building selected: Place a single ghost
+B: Build reachable ghosts using buildings from your pack
+G: Toggle underground conveyor entrance/exit mode
 Q: Clear building cursor / pick a hovered building
 R / Shift+R: Rotate
 X: Collect machine output

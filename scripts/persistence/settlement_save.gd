@@ -41,6 +41,7 @@ static func restore(world: RefCounted, data) -> bool:
 				allowed = contract.goods
 				multiplier = int(contract.buffer_batches)
 				if site.shipment_ticks >= int(contract.ticks): return false
+				if site.id == "town_hall" and (site.shipments > 9 or (site.shipments == 9 and site.shipment_ticks > 0)): return false
 				earned += site.shipments * int(contract.reward)
 			else:
 				allowed = {}

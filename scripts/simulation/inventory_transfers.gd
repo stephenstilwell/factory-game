@@ -37,7 +37,7 @@ static func inspect(world: RefCounted, item: String, source: Dictionary, target:
 	var limit: int = mini(available, to.storage.capacity - to.storage.total())
 	if to.kind == "input":
 		if not world.accepts(to.entity, item): return {"error": "This machine does not accept %s for its current recipe." % Catalog.item_name(item), "limit": 0}
-		if to.entity.kind not in ["chest", "belt", "fast_belt", "lab"]: limit = mini(limit, maxi(0, 10 - to.storage.count(item)))
+		if to.entity.kind not in (["chest", "lab"] + Catalog.TRANSPORT): limit = mini(limit, maxi(0, world.input_limit(to.entity, item) - to.storage.count(item)))
 	elif to.kind == "site": limit = mini(limit, world.settlements.receiving_limit(to.site.id, item))
 	return {"source": from, "target": to, "limit": limit, "error": "Destination is full or does not need this item." if limit <= 0 else ""}
 

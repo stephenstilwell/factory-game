@@ -17,6 +17,9 @@ var carried := ""
 var status := "Idle"
 var health := 100
 var attack_cooldown := 0
+var routing_cursor := 0
+var merge_cursor := 0
+var underground_exit := false
 
 func max_health() -> int:
 	return int(Catalog.BUILDINGS[kind].get("health", 100))
@@ -36,4 +39,4 @@ func serialize() -> Dictionary:
 	return {"id": id, "kind": kind, "x": cell.x, "y": cell.y, "direction": direction,
 		"inventory": inventory.contents.duplicate(), "output": output.contents.duplicate(),
 		"recipe": recipe, "progress": progress, "burn_ticks": burn_ticks,
-		"cooldown": cooldown, "carried": carried, "health": health, "attack_cooldown": attack_cooldown}
+		"cooldown": cooldown, "carried": carried, "health": health, "attack_cooldown": attack_cooldown, "routing_cursor": routing_cursor, "merge_cursor": merge_cursor, "underground_exit": underground_exit}
