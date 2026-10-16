@@ -17,6 +17,7 @@ const CUES := {
 	"shot": preload("res://assets/audio/shot.wav"),
 }
 const MUSIC := preload("res://assets/audio/oldbridge.wav")
+var output_enabled := DisplayServer.get_name() != "headless"
 var settings_path := SETTINGS_PATH
 var levels := {"Master": 0.75, "Music": 0.35, "SFX": 0.7}
 var voices: Array[AudioStreamPlayer] = []
@@ -56,7 +57,7 @@ func _ready() -> void:
 	music.stream = loop
 	music.volume_db = -6.0
 	add_child(music)
-	music.play()
+	if output_enabled: music.play()
 	settings_timer = Timer.new()
 	settings_timer.one_shot = true
 	settings_timer.wait_time = 0.4
@@ -121,7 +122,7 @@ func play_cue(cue: String, cell: Variant = null) -> bool:
 		cooldowns[cue] = now + (400 if cue in ["success", "warning"] else 90)
 		voice.stream = CUES[cue]
 		voice.volume_db = linear_to_db(gain) - (12.0 if cue == "machine" else 3.0)
-		voice.play()
+		if output_enabled: voice.play()
 		return true
 	return false
 

@@ -95,6 +95,7 @@ func _bind_world(state: RefCounted) -> void:
 	hud.workspace.site_id = ""
 	hud.workspace.selected_item = ""
 	hud.survey.hide()
+	hud.hotbar.close_picker()
 	hud.xp_time = 0.0
 	hud.xp_label.hide()
 	view.resource_target = {}
@@ -110,14 +111,14 @@ func _bind_world(state: RefCounted) -> void:
 func _process(delta: float) -> void:
 	var mouse_cell := _mouse_cell()
 	var pointer: bool = hud.world_has_pointer()
-	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible, paused)
+	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible, paused)
 	if not view.resource_target.is_empty() and world.terrain.tile(view.resource_target.cell).is_empty():
 		view.resource_target = world.terrain.find_resource(view.resource_target.item, Vector2i(world.player_position.floor()), world.skills.survey_radius())
 		hud.show_notice("Tracked tile exhausted. Survey marker updated to remaining resources." if not view.resource_target.is_empty() else "No remaining patch found nearby. Explore farther and press M to survey again.")
 	world.move_direction = Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
-	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or paused:
+	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or paused:
 		world.move_direction = Vector2.ZERO
 		painting = false
 		mining_held = false
@@ -155,7 +156,8 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if hud.pause_menu.visible: _close_menu()
+		if hud.hotbar.picker.visible: hud.hotbar.close_picker()
+		elif hud.pause_menu.visible: _close_menu()
 		elif hud.survey.visible: hud.survey.hide()
 		elif hud.workspace.visible: hud.close_workspace()
 		elif selected_kind != "": _select("")
@@ -181,13 +183,23 @@ func _update_display_button() -> void:
 	hud.fullscreen_button.text = "Window [F11]" if fullscreen else "Fullscreen [F11]"
 
 func _unhandled_input(event: InputEvent) -> void:
-	if hud.pause_menu.visible: return
+	if hud.pause_menu.visible or hud.hotbar.picker.visible: return
 	if hud.survey.visible:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M: hud.survey.hide()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X]: return
-		if event.keycode >= KEY_1 and event.keycode <= KEY_8: _select(Catalog.BUILD_ORDER[event.keycode - KEY_1])
+		var slot := 9 if event.keycode == KEY_0 else int(event.keycode - KEY_1)
+		if slot >= 0 and slot < 10:
+			if event.alt_pressed:
+				if not selected_kind.is_empty(): hud.hotbar.assign(slot, selected_kind)
+			else: hud.hotbar.activate(slot)
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_TAB:
+			hud.hotbar.change_page(-1 if event.shift_pressed else 1)
+			get_viewport().set_input_as_handled()
+			return
 		match event.keycode:
 			KEY_ESCAPE:
 				_select("")

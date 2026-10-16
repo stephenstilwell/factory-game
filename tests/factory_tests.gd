@@ -11,6 +11,7 @@ const InventoryUXTests = preload("res://tests/inventory_ux_tests.gd")
 const TerrainGenerationTests = preload("res://tests/terrain_generation_tests.gd")
 const CharacterTests = preload("res://tests/character_tests.gd")
 const SkillTests = preload("res://tests/skill_tests.gd")
+const HotbarTests = preload("res://tests/hotbar_tests.gd")
 const AudioTests = preload("res://tests/audio_tests.gd")
 const DefenseTests = preload("res://tests/defense_tests.gd")
 
@@ -45,6 +46,7 @@ func _run() -> void:
 	SettlementTests.run(self)
 	InventoryUXTests.models(self)
 	await AudioTests.run(self)
+	await HotbarTests.run(self)
 	await _scene_smoke()
 	await InventoryUXTests.ui(self)
 	print("Factory verification: %d checks, %d failures" % [checks, failures])
@@ -431,7 +433,7 @@ func _scene_smoke() -> void:
 	await process_frame
 	check(scene.world.entities.is_empty() and scene.world.player.total() == 0, "Playable scene starts without buildings or supplies")
 	check(scene.hud.objective.visible and scene.hud.objective.text.contains("Gather stone"), "New player sees the first mining lesson")
-	check(not scene.hud.tool_buttons.drill.visible and scene.hud.tool_buttons.furnace.visible, "Toolbar introduces tools gradually")
+	check(not scene.hud.hotbar.available("drill") and scene.hud.hotbar.available("furnace"), "Hotbar introduces tools gradually without moving shortcut slots")
 	scene.hud.toggle_crafting()
 	await process_frame
 	check(scene.hud.craft_buttons.furnace.visible and not scene.hud.craft_buttons.science.visible, "New player sees only introductory crafting recipes")

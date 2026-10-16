@@ -14,7 +14,7 @@ New games start with **an empty inventory and no working factory buildings**. Th
 
 The opening teaches **mine stone → craft/place a furnace → mine ore and coal → smelt/collect plates → craft a drill → automate storage → assemble components → make science → research**. Recipes and toolbar tools appear as their learning milestones are completed. Lessons award no free items; all materials come from mining and production. Spending materials or reclaiming a machine does not erase a completed lesson.
 
-**Bootstrap:** Mine 5 stone, press **C**, and craft a stone furnace. Press **3** to select it and click nearby ground to place it. Mine 5 iron ore and 2 coal; walk back, select the furnace, and use **Load ingredients** to supply it. After it produces plates, **X** collects them. Repeat mining/smelting to earn the materials for your drill and logistics.
+**Bootstrap:** Mine 5 stone, press **C**, and craft a stone furnace. Select the furnace on the hotbar and click nearby ground to place it. Mine 5 iron ore and 2 coal; walk back, select the furnace, and use **Load ingredients** to supply it. After it produces plates, **X** collects them. Repeat mining/smelting to earn the materials for your drill and logistics.
 
 Later, a lab consumes science packs to unlock technology. **Logistics I** consumes 10 packs and unlocks fast belts; **Metallurgy** consumes 20 more and unlocks steel smelting. These are the prototype's current two technologies; the planned branching research design is described in [docs/progression.md](docs/progression.md).
 
@@ -33,7 +33,7 @@ Nearby starting deposits: iron around **(14, 16)**, copper **(28, 23)**, coal **
 | Walk; camera follows | WASD / arrows |
 | Zoom | Mouse wheel |
 | Toggle borderless fullscreen / windowed | F11 / top-bar display button |
-| Select building | 1–8 / toolbar |
+| Select building | 1–0 / customizable hotbar |
 | Place; paint a continuous grid path | Left click / drag |
 | Inspect a machine | Left click occupied tile |
 | Close interface / clear build cursor / open pause menu | Esc, in that order |
@@ -102,3 +102,5 @@ Previews are stored under the ignored `.godot/verification/` directory.
 See [the release guide](docs/releases.md) for local Windows packages, automated GitHub Actions builds, and draft prereleases.
 
 Music and action sounds are included. Press **Esc** for Master, Music, and Sound effects volume sliders; preferences persist between sessions. See [audio](docs/audio.md) for the palette and extension points.
+
+The bottom building hotbar has ten customizable slots and two pages. **Right-click a slot** to assign a building, drag from your pack to pin one, drag between slots to swap, and press **Tab** to change pages. **Alt + number** pins the current build cursor. Layouts persist between sessions. See [the hotbar guide](docs/hotbar.md).

@@ -3,6 +3,7 @@ extends CanvasLayer
 
 const Catalog = preload("res://scripts/data/catalog.gd")
 const Style = preload("res://scripts/ui/ui_style.gd")
+const Hotbar = preload("res://scripts/ui/build_hotbar.gd")
 const Workspace = preload("res://scripts/ui/inventory_workspace.gd")
 const Survey = preload("res://scripts/ui/resource_survey.gd")
 const SkillDefinitions = preload("res://scripts/data/skill_catalog.gd")
@@ -48,7 +49,7 @@ var xp_time := 0.0
 var notice_label: Label
 var pause_button: Button
 var fullscreen_button: Button
-var tool_buttons: Dictionary = {}
+var hotbar: VBoxContainer
 var workspace: PanelContainer
 var backdrop: ColorRect
 var pause_menu: ColorRect
@@ -106,7 +107,7 @@ func _ready() -> void:
 	box.add_child(defense_status)
 	bottom = PanelContainer.new()
 	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.offset_top = -122
+	bottom.offset_top = -156
 	root.add_child(bottom)
 	var bottom_box := VBoxContainer.new()
 	bottom.add_child(bottom_box)
@@ -122,21 +123,17 @@ func _ready() -> void:
 	inventory_label = Style.label("PACK [E]", 13, Style.ACCENT)
 	inventory_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	info.add_child(inventory_label)
-	var tools := HBoxContainer.new()
-	tools.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom_box.add_child(tools)
-	for i in range(Catalog.BUILD_ORDER.size()):
-		var id: String = Catalog.BUILD_ORDER[i]
-		var button := Style.button(tools, "", func(): build_selected.emit(id))
-		button.custom_minimum_size = Vector2(126, 44)
-		button.add_theme_font_size_override("font_size", 14)
-		tool_buttons[id] = button
+	hotbar = Hotbar.new()
+	bottom_box.add_child(hotbar)
+	hotbar.build_selected.connect(func(id): build_selected.emit(id))
+	hotbar.notice.connect(show_notice)
 	notice_label = Style.label("", 13, Style.GOLD)
 	notice_label.max_lines_visible = 1
 	bottom_box.add_child(notice_label)
 	backdrop = ColorRect.new()
 	backdrop.color = Color(0.025, 0.045, 0.055, 0.76)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.offset_bottom = -156
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	backdrop.gui_input.connect(func(event):
 		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT: close_workspace())
@@ -146,7 +143,7 @@ func _ready() -> void:
 	workspace.offset_left = 24
 	workspace.offset_top = 80
 	workspace.offset_right = -24
-	workspace.offset_bottom = -104
+	workspace.offset_bottom = -168
 	root.add_child(workspace)
 	workspace.close_requested.connect(close_workspace)
 	workspace.upgrade_requested.connect(func(id, rank): upgrade_requested.emit(id, rank))
@@ -203,6 +200,7 @@ func _ready() -> void:
 	pause_menu.hide()
 	survey = Survey.new()
 	root.add_child(survey)
+	hotbar.attach_picker(root)
 	survey.close_requested.connect(func(): survey.hide())
 	survey.target_selected.connect(func(data):
 		survey_target_selected.emit(data)
@@ -286,13 +284,7 @@ func refresh() -> void:
 		var tech: Dictionary = Catalog.TECHNOLOGIES[world.researched.size()]
 		research.text = "RESEARCH  %s  %d / %d science packs  •  %s" % [tech.name, world.research_progress, tech.cost, tech.unlock]
 	else: research.text = "RESEARCH COMPLETE  •  Logistics I + Metallurgy"
-	for i in range(Catalog.BUILD_ORDER.size()):
-		var id: String = Catalog.BUILD_ORDER[i]
-		var short_name: String = Catalog.item_name(id).replace("Conveyor", "Belt").replace("conveyor", "belt").replace("Burner ", "").replace("Stone ", "").replace("Storage ", "").replace("Research ", "").capitalize()
-		tool_buttons[id].text = "%d %s  ·  %d" % [i + 1, short_name, world.player.count(id)]
-		tool_buttons[id].visible = world.content_available(id)
-		tool_buttons[id].disabled = not world.unlocked(Catalog.BUILDINGS[id])
-		tool_buttons[id].modulate = Style.ACCENT if selection == id else Color.WHITE
+	hotbar.refresh(world, selection)
 	inventory_label.text = "PACK %d  [E]" % world.player.total()
 	notice_label.text = notice if notice_time > 0 else "E inventory • Hold RMB mine • Q clear/pick • Ctrl-click load • Esc menu"
 	notice_label.tooltip_text = notice_label.text
@@ -302,7 +294,7 @@ func refresh() -> void:
 		site_id = workspace.site_id if workspace.mode == "town" else ""
 
 func world_has_pointer() -> bool:
-	if workspace.visible or pause_menu.visible or survey.visible: return false
+	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible: return false
 	var pointer := get_viewport().get_mouse_position()
 	return not top.get_global_rect().has_point(pointer) and not bottom.get_global_rect().has_point(pointer)
 
