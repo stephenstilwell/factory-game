@@ -222,10 +222,10 @@ func refresh(state: RefCounted) -> void:
 		entity_id = -1
 		mode = "inventory"
 	for id in tabs:
-		tabs[id].modulate = Style.ACCENT if mode == id else Color.WHITE
+		Style.select(tabs[id], mode == id)
 	tabs.machine.visible = world.entities.has(entity_id)
 	tabs.town.visible = world.settlements.enabled
-	for amount in quantity_buttons: quantity_buttons[amount].modulate = Style.ACCENT if amount == quantity else Color.WHITE
+	for amount in quantity_buttons: Style.select(quantity_buttons[amount], amount == quantity)
 	pack_grid.descriptor = {"kind": "player"}
 	pack_grid.destination = {"kind": "player"}
 	pack_grid.world_token = world.get_instance_id()

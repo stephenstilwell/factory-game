@@ -35,6 +35,10 @@ Esc: Close interface, clear cursor, then open pause menu
 F11: Toggle fullscreen / windowed
 Mouse wheel: Zoom
 
+PRESENTATION
+Esc opens options for Reduced motion and Ambient light and particles.
+These preferences are saved separately from your factory.
+
 SAVE YOUR GAME
 Use the top toolbar Save button before quitting.
 Each launch starts a fresh world; use Load to resume your save.

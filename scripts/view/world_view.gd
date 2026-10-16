@@ -11,6 +11,7 @@ const MachineArt = preload("res://scripts/view/machine_art.gd")
 const NpcArt = preload("res://scripts/view/npc_art.gd")
 const EngineerArt = preload("res://scripts/view/engineer_art.gd")
 const Art = preload("res://scripts/view/art.gd")
+const Atmosphere = preload("res://scripts/view/atmosphere.gd")
 const Effects = preload("res://scripts/view/visual_effects.gd")
 const PlanLayer = preload("res://scripts/view/plan_layer.gd")
 const PlacementPreview = preload("res://scripts/view/placement_preview.gd")
@@ -38,11 +39,17 @@ var engineer_facing := Vector2.DOWN
 var placement: Node2D
 var plan_layer: Node2D
 var copy_rect := Rect2i()
+var reduced_motion := false
+var ambient_enabled := true
 
 func _ready() -> void:
 	placement = PlacementPreview.new()
 	add_child(placement)
 	placement.hide()
+	var atmosphere := Atmosphere.new()
+	atmosphere.world_view = self
+	atmosphere.z_index = 1
+	add_child(atmosphere)
 	plan_layer = PlanLayer.new()
 	plan_layer.z_index = 2
 	add_child(plan_layer)
@@ -51,6 +58,7 @@ func bind(state: RefCounted, view_camera: Camera2D) -> void:
 	if world != null:
 		if world.hand_resource_extracted.is_connected(_on_mined): world.hand_resource_extracted.disconnect(_on_mined)
 		if world.structure_repaired.is_connected(_on_repaired): world.structure_repaired.disconnect(_on_repaired)
+		if world.feedback_requested.is_connected(_on_feedback): world.feedback_requested.disconnect(_on_feedback)
 	world = state
 	plan_layer.world = world
 	for node in plan_layer.nodes.values(): node.queue_free()
@@ -58,7 +66,8 @@ func bind(state: RefCounted, view_camera: Camera2D) -> void:
 	plan_layer.pasting = false
 	world.hand_resource_extracted.connect(_on_mined)
 	world.structure_repaired.connect(_on_repaired)
-	effects.particles.clear()
+	world.feedback_requested.connect(_on_feedback)
+	effects.clear()
 	engineer_facing = Vector2.DOWN
 	camera = view_camera
 	for node in chunks.values(): node.queue_free()
@@ -134,6 +143,8 @@ func _draw() -> void:
 	for enemy in world.defense.enemies.values():
 		if visible_cells.has_point(enemy.cell): drawables.append({"kind": "enemy", "data": enemy, "depth": enemy.cell.y * TILE + 38})
 	drawables.append({"kind": "engineer", "depth": engineer.y + 14})
+	for drawable in drawables:
+		if drawable.kind == "machine" and Catalog.BUILDINGS[drawable.data.kind].solid: _cast_shadow(drawable.data)
 	drawables.sort_custom(func(a, b): return float(a.depth) < float(b.depth))
 	for drawable in drawables:
 		match drawable.kind:
@@ -240,9 +251,11 @@ func _build_grid() -> void:
 			draw_rect(Rect2(Vector2(cell) * TILE, Vector2.ONE * TILE), Color(0.83, 0.89, 0.73, alpha), false, 1)
 
 func _on_mined(cell: Vector2i, item: String) -> void:
+	if reduced_motion or not ambient_enabled: return
 	effects.burst((Vector2(cell) + Vector2.ONE * 0.5) * TILE, Catalog.color(item).lightened(0.2), world.ticks + cell.x * 31 + cell.y * 17, 6)
 
 func _on_repaired(cell: Vector2i) -> void:
+	if reduced_motion or not ambient_enabled: return
 	effects.burst((Vector2(cell) + Vector2.ONE * 0.5) * TILE, Art.AMBER, world.ticks + cell.x * 31 + cell.y * 17, 10)
 
 func _arrow(center: Vector2, direction: int, color: Color, size: float = 9) -> void:
@@ -279,3 +292,20 @@ func _draw_tunnel_link() -> void:
 	var end := (Vector2(exit.cell) + Vector2.ONE * 0.5) * TILE
 	draw_dashed_line(start, end, TEAL, 3, 8)
 	draw_rect(Rect2(Vector2(exit.cell) * TILE, Vector2.ONE * TILE), TEAL, false, 2)
+
+func _on_feedback(cue: String, cell: Vector2i) -> void:
+	if reduced_motion or not ambient_enabled: return
+	if cue in ["build", "pickup", "success"]:
+		var color := Art.AMBER if cue == "success" else TEAL
+		effects.pulse((Vector2(cell) + Vector2.ONE * 0.5) * TILE, color)
+		if cue == "build": effects.burst((Vector2(cell) + Vector2.ONE * 0.5) * TILE, Art.CREAM, cell.x * 31 + cell.y * 17, 5)
+
+func _cast_shadow(entity: RefCounted) -> void:
+	if entity.health <= 0: return
+	var center := (Vector2(entity.cell) + Vector2.ONE * 0.5) * TILE
+	var projection := Vector2(14, 11) if entity.kind != "wall" else Vector2(6, 5)
+	var a := center + Vector2(-16, -10)
+	var b := center + Vector2(16, -10)
+	var c := center + Vector2(16, 15)
+	var d := center + Vector2(-16, 15)
+	draw_colored_polygon(PackedVector2Array([a, b, b + projection, c + projection, d + projection, d]), Color(0.06, 0.10, 0.09, 0.14))

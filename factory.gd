@@ -7,9 +7,11 @@ const SaveService = preload("res://scripts/persistence/save_service.gd")
 const WorldView = preload("res://scripts/view/world_view.gd")
 const HUD = preload("res://scripts/ui/factory_hud.gd")
 const Catalog = preload("res://scripts/data/catalog.gd")
+const InterfacePolish = preload("res://scripts/ui/interface_polish.gd")
 const AudioDirector = preload("res://scripts/audio/audio_director.gd")
 const TILE := 48
 
+var presentation: Node
 var audio: Node
 var world: RefCounted
 var view: Node2D
@@ -47,6 +49,9 @@ func _ready() -> void:
 	hud.pause_content.add_child(sound_controls)
 	hud.pause_content.move_child(sound_controls, 1)
 	audio.create_controls(sound_controls)
+	presentation = InterfacePolish.new()
+	add_child(presentation)
+	presentation.configure(hud, view)
 	audio.watch_ui(hud)
 	hud.factory_requested.connect(_open_factory)
 	hud.factory_panel.research_requested.connect(func(id): world.select_research(id); hud.refresh())

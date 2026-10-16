@@ -48,3 +48,7 @@ godot --path . --script res://tests/capture_art.gd
 This renders working factory machinery, a second animation frame, inventory icons, placement-grid context, and matching ruined/restored Oldbridge views at 1280×800. It also checks that rendering leaves authoritative factory state unchanged. Files appear under `.godot/verification/art_*.png`. The existing `capture_preview.gd` covers menus and active defense scenes; `verify_display.gd` checks fullscreen switching.
 
 Next art work should add more character directions and explicit interaction poses, refine terrain transitions, and explore a small set of authored landmark details. Keep the existing state-driven renderer and clear silhouettes as the reference before expanding the asset library.
+
+## Interface and atmosphere pass
+
+Panels, selected tabs, focus outlines, tooltips, dropdowns, and scrollbars share teal and warm gold materials. Subtle interaction/menu transitions preserve input geometry. Warm furnace/settlement light, ground shadows, world-anchored motes, and bounded placement feedback reinforce the existing illustrated world. Esc offers reduced-motion and ambient-effects controls. See [interface polish](interface-polish.md) for visual budgets, accessibility, and verification.

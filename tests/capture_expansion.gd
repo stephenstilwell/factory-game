@@ -4,6 +4,7 @@ const Simulation = preload("res://scripts/simulation/simulation.gd")
 func _initialize() -> void:
 	call_deferred("_capture")
 func shot(name: String) -> void:
+	await create_timer(0.2).timeout
 	for i in range(6): await process_frame
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png("res://.godot/verification/" + name + ".png")
@@ -50,4 +51,7 @@ func _capture() -> void:
 	scene.hud.factory_panel.tab = "production"
 	scene.hud.factory_panel.refresh()
 	await shot("expansion_small")
+	scene.hud.factory_panel.close_panel()
+	scene._open_menu()
+	await shot("polish_settings_small")
 	quit()

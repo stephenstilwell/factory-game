@@ -17,6 +17,7 @@ var can_transfer: Callable
 var glyph: Control
 var count_label: Label
 var name_label: Label
+var selected_style: Variant = null
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(78, 82)
@@ -53,7 +54,9 @@ func update_count(value: int, selected: bool = false) -> void:
 	amount = value
 	count_label.text = "%.1fk" % (value / 1000.0) if value >= 1000 else str(value)
 	glyph.modulate.a = 1.0 if value > 0 else 0.4
-	add_theme_stylebox_override("normal", Style.panel(Color("2d4848") if selected else Color("24373d"), Style.ACCENT if selected else Color("3a5057")))
+	if selected_style != selected:
+		selected_style = selected
+		add_theme_stylebox_override("normal", Style.panel(Color("2d4848") if selected else Color("24373d"), Style.GOLD if selected else Color("3a5057")))
 	tooltip_text = "%s\n%d in this inventory\n%s\n\nClick to select / load / take. Right-click: 1. Shift-click: all.\nDrag transfers the selected quantity." % [Catalog.item_name(item_id), amount, Catalog.item_description(item_id)]
 
 func _gui_input(event: InputEvent) -> void:

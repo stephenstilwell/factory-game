@@ -112,7 +112,7 @@ func refresh() -> void:
 	if world == null: return
 	for id in sections:
 		sections[id].visible = id == tab
-		tabs[id].modulate = Style.ACCENT if id == tab else Color.WHITE
+		Style.select(tabs[id], id == tab)
 	if tab == "research":
 		var active: String = world.current_research()
 		research_status.text = "Choose a research project" if active.is_empty() else "ACTIVE: %s  •  %d / %d science" % [Catalog.technology(active).name, world.research_progress, Catalog.technology(active).cost]
@@ -124,6 +124,7 @@ func refresh() -> void:
 			var condition := "Complete" if done else ("Active" if definition.id == active else ("Select" if available else "Needs: " + ", ".join(definition.requires)))
 			research_buttons[definition.id].text = "%s  •  %s  •  %d/%d science\n%s" % [definition.name, condition, progress, definition.cost, definition.unlock]
 			research_buttons[definition.id].disabled = done or not available or definition.id == active
+			Style.select(research_buttons[definition.id], definition.id == active and not done)
 			research_buttons[definition.id].tooltip_text = "Finish the introductory lab lesson to select research." if not world.content_available("lab") else definition.unlock
 	elif tab == "production":
 		var stats: Dictionary = world.metrics.snapshot(world.ticks)
