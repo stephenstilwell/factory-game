@@ -117,6 +117,7 @@ func step(world: RefCounted) -> void:
 		spawn_timer = 0
 		world.message.emit("Defense %d complete! %d families sheltered. Road crews grant +5%% movement while the Town Hall is operational. The next wave waits for your signal." % [cleared, cleared * 3])
 		world.changed.emit()
+		if cleared == 1: world.request_story("first_homecoming")
 
 func _fire_turrets(world: RefCounted) -> void:
 	for id in world.by_kind.turret:

@@ -104,3 +104,5 @@ See [the release guide](docs/releases.md) for local Windows packages, automated 
 Music and action sounds are included. Press **Esc** for Master, Music, and Sound effects volume sliders; preferences persist between sessions. See [audio](docs/audio.md) for the palette and extension points.
 
 The bottom building hotbar has ten customizable slots and two pages. **Right-click a slot** to assign a building, drag from your pack to pin one, drag between slots to swap, and press **Tab** to change pages. **Alt + number** pins the current build cursor. Layouts persist between sessions. See [the hotbar guide](docs/hotbar.md).
+
+Oldbridge now has a story: help Mira, Oren, and Ada bring displaced families home after the enchanted beacon chain went dark. New games begin with a skippable greeting. Click the named keepers or use a town project's **Talk** button; press **J / Journal** to replay conversations and review your next goal. Story memories persist in saves. See [the first story arc](docs/story.md).

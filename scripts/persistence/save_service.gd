@@ -21,7 +21,7 @@ static func encode(world: RefCounted) -> Dictionary:
 		depletion.append([cell.x, cell.y, world.terrain.depleted[cell]])
 	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
-		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(),
+		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "story": world.story.serialize(),
 		"researched": world.researched.duplicate(), "research_progress": world.research_progress,
 		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
 
@@ -182,6 +182,7 @@ static func decode(data) -> Dictionary:
 	if not _integer(data.get("next_craft_id", maximum_job_id + 1), maximum_job_id + 1): return {"error": "Invalid next crafting job ID."}
 	world.next_craft_id = int(data.get("next_craft_id", maximum_job_id + 1))
 	if data.has("defense") and not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
+	if data.has("story") and not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
 	return {"world": world, "error": ""}
 
 static func _legacy(data: Dictionary) -> Dictionary:

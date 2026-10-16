@@ -3,12 +3,14 @@ extends CanvasLayer
 
 const Catalog = preload("res://scripts/data/catalog.gd")
 const Style = preload("res://scripts/ui/ui_style.gd")
+const StoryPanel = preload("res://scripts/ui/story_panel.gd")
 const Hotbar = preload("res://scripts/ui/build_hotbar.gd")
 const Workspace = preload("res://scripts/ui/inventory_workspace.gd")
 const Survey = preload("res://scripts/ui/resource_survey.gd")
 const SkillDefinitions = preload("res://scripts/data/skill_catalog.gd")
 
 signal build_selected(kind: String)
+signal journal_requested
 signal upgrade_requested(id: String, rank: int)
 signal beacon_requested
 signal beacon_cancel_requested
@@ -32,6 +34,7 @@ signal transfer_requested(item: String, amount: int, source: Dictionary, target:
 signal site_selected(id: String)
 signal site_supply_requested(id: String)
 signal site_restore_requested(id: String)
+signal site_talk_requested(id: String)
 signal site_withdraw_requested(id: String)
 
 var world: RefCounted
@@ -50,6 +53,7 @@ var notice_label: Label
 var pause_button: Button
 var fullscreen_button: Button
 var hotbar: VBoxContainer
+var story_panel: ColorRect
 var workspace: PanelContainer
 var backdrop: ColorRect
 var pause_menu: ColorRect
@@ -127,6 +131,7 @@ func _ready() -> void:
 	bottom_box.add_child(hotbar)
 	hotbar.build_selected.connect(func(id): build_selected.emit(id))
 	hotbar.notice.connect(show_notice)
+	hotbar.journal_requested.connect(func(): journal_requested.emit())
 	notice_label = Style.label("", 13, Style.GOLD)
 	notice_label.max_lines_visible = 1
 	bottom_box.add_child(notice_label)
@@ -163,6 +168,7 @@ func _ready() -> void:
 	workspace.site_selected.connect(func(id): site_selected.emit(id))
 	workspace.site_supply_requested.connect(func(id): site_supply_requested.emit(id))
 	workspace.site_restore_requested.connect(func(id): site_restore_requested.emit(id))
+	workspace.site_talk_requested.connect(func(id): site_talk_requested.emit(id))
 	workspace.site_withdraw_requested.connect(func(id): site_withdraw_requested.emit(id))
 	crafting = workspace.crafting
 	craft_buttons = crafting.recipe_buttons
@@ -201,6 +207,8 @@ func _ready() -> void:
 	survey = Survey.new()
 	root.add_child(survey)
 	hotbar.attach_picker(root)
+	story_panel = StoryPanel.new()
+	root.add_child(story_panel)
 	survey.close_requested.connect(func(): survey.hide())
 	survey.target_selected.connect(func(data):
 		survey_target_selected.emit(data)
@@ -294,7 +302,7 @@ func refresh() -> void:
 		site_id = workspace.site_id if workspace.mode == "town" else ""
 
 func world_has_pointer() -> bool:
-	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible: return false
+	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible: return false
 	var pointer := get_viewport().get_mouse_position()
 	return not top.get_global_rect().has_point(pointer) and not bottom.get_global_rect().has_point(pointer)
 

@@ -96,12 +96,6 @@ static func _details(canvas: Node2D, p: Vector2, id: String, operational: bool, 
 		for i in range(6):
 			var axis := Vector2.from_angle(i * TAU / 6)
 			canvas.draw_line(p + Vector2(73, 76) + axis * 5, p + Vector2(73, 76) + axis * 12, Art.CREAM, 3, true)
-	if operational:
-		var resident := p + Vector2(91 + sin(time * 0.3) * 4, 128)
-		Art.shadow(canvas, resident + Vector2(0, 6), Vector2(7, 4))
-		Art.box(canvas, Rect2(resident - Vector2(5, 3), Vector2(10, 13)), Art.STEEL if id != "town_hall" else Color("ad7957"), 3)
-		canvas.draw_circle(resident - Vector2(0, 5), 5, Color("d1ae7b"))
-		canvas.draw_line(resident + Vector2(-6, -8), resident + Vector2(6, -8), Art.CREAM, 3, true)
 
 static func _beacon(canvas: Node2D, p: Vector2, operational: bool, phase: String, time: float) -> void:
 	Art.box(canvas, Rect2(p + Vector2(57, 18), Vector2(30, 29)), Art.STEEL, 4, Art.INK)

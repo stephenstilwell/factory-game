@@ -8,6 +8,7 @@ const SettlementView = preload("res://scripts/view/settlement_view.gd")
 const DefenseView = preload("res://scripts/view/defense_view.gd")
 const LandscapeView = preload("res://scripts/view/landscape_view.gd")
 const MachineArt = preload("res://scripts/view/machine_art.gd")
+const NpcArt = preload("res://scripts/view/npc_art.gd")
 const EngineerArt = preload("res://scripts/view/engineer_art.gd")
 const Art = preload("res://scripts/view/art.gd")
 const Effects = preload("res://scripts/view/visual_effects.gd")
@@ -109,13 +110,20 @@ func _draw() -> void:
 		for x in range(visible_cells.position.x, visible_cells.end.x):
 			var entity = world.at(Vector2i(x, y))
 			if entity != null: drawables.append({"kind": "machine", "data": entity, "depth": y * TILE + (18 if entity.kind in ["belt", "fast_belt"] else 43)})
+	if world.settlements.enabled:
+		for id in world.story.Definitions.NPCS:
+			var cell: Vector2i = world.story.npc_cell(world, id)
+			if visible_cells.has_point(cell): drawables.append({"kind": "npc", "data": id, "depth": cell.y * TILE + 38})
 	for enemy in world.defense.enemies.values():
 		if visible_cells.has_point(enemy.cell): drawables.append({"kind": "enemy", "data": enemy, "depth": enemy.cell.y * TILE + 38})
 	drawables.append({"kind": "engineer", "depth": engineer.y + 14})
 	drawables.sort_custom(func(a, b): return float(a.depth) < float(b.depth))
 	for drawable in drawables:
 		match drawable.kind:
-			"site": SettlementView.draw_site(self, drawable.data, selected_site, world.defense.phase, animation_time)
+			"site":
+				SettlementView.draw_site(self, drawable.data, selected_site, world.defense.phase, animation_time)
+				NpcArt.draw_homecoming(self, drawable.data, world.defense.cleared, world.defense.phase, animation_time)
+			"npc": NpcArt.draw_npc(self, world, drawable.data, animation_time, pointer_in_world and hover == world.story.npc_cell(world, drawable.data))
 			"machine": _machine(drawable.data)
 			"enemy": DefenseView.draw_enemy(self, drawable.data, world.defense.enemy_health(), animation_time)
 			"engineer":

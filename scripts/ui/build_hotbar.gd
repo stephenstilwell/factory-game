@@ -5,6 +5,7 @@ const Layout = preload("res://scripts/ui/hotbar_layout.gd")
 const Slot = preload("res://scripts/ui/hotbar_slot.gd")
 const Tile = preload("res://scripts/ui/item_tile.gd")
 signal build_selected(id: String)
+signal journal_requested
 signal notice(text: String)
 var layout := Layout.new()
 var world: RefCounted
@@ -41,6 +42,8 @@ func _ready() -> void:
 	var library := Style.button(row, "Buildings", func(): open_picker(0))
 	library.custom_minimum_size = Vector2(104, 62)
 	library.tooltip_text = "Choose a slot and assign a building. Right-click any slot to edit it."
+	var journal := Style.button(row, "Journal [J]", func(): journal_requested.emit())
+	journal.custom_minimum_size = Vector2(96, 62)
 	caption = Style.label("", 13, Style.MUTED)
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.max_lines_visible = 1

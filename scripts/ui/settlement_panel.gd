@@ -8,6 +8,7 @@ const Grid = preload("res://scripts/ui/inventory_grid.gd")
 signal site_selected(id: String)
 signal supply_requested(id: String)
 signal restore_requested(id: String)
+signal talk_requested(id: String)
 signal withdraw_requested(id: String)
 signal transfer_requested(item: String, amount: int, source: Dictionary, target: Dictionary, token: int)
 signal beacon_requested
@@ -19,6 +20,7 @@ var overview: VBoxContainer
 var detail: VBoxContainer
 var overview_text: Label
 var project_buttons: Dictionary = {}
+var talk_button: Button
 var title: Label
 var state_label: Label
 var information: Label
@@ -49,6 +51,7 @@ func _ready() -> void:
 	detail.add_child(title)
 	state_label = _label("", 14, Color("e4c58b"))
 	detail.add_child(state_label)
+	talk_button = _button(detail, "Talk", func(): talk_requested.emit(selected_id))
 	defense_status = _label("", 15, Color("e4c58b"))
 	detail.add_child(defense_status)
 	beacon_button = _button(detail, "Light beacon", func(): beacon_requested.emit())
@@ -103,7 +106,7 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	detail.visible = not id.is_empty()
 	var region = world.settlements
 	if id.is_empty():
-		overview_text.text = "Your factory can bring this town back. Repairs are permanent; supplied shipments earn income.\n\nTrade credits: %d\nLifetime earned: %d\n\n%s\n" % [region.credits, region.total_earned, region.objective_text()]
+		overview_text.text = "Mira promised the families beyond the ridge a market, a working road, and somewhere dry to sleep. Your factory can make that promise real.\n\nTrade credits: %d\nLifetime earned: %d\n\n%s\n" % [region.credits, region.total_earned, region.objective_text()]
 		if region.effect("burner_ticks") > 0: overview_text.text += "\nACTIVE REGIONAL BONUS\nBurner coal lasts 20% longer.\n"
 		for project in project_buttons:
 			var landmark = region.sites[project]
@@ -127,6 +130,11 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	var port: Vector2i = site.port()
 	var reachable: bool = world.in_reach(port)
 	title.text = definition.name.to_upper()
+	var npc: Dictionary = world.story.Definitions.NPCS[id]
+	var chapter: String = world.story.conversation(world, id)
+	talk_button.text = "Talk to " + npc.name + ("  •  New story" if not world.story.seen.has(chapter) else "")
+	talk_button.disabled = not reachable and not world.in_reach(world.story.npc_cell(world, id))
+	talk_button.tooltip_text = npc.role + ". Walk close to the person or the delivery hatch to talk."
 	state_label.text = region.status(id) + ("\nOut of reach - walk to the hatch." if not reachable else "")
 	if site.repaired: state_label.text += "\nHealth: %d / %d" % [site.health, site.max_health()]
 	defense_status.visible = id == "town_hall" and site.repaired
@@ -168,7 +176,7 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 		if world.player.count(item) > 0 and region.receiving_limit(id, item) > 0: can_supply = true
 	supply_button.disabled = not reachable or not can_supply
 	supply_button.tooltip_text = "Bring the goods shown below. Partial deliveries are accepted; excess stays in your pack."
-	var text: String = definition.description + "\n\n"
+	var text: String = "WHY WE REBUILD\n" + world.story.goal(world) + "\n\n" + definition.description + "\n\n"
 	if not site.repaired:
 		text += "REPAIR MATERIALS\n"
 		for item in definition.repair: text += "%s  %d / %d\n" % [Catalog.item_name(item), site.inventory.count(item), definition.repair[item]]

@@ -11,6 +11,7 @@ const Transfers = preload("res://scripts/simulation/inventory_transfers.gd")
 const Crafting = preload("res://scripts/simulation/crafting.gd")
 const Character = preload("res://scripts/model/character_progression.gd")
 const Skills = preload("res://scripts/model/skills.gd")
+const Story = preload("res://scripts/simulation/story_state.gd")
 const Defense = preload("res://scripts/simulation/defense.gd")
 const DIRS := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
 const TICK_SECONDS := 0.1
@@ -21,6 +22,7 @@ signal skill_progressed(id: String, amount: int, level: int, leveled: bool)
 signal hand_resource_extracted(cell: Vector2i, item: String)
 signal structure_repaired(cell: Vector2i)
 signal feedback_requested(cue: String, cell: Vector2i)
+signal story_requested(chapter: String)
 
 var terrain: RefCounted
 var character: RefCounted
@@ -29,6 +31,7 @@ var player: RefCounted
 var guide: RefCounted
 var settlements: RefCounted
 var defense: RefCounted
+var story := Story.new()
 var player_position := Vector2(18.5, 18.5)
 var previous_position := Vector2(18.5, 18.5)
 var move_direction := Vector2.ZERO
@@ -71,6 +74,8 @@ func start() -> void:
 	guide.enabled = true
 	settlements = Settlements.new(true)
 	defense = Defense.new()
+	story = Story.new()
+	story.fresh()
 	player_position = Vector2(24.5, 12.5)
 	previous_position = player_position
 	move_direction = Vector2.ZERO
@@ -378,6 +383,19 @@ func supply_site(id: String) -> void:
 	if moved > 0: feedback_requested.emit("transfer", site.port())
 	changed.emit()
 
+func request_story(chapter: String) -> void:
+	if story.available(self, chapter) and not story.seen.has(chapter): story_requested.emit(chapter)
+
+func talk_to_site(id: String) -> bool:
+	if not settlements.enabled or not Story.Definitions.NPCS.has(id): return false
+	if not in_reach(story.npc_cell(self, id)) and not in_reach(settlements.sites[id].port()):
+		message.emit("Walk closer to " + Story.Definitions.NPCS[id].name + " to talk.")
+		return false
+	var chapter: String = story.conversation(self, id)
+	if chapter.is_empty(): return false
+	story_requested.emit(chapter)
+	return true
+
 func restore_site(id: String) -> bool:
 	if not _site_in_reach(id): return false
 	var reason: String = settlements.restore(id)
@@ -387,6 +405,7 @@ func restore_site(id: String) -> bool:
 	message.emit("Restored: " + Settlements.Definitions.SITES[id].name + ". " + Settlements.Definitions.SITES[id].reward)
 	feedback_requested.emit("success", settlements.sites[id].port())
 	changed.emit()
+	request_story(Story.Definitions.NPCS[id].after)
 	return true
 
 func withdraw_site(id: String) -> void:

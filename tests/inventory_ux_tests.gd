@@ -94,6 +94,7 @@ static func models(test: SceneTree) -> void:
 static func ui(test: SceneTree) -> void:
 	var scene = load("res://main.tscn").instantiate()
 	test.root.add_child(scene)
+	scene.hud.story_panel.close_panel()
 	scene.paused = true
 	scene.hud.workspace.simulation_paused = true
 	scene._bind_world(Fixtures.demo())

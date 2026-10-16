@@ -20,6 +20,7 @@ var facing := 0
 var paused := false
 var save_path := SaveService.PATH
 var menu_was_paused := false
+var story_was_paused := false
 var reclaim_cell := Vector2i(999999, 999999)
 var reclaim_progress := 0.0
 var mining_held := false
@@ -69,6 +70,10 @@ func _ready() -> void:
 	hud.site_selected.connect(_inspect_site)
 	hud.site_supply_requested.connect(func(id): world.supply_site(id))
 	hud.site_restore_requested.connect(func(id): world.restore_site(id))
+	hud.site_talk_requested.connect(func(id): world.talk_to_site(id))
+	hud.journal_requested.connect(_open_journal)
+	hud.story_panel.finished.connect(_story_finished)
+	hud.story_panel.project_requested.connect(_inspect_site)
 	hud.site_withdraw_requested.connect(func(id): world.withdraw_site(id))
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
@@ -79,9 +84,15 @@ func _ready() -> void:
 	var initial := World.new(initial_seed)
 	initial.start()
 	_bind_world(initial)
+	if not world.story.seen.has("arrival"): _open_story("arrival")
 
 func _bind_world(state: RefCounted) -> void:
+	if hud.story_panel.visible:
+		hud.story_panel.dismiss_silently()
+		if paused != story_was_paused: _toggle_pause()
+	if world != null and world.story_requested.is_connected(_open_story): world.story_requested.disconnect(_open_story)
 	world = state
+	world.story_requested.connect(_open_story)
 	audio.bind_world(world)
 	world.message.connect(func(text): hud.show_notice(text))
 	world.changed.connect(func(): hud.refresh())
@@ -111,14 +122,14 @@ func _bind_world(state: RefCounted) -> void:
 func _process(delta: float) -> void:
 	var mouse_cell := _mouse_cell()
 	var pointer: bool = hud.world_has_pointer()
-	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible, paused)
+	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible, paused)
 	if not view.resource_target.is_empty() and world.terrain.tile(view.resource_target.cell).is_empty():
 		view.resource_target = world.terrain.find_resource(view.resource_target.item, Vector2i(world.player_position.floor()), world.skills.survey_radius())
 		hud.show_notice("Tracked tile exhausted. Survey marker updated to remaining resources." if not view.resource_target.is_empty() else "No remaining patch found nearby. Explore farther and press M to survey again.")
 	world.move_direction = Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
-	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or paused:
+	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or paused:
 		world.move_direction = Vector2.ZERO
 		painting = false
 		mining_held = false
@@ -128,7 +139,7 @@ func _process(delta: float) -> void:
 	_update_reclaim(mouse_cell, pointer and not paused and mining_held, delta)
 	if not paused:
 		accumulator += minf(delta, 0.5)
-		while accumulator >= World.TICK_SECONDS:
+		while accumulator >= World.TICK_SECONDS and not paused:
 			accumulator -= World.TICK_SECONDS
 			Simulation.step(world)
 	view.interpolation = 1.0 if paused else accumulator / World.TICK_SECONDS
@@ -145,8 +156,10 @@ func _process(delta: float) -> void:
 		var deposit: Dictionary = world.terrain.tile(mouse_cell)
 		var entity = world.at(mouse_cell)
 		var site = world.settlements.at(mouse_cell)
+		var npc: String = world.story.npc_at(world, mouse_cell)
 		var text := "(%d, %d)  " % [mouse_cell.x, mouse_cell.y]
 		if entity != null: text += Catalog.item_name(entity.kind) + " - " + entity.status + "  |  Hold right mouse to pick up"
+		elif not npc.is_empty(): text += world.story.Definitions.NPCS[npc].name + " • Click to talk [Q clears build cursor]"
 		elif site != null: text += world.settlements.Definitions.SITES[site.id].name + " - " + world.settlements.status(site.id)
 		elif not deposit.is_empty(): text += "%s: %d remaining  |  Hold right mouse to mine" % [Catalog.item_name(deposit.item), deposit.amount]
 		else: text += "Grassland"
@@ -156,13 +169,18 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if hud.hotbar.picker.visible: hud.hotbar.close_picker()
+		if hud.story_panel.visible: hud.story_panel.close_panel()
+		elif hud.hotbar.picker.visible: hud.hotbar.close_picker()
 		elif hud.pause_menu.visible: _close_menu()
 		elif hud.survey.visible: hud.survey.hide()
 		elif hud.workspace.visible: hud.close_workspace()
 		elif selected_kind != "": _select("")
 		else: _open_menu()
 		painting = false
+		get_viewport().set_input_as_handled()
+		return
+	if hud.story_panel.visible and event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ENTER, KEY_SPACE]:
+		hud.story_panel.advance()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
@@ -183,12 +201,15 @@ func _update_display_button() -> void:
 	hud.fullscreen_button.text = "Window [F11]" if fullscreen else "Fullscreen [F11]"
 
 func _unhandled_input(event: InputEvent) -> void:
+	if hud.story_panel.visible:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_J and hud.story_panel.chapter_id.is_empty(): hud.story_panel.close_panel()
+		return
 	if hud.pause_menu.visible or hud.hotbar.picker.visible: return
 	if hud.survey.visible:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M: hud.survey.hide()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X]: return
+		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J]: return
 		var slot := 9 if event.keycode == KEY_0 else int(event.keycode - KEY_1)
 		if slot >= 0 and slot < 10:
 			if event.alt_pressed:
@@ -210,6 +231,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				var entity = world.at(_mouse_cell())
 				if selected_kind == "" and entity != null and world.in_reach(entity.cell): entity.direction = posmod(entity.direction + turn, 4)
 			KEY_PAUSE: _toggle_pause()
+			KEY_J: _open_journal()
 			KEY_C: hud.toggle_crafting()
 			KEY_P: hud.toggle_character()
 			KEY_H:
@@ -239,6 +261,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					var site = world.settlements.at(cell)
 					if site != null: world.supply_site(site.id)
 					else: world.supply(cell)
+				elif not world.story.npc_at(world, cell).is_empty(): _inspect(cell)
 				elif selected_kind == "": _inspect(cell)
 				else:
 					painting = true
@@ -277,6 +300,10 @@ func _select(kind: String) -> void:
 	hud.refresh()
 
 func _inspect(cell: Vector2i) -> void:
+	var npc: String = world.story.npc_at(world, cell)
+	if not npc.is_empty():
+		world.talk_to_site(npc)
+		return
 	var site = world.settlements.at(cell)
 	if site != null:
 		_inspect_site(site.id)
@@ -347,6 +374,34 @@ func _update_reclaim(cell: Vector2i, held: bool, delta: float) -> void:
 		world.reclaim(cell)
 		reclaim_progress = 0.0
 
+func _prepare_story() -> void:
+	story_was_paused = paused
+	if not paused: _toggle_pause()
+	painting = false
+	mining_held = false
+	world.mining = false
+	world.move_direction = Vector2.ZERO
+	hud.close_workspace()
+	hud.survey.hide()
+	hud.hotbar.close_picker()
+
+func _open_story(chapter: String) -> void:
+	if not world.story.available(world, chapter): return
+	if not hud.story_panel.visible: _prepare_story()
+	hud.story_panel.present(world, chapter)
+
+func _open_journal() -> void:
+	if hud.story_panel.visible:
+		hud.story_panel.close_panel()
+		return
+	_prepare_story()
+	hud.story_panel.open_journal(world)
+
+func _story_finished(chapter: String) -> void:
+	if not chapter.is_empty(): world.story.mark_seen(world, chapter)
+	if paused != story_was_paused: _toggle_pause()
+	hud.refresh()
+
 func _save() -> void:
 	var error := SaveService.save_world(world, save_path)
 	hud.show_notice("Factory saved. Previous save retained as .bak." if error.is_empty() else error)
@@ -357,4 +412,5 @@ func _load_save() -> void:
 		hud.show_notice(result.error)
 		return
 	_bind_world(result.world)
+	if not world.story.seen.has("arrival"): _open_story("arrival")
 	hud.show_notice("Legacy factory imported; old file preserved. Add inserters between belts and machines." if result.get("legacy", false) else "Factory restored.")
