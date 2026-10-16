@@ -1,0 +1,103 @@
+name: Windows build and release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version (for example 0.1.0-dev)'
+        required: true
+        default: '0.1.0-dev'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Choose package version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          } elseif ($env:REQUESTED_VERSION) {
+            $version = $env:REQUESTED_VERSION
+          } else {
+            $version = '0.1.0-dev.' + $env:GITHUB_SHA.Substring(0, 7)
+          }
+          if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?$') {
+            throw "Invalid package version: $version"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Cache matching Windows export templates
+        uses: actions/cache@v4
+        with:
+          path: ~/AppData/Roaming/Godot/export_templates
+          key: windows-godot-templates-${{ hashFiles('.godot-version', 'tools/install-godot.ps1') }}
+      - name: Install verified Godot and templates
+        run: ./tools/install-godot.ps1
+      - name: Verify, export, and package
+        env:
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+        run: ./tools/build-windows.ps1 -Godot $env:GODOT_BIN -Version $env:PACKAGE_VERSION
+      - name: Upload playable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            exports/**/*.zip
+            exports/**/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-logs
+          path: exports/**/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  draft-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: release-assets
+      - name: Create draft prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          $assets = @(Get-ChildItem release-assets -Recurse -File | Where-Object { $_.Extension -eq '.zip' -or $_.Name -eq 'SHA256SUMS.txt' } | ForEach-Object FullName)
+          if ($assets.Count -ne 2) { throw 'Expected one ZIP and one checksum file' }
+          $notes = "docs/release-notes/$env:RELEASE_VERSION.md"
+          $arguments = @('release', 'create', $env:RELEASE_TAG, '--verify-tag', '--draft', '--prerelease', '--title', "Ironworks $env:RELEASE_TAG")
+          if (Test-Path $notes) { $arguments += @('--notes-file', $notes) } else { $arguments += '--generate-notes' }
+          & gh @arguments @assets
+          if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed' }

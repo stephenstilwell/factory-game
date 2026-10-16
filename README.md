@@ -96,3 +96,7 @@ godot --path . --rendering-method gl_compatibility --script res://tests/capture_
 ```
 
 Previews are stored under the ignored `.godot/verification/` directory.
+
+## Windows builds and releases
+
+See [the release guide](docs/releases.md) for local Windows packages, automated GitHub Actions builds, and draft prereleases.
