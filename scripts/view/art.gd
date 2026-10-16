@@ -8,6 +8,8 @@ const AMBER := Color("efbb70")
 const STONE := Color("b4a78b")
 const CREAM := Color("e6d9b7")
 static var boxes: Dictionary = {}
+# One antialiased mask replaces per-frame polygon construction and triangulation.
+static var ellipse_mask: GradientTexture2D
 
 static func box(canvas: CanvasItem, rect: Rect2, color: Color, radius: int = 4, border: Color = Color.TRANSPARENT) -> void:
 	var key := "%s:%d:%s" % [color.to_html(), radius, border.to_html()]
@@ -22,9 +24,18 @@ static func box(canvas: CanvasItem, rect: Rect2, color: Color, radius: int = 4, 
 	canvas.draw_style_box(boxes[key], rect)
 
 static func ellipse(canvas: CanvasItem, center: Vector2, radius: Vector2, color: Color) -> void:
-	var points := PackedVector2Array()
-	for i in range(24): points.append(center + Vector2(cos(i * TAU / 24), sin(i * TAU / 24)) * radius)
-	canvas.draw_colored_polygon(points, color)
+	if ellipse_mask == null:
+		var gradient := Gradient.new()
+		gradient.offsets = PackedFloat32Array([0.0, 0.98, 1.0])
+		gradient.colors = PackedColorArray([Color.WHITE, Color.WHITE, Color(1, 1, 1, 0)])
+		ellipse_mask = GradientTexture2D.new()
+		ellipse_mask.gradient = gradient
+		ellipse_mask.width = 128
+		ellipse_mask.height = 128
+		ellipse_mask.fill = GradientTexture2D.FILL_RADIAL
+		ellipse_mask.fill_from = Vector2(0.5, 0.5)
+		ellipse_mask.fill_to = Vector2(1, 0.5)
+	canvas.draw_texture_rect(ellipse_mask, Rect2(center - radius, radius * 2), false, color)
 
 static func shadow(canvas: CanvasItem, center: Vector2, radius: Vector2) -> void:
 	ellipse(canvas, center + Vector2(5, 7), radius + Vector2(3, 2), Color(0.055, 0.09, 0.075, 0.08))

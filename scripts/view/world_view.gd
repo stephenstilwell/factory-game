@@ -44,6 +44,8 @@ var copy_rect := Rect2i()
 var reduced_motion := false
 var ambient_enabled := true
 var nature_audio: AudioStreamPlayer2D
+# Immutable seed candidates only; live occupancy/removals are checked at draw time.
+var grove_candidates: Dictionary = {}
 
 func _ready() -> void:
 	nature_audio = NatureAudio.new()
@@ -73,6 +75,7 @@ func bind(state: RefCounted, view_camera: Camera2D) -> void:
 	world.structure_repaired.connect(_on_repaired)
 	world.feedback_requested.connect(_on_feedback)
 	effects.clear()
+	grove_candidates.clear()
 	engineer_facing = Vector2.DOWN
 	camera = view_camera
 	for node in chunks.values(): node.queue_free()
@@ -140,10 +143,8 @@ func _draw() -> void:
 		for id in world.frontier.sites:
 			var rect: Rect2i = world.frontier.footprint(id)
 			if visible_cells.intersects(rect.grow(3)): drawables.append({"kind": "landmark", "data": id, "depth": rect.end.y * TILE - 10})
-		for y in range(visible_cells.position.y - 1, visible_cells.end.y + 2):
-			for x in range(visible_cells.position.x - 1, visible_cells.end.x + 2):
-				var cell := Vector2i(x, y)
-				if world.frontier.tree_at(world, cell): drawables.append({"kind": "tree", "data": cell, "depth": y * TILE + 35})
+		for cell in tree_candidates(visible_cells.grow(2)):
+			if world.frontier.tree_at(world, cell): drawables.append({"kind": "tree", "data": cell, "depth": cell.y * TILE + 35})
 	if world.settlements.enabled:
 		for site in world.settlements.sites.values():
 			if visible_cells.intersects(site.footprint().grow(3)): drawables.append({"kind": "site", "data": site, "depth": (site.origin.y + 3) * TILE - 6})
@@ -233,6 +234,27 @@ func _draw() -> void:
 				draw_rect(rect.grow(-4), Color(0.65, 0.83, 0.68, 0.08))
 			draw_arc(engineer, world.interaction_reach() * TILE, 0, TAU, 96, Color(0.5, 0.8, 0.65, 0.12), 1)
 		draw_rect(rect, TEAL if valid else Color("de806a"), false, 2)
+
+func tree_candidates(area: Rect2i) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	var first: Vector2i = world.terrain.chunk_at(area.position)
+	var last: Vector2i = world.terrain.chunk_at(area.end - Vector2i.ONE)
+	var retained := Rect2i(first, last - first + Vector2i.ONE).grow(1)
+	for coordinate in grove_candidates.keys():
+		if not retained.has_point(coordinate): grove_candidates.erase(coordinate)
+	for x in range(first.x, last.x + 1):
+		for y in range(first.y, last.y + 1):
+			var coordinate := Vector2i(x, y)
+			if not grove_candidates.has(coordinate):
+				var cells: Array[Vector2i] = []
+				for cy in range(y * 16, y * 16 + 16):
+					for cx in range(x * 16, x * 16 + 16):
+						var cell := Vector2i(cx, cy)
+						if world.frontier.tree_candidate(cell, world.terrain.seed_value): cells.append(cell)
+				grove_candidates[coordinate] = cells
+			for cell in grove_candidates[coordinate]:
+				if area.has_point(cell): result.append(cell)
+	return result
 
 func _machine(entity: RefCounted) -> void:
 	var center := Vector2(entity.cell) * TILE + Vector2.ONE * 24

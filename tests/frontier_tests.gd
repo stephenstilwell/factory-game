@@ -139,6 +139,23 @@ static func ui(test: SceneTree) -> void:
 		panel.track_button.pressed.emit()
 		scene.hud.frontier_panel.hide()
 		world.frontier.board.clear()
+	# Candidate caches must remain exact across negative coordinates, travel and world rebinding.
+	for area in [Rect2i(-40, -25, 60, 40), Rect2i(30, 10, 50, 35), Rect2i(900, -900, 60, 40)]:
+		var expected: Array[Vector2i] = []
+		for y in range(area.position.y, area.end.y):
+			for x in range(area.position.x, area.end.x):
+				var cell := Vector2i(x, y)
+				if world.frontier.tree_candidate(cell, world.terrain.seed_value): expected.append(cell)
+		var actual: Array[Vector2i] = scene.view.tree_candidates(area)
+		expected.sort()
+		actual.sort()
+		test.check(actual == expected, "Cached grove candidates match uncached seeded scenery")
+	test.check(scene.view.grove_candidates.size() < 40, "Travel evicts distant grove candidate chunks")
+	var replacement := World.new(19)
+	replacement.start()
+	scene.view.bind(replacement, scene.camera)
+	test.check(scene.view.grove_candidates.is_empty(), "Rebinding a different world clears scenery caches")
+	scene.view.bind(world, scene.camera)
 	var encoded := Saves.encode(world)
 	for i in range(5): await test.process_frame
 	test.check(Saves.encode(world) == encoded, "Drawing groves, landmarks, and wildlife cannot alter rewards or simulation state")
