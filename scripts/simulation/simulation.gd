@@ -12,6 +12,7 @@ static func step(world: RefCounted) -> void:
 	world.metrics.prune(world.ticks)
 	_machines(world)
 	_inserters(world)
+	world.combat.step(world)
 	world.defense.step(world)
 	world.settlements.step(world)
 	_player(world)

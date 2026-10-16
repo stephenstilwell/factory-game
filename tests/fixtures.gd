@@ -51,3 +51,13 @@ static func defense_town(armed: bool = true) -> RefCounted:
 		world.spawn("turret", Vector2i(51, 15), 0).inventory.add("ammo", 10)
 		world.spawn("wall", Vector2i(49, 13), 0)
 	return world
+
+static func combat_town() -> RefCounted:
+	var world := defense_town()
+	world.researched = ["logistics", "metallurgy", "routing"]
+	world.player.add("service_rifle")
+	for position in [Vector2i(48, 9), Vector2i(48, 17), Vector2i(50, 13)]:
+		world.spawn("cannon_turret", position, 0).inventory.add("ammo", 10)
+	for position in [Vector2i(52, 9), Vector2i(52, 17)]:
+		world.spawn("pulse_turret", position, 0).inventory.add("ammo", 10)
+	return world

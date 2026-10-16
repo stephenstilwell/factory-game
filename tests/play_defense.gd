@@ -7,13 +7,16 @@ func _initialize() -> void:
 
 func _play() -> void:
 	var game = load("res://main.tscn").instantiate()
-	game.save_path = "user://defense_playtest_v1.json"
+	game.save_path = "user://defense_playtest_v2.json"
 	root.add_child(game)
 	root.title = "Oldbridge — Defense Playtest"
-	var world := Fixtures.defense_town()
+	var world := Fixtures.combat_town()
+	world.player.add("cannon_turret", 2)
+	world.player.add("pulse_turret", 2)
+	world.player.add("ammo", 100)
 	world.player_position = Vector2(47.5, 16.5)
 	world.previous_position = world.player_position
 	game._bind_world(world)
 	game.camera.zoom = Vector2.ONE * 0.8
 	game._inspect_site("town_hall")
-	game.hud.show_notice("Defense sandbox: two loaded turrets and a wall are ready. Light the beacon, then Esc to watch. Saves use a separate playtest slot.")
+	game.hud.show_notice("Defense sandbox: mixed loaded defenses, a carried rifle, and spare ammo. Light the beacon, Esc to close, then V and hold LMB to shoot. Saves use a separate playtest slot.")

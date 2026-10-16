@@ -15,6 +15,7 @@ const Transport = preload("res://scripts/simulation/transport.gd")
 const Metrics = preload("res://scripts/model/production_metrics.gd")
 const Plans = preload("res://scripts/simulation/construction_plans.gd")
 const Story = preload("res://scripts/simulation/story_state.gd")
+const PlayerCombat = preload("res://scripts/model/player_combat.gd")
 const Defense = preload("res://scripts/simulation/defense.gd")
 const DIRS := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
 const TICK_SECONDS := 0.1
@@ -33,6 +34,8 @@ var skills: RefCounted
 var player: RefCounted
 var guide: RefCounted
 var settlements: RefCounted
+var combat := PlayerCombat.new()
+var navigation_revision := 0
 var defense: RefCounted
 var story := Story.new()
 var player_position := Vector2(18.5, 18.5)
@@ -82,6 +85,8 @@ func start() -> void:
 	guide.enabled = true
 	settlements = Settlements.new(true)
 	defense = Defense.new()
+	combat = PlayerCombat.new()
+	navigation_revision += 1
 	story = Story.new()
 	story.fresh()
 	player_position = Vector2(24.5, 12.5)
@@ -105,7 +110,7 @@ func start() -> void:
 
 func content_available(id: String) -> bool:
 	if id in ["wall", "repair_kit"]: return settlements.enabled and settlements.sites.trading_post.repaired
-	if id in ["turret", "ammo"]: return settlements.enabled and settlements.sites.workshop.repaired
+	if id in ["turret", "ammo", "service_rifle", "cannon_turret", "pulse_turret"]: return settlements.enabled and settlements.sites.workshop.repaired
 	if id in ["splitter", "underground_belt", "construction_kit"]: return guide.available("assembler")
 	return guide.available(id)
 
@@ -147,7 +152,7 @@ func can_build(kind: String, cell: Vector2i) -> String:
 	if not Catalog.BUILDINGS.has(kind): return "Unknown building."
 	if not in_reach(cell): return "Out of reach. Walk closer with WASD."
 	if at(cell) != null: return "Tile is occupied."
-	if defense.occupied(cell): return "A scavenger occupies this tile."
+	if defense.occupied(cell): return "A construct occupies this tile."
 	if settlements.at(cell) != null: return "This land belongs to a settlement project."
 	if not unlocked(Catalog.BUILDINGS[kind]): return "Research " + Catalog.technology(Catalog.BUILDINGS[kind].technology).name + " first."
 	if not content_available(kind): return "Follow the current learning objective to discover this building."
@@ -178,6 +183,7 @@ func spawn(kind: String, cell: Vector2i, direction: int):
 	return entity
 
 func register(entity: RefCounted) -> void:
+	navigation_revision += 1
 	entities[entity.id] = entity
 	occupancy[entity.cell] = entity.id
 	by_kind[entity.kind].append(entity.id)
@@ -209,6 +215,7 @@ func reclaim(cell: Vector2i) -> bool:
 	by_kind[entity.kind].erase(entity.id)
 	entities.erase(entity.id)
 	occupancy.erase(cell)
+	navigation_revision += 1
 	message.emit("Picked up " + Catalog.item_name(entity.kind) + " and its stored items.")
 	feedback_requested.emit("pickup", cell)
 	changed.emit()
@@ -241,7 +248,7 @@ func collect_output(cell: Vector2i) -> void:
 	if entity.kind == "inserter":
 		if entity.carried != "": transfer_item(entity.carried, 0, {"kind": "hand", "entity_id": entity.id}, {"kind": "player"})
 		return
-	var kind := "input" if entity.kind in (["chest", "turret"] + Catalog.TRANSPORT) else "output"
+	var kind := "input" if entity.kind in (["chest"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT) else "output"
 	var storage = entity.inventory if kind == "input" else entity.output
 	for item in storage.contents.keys(): transfer_item(item, 0, {"kind": kind, "entity_id": entity.id}, {"kind": "player"})
 
@@ -264,6 +271,7 @@ func deposit(cell: Vector2i, item: String, amount: int = 5) -> void:
 	if entity.kind not in (["chest"] + Catalog.TRANSPORT): limit = mini(amount, maxi(0, input_limit(entity, item) - entity.inventory.count(item)))
 	var moved: int = player.move_to(entity.inventory, item, limit)
 	if entity.kind == "furnace": record("fed:" + item, moved)
+	combat.sync_carried(self)
 	message.emit("Inserted %d %s." % [moved, Catalog.item_name(item)])
 	changed.emit()
 
@@ -287,6 +295,7 @@ func supply(cell: Vector2i) -> void:
 			var moved: int = player.move_to(entity.inventory, item, mini(5, maxi(0, input_limit(entity, item) - entity.inventory.count(item))))
 			accepted += moved
 			if entity.kind == "furnace": record("fed:" + item, moved)
+	combat.sync_carried(self)
 	message.emit("Supplied %d items." % accepted)
 	if accepted > 0: feedback_requested.emit("transfer", cell)
 	changed.emit()
@@ -360,7 +369,7 @@ func award_automation(key: String, skill: String, xp_amount: int) -> void:
 func accepts(entity: RefCounted, item: String) -> bool:
 	if entity.kind == "settlement_port": return settlements.receiving_limit(entity.id, item) > 0
 	if entity.health <= 0: return false
-	if entity.kind == "turret": return item == "ammo" and entity.inventory.count(item) < 10
+	if Catalog.Combat.TURRETS.has(entity.kind): return item == "ammo" and entity.inventory.count(item) < 10
 	if entity.kind in (Catalog.TRANSPORT + ["chest"]): return true
 	if entity.kind == "lab": return item == "science" and not current_research().is_empty()
 	if item == "coal" and Catalog.BUILDINGS[entity.kind].get("fuel", false): return entity.inventory.count("coal") < 10
@@ -380,7 +389,10 @@ func damage_structure(cell: Vector2i, damage: int) -> void:
 	if target != null and not target.repaired: return
 	if target == null: target = at(cell)
 	if target == null: return
+	var previous_health: int = target.health
 	target.health = maxi(0, target.health - damage)
+	if previous_health > 0 and target.health == 0: navigation_revision += 1
+	if target.health != previous_health: feedback_requested.emit("damage", cell)
 	if target.kind != "settlement_port" and target.health == 0: target.status = "Disabled — repair with H"
 
 func repair_at(cell: Vector2i) -> bool:
@@ -399,6 +411,7 @@ func repair_at(cell: Vector2i) -> bool:
 	if player.remove("repair_kit") != 1:
 		message.emit("Craft a repair kit first (C).")
 		return false
+	if target.health == 0: navigation_revision += 1
 	target.health = mini(target.max_health(), target.health + 50)
 	structure_repaired.emit(cell)
 	if target.kind != "settlement_port": target.status = "Repaired"

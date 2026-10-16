@@ -19,7 +19,7 @@ const SITES := {
 	"town_hall": {
 		"name": "Oldbridge Town Hall", "contract": "housing", "origin": Vector2i(42, 12), "size": Vector2i(3, 3), "port": Vector2i(0, 1),
 		"repair": {"stone": 40, "iron_plate": 40, "gear": 10, "wire": 10}, "credits": 0, "requires": "workshop", "health": 300,
-		"description": "Rebuild Oldbridge's heart and signal beacon. The light guides families home, but draws old salvage sentries down the eastern road. Light it only when your defenses are ready.",
+		"description": "Rebuild Oldbridge's heart and signal beacon. The light guides families home, but draws malfunctioning maintenance constructs from the old network. Light it only when your defenses are ready.",
 		"keeper": "Ada, the warden", "greeting": "The hall is our shelter. Prepare walls, gun turrets, ammunition, and repair kits before we light the beacon.",
 		"reward": "Voluntary beacon defenses. First victory brings road crews home: +5% movement while the hall is operational.",
 	},

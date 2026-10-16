@@ -31,7 +31,7 @@ Smoke, particles, and motion pause with the simulation. These are visual approxi
 | `view/engineer_art.gd` | Character appearance and tool poses |
 | `view/placement_preview.gd` | One reusable, translucent building preview with valid/invalid tint |
 | `view/settlement_view.gd` | Ruined/restored civic variants, porch details, residents, and beacon |
-| `view/defense_view.gd` | Approach, scavengers, shot tracers, and impacts |
+| `view/defense_view.gd` | Arrival gates, maintenance constructs, attack telegraphs, shot tracers, and impacts |
 | `view/visual_effects.gd` | Bounded action-particle pool, maximum 96 particles |
 | `view/world_view.gd` | Visible-object depth ordering, contextual grid, and presentation orchestration |
 

@@ -68,9 +68,10 @@ static func run(test: SceneTree) -> void:
 	test.check(losing.defense.begin(losing) and losing.defense.cleared == 0, "A failed defense can be retried at the same difficulty")
 	var barrier := Fixtures.defense_town(false)
 	var wall = barrier.spawn("wall", Vector2i(60, 13), 0)
-	barrier.defense.begin(barrier)
-	test.advance(barrier, 190)
-	test.check(wall.health < wall.max_health() and barrier.defense.enemies.values()[0].cell.x > 60, "Scavengers damage lane blockers and cannot walk through a healthy wall")
+	barrier.defense.phase = "active"
+	barrier.defense.spawn_enemy("dismantler", Vector2i(61, 13))
+	test.advance(barrier, 8)
+	test.check(wall.health < wall.max_health() and barrier.defense.enemies.values()[0].cell.x > 60, "Dismantlers damage blockers and cannot walk through a healthy wall")
 	barrier.player_position = Vector2(60.5, 15.5)
 	var saved_health: int = wall.health
 	barrier.repair_at(wall.cell)
@@ -115,17 +116,18 @@ static func run(test: SceneTree) -> void:
 	malformed = Saves.encode(world)
 	malformed.entities[0].health = -1
 	test.check(not Saves.decode(malformed).error.is_empty(), "Invalid saved structure health is rejected")
-	var campaign := Fixtures.defense_town()
+	var campaign := Fixtures.combat_town()
 	for wave in range(10):
 		if not campaign.defense.begin(campaign): break
 		for tick in range(1000):
 			# Fixture resupply isolates wave balance from factory throughput.
-			for id in campaign.by_kind.turret:
-				var stock = campaign.entities[id].inventory
-				stock.add("ammo", maxi(0, 10 - stock.count("ammo")))
+			for kind in campaign.Catalog.Combat.TURRETS:
+				for id in campaign.by_kind[kind]:
+					var stock = campaign.entities[id].inventory
+					stock.add("ammo", maxi(0, 10 - stock.count("ammo")))
 			test.advance(campaign, 1)
 			if campaign.defense.phase in ["idle", "recovery"]: break
 		if campaign.defense.phase == "recovery": break
-	test.check(campaign.defense.cleared == 10 and not campaign.defense.begin(campaign), "The complete resupplied ten-wave slice is winnable and never starts an eleventh wave")
+	test.check(campaign.defense.cleared == 10 and not campaign.defense.begin(campaign), "A resupplied mixed-defense factory can win ten waves and never starts an eleventh")
 	var completed := Saves.decode(JSON.parse_string(JSON.stringify(Saves.encode(campaign))))
 	test.check(completed.error.is_empty() and completed.world.defense.cleared == 10, "Completed defense campaign and permanent reward survive saving")

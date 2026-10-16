@@ -38,15 +38,15 @@ const CHAPTERS := {
 	"oren_after": {
 		"title": "Under the workbench", "speaker": "workshop", "site": "workshop",
 		"pages": [
-			"The crew are back at their benches. We've tuned the region's burners: each new piece of coal now lasts twenty percent longer. That's a little less digging and a little more time to build.",
-			"I found this relay plate under the old workbench. Someone scratched words across the maker's seal: 'Cut the chain before it answers.' The night the beacons failed, we called it an accident. I'm no longer sure. Keep the plate in mind when we repair Ada's beacon."
+			"The crew are back at their benches. We have tuned the region\'s burners: each new piece of coal now lasts twenty percent longer. We can also build you a service rifle. Research Logistics I, craft it, and press V to draw it. Keep real ammunition in your pack; we cannot fight the old network with empty barrels.",
+			"Steel barrels make piercing cannons that stop armored haulers. With Advanced routing, we can turn salvaged relay coils into pulse turrets to slow groups. Keep their ammunition arriving by inserter. I found this relay plate under the old workbench. Someone scratched words across the maker's seal: 'Cut the chain before it answers.' The night the beacons failed, we called it an accident. I'm no longer sure. Keep the plate in mind when we repair Ada's beacon."
 		], "goal": "Rebuild Town Hall so returning families have a safe shelter."
 	},
 	"ada_before": {
 		"title": "A roof before a signal", "speaker": "town_hall", "site": "town_hall",
 		"pages": [
 			"A light can tell people where to go. It cannot keep the rain off their children. Before we call anyone down the eastern road, this hall needs a roof, dry beds, and Oren's bracing from the workshop.",
-			"The old salvage sentries still follow a beacon call. Repairing the hall won't wake them. Lighting the beacon will, and that decision stays with you. Build walls, supply your turrets, and bring repair kits before we send the first signal."
+			"The old network still sends maintenance constructs to a beacon call. Scouts once inspected the roads, dismantlers cleared damaged buildings, and armored haulers carried the wreckage away. Now they treat our rebuilt homes as salvage. Repairing the hall will not wake them. Lighting its beacon will; that decision stays with you."
 		], "goal": "Restore the workshop first, then rebuild Town Hall and prepare its defenses."
 	},
 	"ada_after": {
@@ -54,7 +54,7 @@ const CHAPTERS := {
 		"pages": [
 			"Dry bedding. A sound roof. Space to write a family's name beside a door instead of a number on a camp list. You've given them somewhere they can stay.",
 			"The hall is a beginning. Research Construction engineering at your factory workbench with F, then send construction kits, steel, and copper to our hatch. Every three housing deliveries will restore another neighborhood. Returning crews will help our burners use coal better. A steady supply line means real homes.",
-			"When you're ready, light the beacon from the Town Hall project. There will be fifteen seconds to prepare before the sentries arrive. You can cancel during that warning. Until you choose to signal, we keep building."
+			"When you are ready, light the beacon from this project. You will have fifteen seconds and a list of what is coming; you can cancel during that warning. Later calls draw constructs to three eastern gates. Cover the flanks, supply your guns, and move out of their marked strikes. Until you choose to signal, we keep building."
 		], "goal": "Restore neighborhoods with housing deliveries. Prepare defenses and signal when you choose."
 	},
 	"first_homecoming": {

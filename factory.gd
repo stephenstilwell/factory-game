@@ -30,6 +30,7 @@ var menu_was_paused := false
 var story_was_paused := false
 var reclaim_cell := Vector2i(999999, 999999)
 var reclaim_progress := 0.0
+var firing_held := false
 var mining_held := false
 var accumulator := 0.0
 var painting := false
@@ -60,6 +61,7 @@ func _ready() -> void:
 	hud.factory_panel.build_requested.connect(_build_plans)
 	hud.factory_panel.clear_requested.connect(func(): world.plans.ghosts.clear(); world.changed.emit())
 	hud.underground_mode_requested.connect(func(enabled): world.set_underground_exit(selected_cell, enabled))
+	hud.weapon_requested.connect(_toggle_weapon)
 	hud.build_selected.connect(_select)
 	hud.upgrade_requested.connect(func(id, rank): world.upgrade_character(id, rank))
 	hud.beacon_requested.connect(func(): world.defense.begin(world))
@@ -110,6 +112,7 @@ func _bind_world(state: RefCounted) -> void:
 	if world != null and world.story_requested.is_connected(_open_story): world.story_requested.disconnect(_open_story)
 	hud.factory_panel.close_panel()
 	_cancel_planning()
+	firing_held = false
 	world = state
 	world.story_requested.connect(_open_story)
 	audio.bind_world(world)
@@ -152,9 +155,12 @@ func _process(delta: float) -> void:
 		world.move_direction = Vector2.ZERO
 		painting = false
 		mining_held = false
+		firing_held = false
+	world.combat.aim = get_global_mouse_position() / TILE
+	world.combat.firing = pointer and not paused and firing_held and world.combat.armed
 	if mouse_cell != world.mining_cell: world.mining_progress = 0
 	world.mining_cell = mouse_cell
-	world.mining = pointer and not paused and mining_held and world.at(mouse_cell) == null and not painting
+	world.mining = pointer and not paused and not world.combat.armed and mining_held and world.at(mouse_cell) == null and not painting
 	_update_reclaim(mouse_cell, pointer and not paused and mining_held, delta)
 	if not paused:
 		accumulator += minf(delta, 0.5)
@@ -181,7 +187,12 @@ func _process(delta: float) -> void:
 		var site = world.settlements.at(mouse_cell)
 		var npc: String = world.story.npc_at(world, mouse_cell)
 		var text := "(%d, %d)  " % [mouse_cell.x, mouse_cell.y]
-		if entity != null: text += Catalog.item_name(entity.kind) + " - " + entity.status + "  |  Hold right mouse to pick up"
+		var enemy_id: int = world.defense.enemy_at(mouse_cell)
+		if enemy_id != -1:
+			var enemy: Dictionary = world.defense.enemies[enemy_id]
+			var definition: Dictionary = Catalog.Combat.ENEMIES[enemy.kind]
+			text += "%s • %d/%d HP • Armor %d • %s" % [definition.name, enemy.health, world.defense.enemy_health(enemy.kind), definition.armor, definition.role]
+		elif entity != null: text += Catalog.item_name(entity.kind) + " - " + entity.status + "  |  Hold right mouse to pick up"
 		elif not npc.is_empty(): text += world.story.Definitions.NPCS[npc].name + " • Click to talk [Q clears build cursor]"
 		elif site != null: text += world.settlements.Definitions.SITES[site.id].name + " - " + world.settlements.status(site.id)
 		elif not deposit.is_empty(): text += "%s: %d remaining  |  Hold right mouse to mine" % [Catalog.item_name(deposit.item), deposit.amount]
@@ -199,6 +210,7 @@ func _input(event: InputEvent) -> void:
 		elif hud.pause_menu.visible: _close_menu()
 		elif hud.survey.visible: hud.survey.hide()
 		elif hud.workspace.visible: hud.close_workspace()
+		elif world.combat.armed: _toggle_weapon()
 		elif selected_kind != "": _select("")
 		else: _open_menu()
 		painting = false
@@ -213,10 +225,15 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
 		painting = false
+		firing_held = false
+		world.combat.firing = false
 		if copy_dragging:
 			var error: String = world.plans.capture(world, _copy_rectangle(_mouse_cell()))
 			hud.show_notice(error if not error.is_empty() else "Copied %d buildings. Ctrl+V to stamp a plan." % world.plans.clipboard.size())
 			_cancel_planning()
+	if event is InputEventKey and event.keycode == KEY_SPACE and not event.pressed:
+		firing_held = false
+		world.combat.firing = false
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and not event.pressed:
 		mining_held = false
 		reclaim_progress = 0.0
@@ -242,7 +259,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_M: hud.survey.hide()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J, KEY_F, KEY_G]: return
+		if hud.workspace.visible and event.keycode not in [KEY_I, KEY_C, KEY_T, KEY_M, KEY_P, KEY_H, KEY_PAUSE, KEY_E, KEY_X, KEY_J, KEY_F, KEY_G, KEY_V]: return
 		if not hud.workspace.visible and event.ctrl_pressed and event.keycode in [KEY_C, KEY_V]:
 			if event.keycode == KEY_C: _start_copy()
 			else: _start_paste()
@@ -267,10 +284,16 @@ func _unhandled_input(event: InputEvent) -> void:
 				_select("")
 				_inspect(Vector2i(999999, 999999))
 			KEY_R:
+				if world.combat.armed:
+					hud.show_notice("The rifle draws ammunition directly from your pack; no magazine reload needed.")
+					return
 				var turn := -1 if event.shift_pressed else 1
 				facing = posmod(facing + turn, 4)
 				var entity = world.at(_mouse_cell())
 				if selected_kind == "" and entity != null and world.in_reach(entity.cell): entity.direction = posmod(entity.direction + turn, 4)
+			KEY_V: _toggle_weapon()
+			KEY_SPACE:
+				if world.combat.armed: firing_held = true
 			KEY_F: _open_factory()
 			KEY_B: _build_plans()
 			KEY_G:
@@ -298,7 +321,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				if hud.site_id != "": world.withdraw_site(hud.site_id)
 				elif not hud.workspace.visible or hud.workspace.mode == "machine": world.collect_output(selected_cell)
 			KEY_Q:
-				if copy_mode or pasting: _cancel_planning()
+				if world.combat.armed: _toggle_weapon()
+				elif copy_mode or pasting: _cancel_planning()
 				elif selected_kind != "": _select("")
 				else:
 					var hovered = world.at(_mouse_cell())
@@ -307,7 +331,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:
 				var cell := _mouse_cell()
-				if copy_mode:
+				if world.combat.armed:
+					firing_held = true
+				elif copy_mode:
 					copy_origin = cell
 					copy_dragging = true
 				elif pasting:
@@ -327,6 +353,9 @@ func _unhandled_input(event: InputEvent) -> void:
 					last_painted = cell
 					world.build(selected_kind, cell, facing, underground_exit)
 			MOUSE_BUTTON_RIGHT:
+				if world.combat.armed:
+					_toggle_weapon()
+					return
 				painting = false
 				if world.plans.ghosts.has(_mouse_cell()):
 					world.plans.ghosts.erase(_mouse_cell())
@@ -338,6 +367,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		firing_held = false
+		if world != null: world.combat.firing = false
 		copy_dragging = false
 		painting = false
 		mining_held = false
@@ -358,6 +389,10 @@ func _select(kind: String) -> void:
 		return
 	_cancel_planning()
 	underground_exit = false
+	if not kind.is_empty():
+		world.combat.armed = false
+		world.combat.firing = false
+		firing_held = false
 	selected_kind = kind
 	hud.close_workspace()
 	hud.selection = kind
@@ -440,6 +475,8 @@ func _update_reclaim(cell: Vector2i, held: bool, delta: float) -> void:
 		reclaim_progress = 0.0
 
 func _prepare_story() -> void:
+	firing_held = false
+	world.combat.firing = false
 	_cancel_planning()
 	hud.factory_panel.close_panel()
 	story_was_paused = paused
@@ -493,6 +530,7 @@ func _copy_rectangle(end: Vector2i) -> Rect2i:
 	return Rect2i(corner, Vector2i(absi(end.x - copy_origin.x) + 1, absi(end.y - copy_origin.y) + 1))
 
 func _start_copy() -> void:
+	if world.combat.armed: _toggle_weapon()
 	_cancel_planning()
 	hud.close_workspace()
 	hud.factory_panel.close_panel()
@@ -500,6 +538,7 @@ func _start_copy() -> void:
 	hud.show_notice("Drag a rectangle around a factory module. Esc cancels.")
 
 func _start_paste() -> void:
+	if world.combat.armed: _toggle_weapon()
 	_cancel_planning()
 	if world.plans.clipboard.is_empty():
 		hud.show_notice("Copy a factory area with Ctrl+C first.")
@@ -524,3 +563,13 @@ func _open_factory() -> void:
 	hud.survey.hide()
 	hud.hotbar.close_picker()
 	hud.factory_panel.open_panel(world)
+
+func _toggle_weapon() -> void:
+	if not world.combat.toggle(world): return
+	_cancel_planning()
+	selected_kind = ""
+	hud.selection = ""
+	mining_held = false
+	firing_held = false
+	hud.close_workspace()
+	hud.refresh()

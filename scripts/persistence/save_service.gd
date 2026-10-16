@@ -21,7 +21,7 @@ static func encode(world: RefCounted) -> Dictionary:
 		depletion.append([cell.x, cell.y, world.terrain.depleted[cell]])
 	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
-		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "story": world.story.serialize(),
+		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(),
 		"researched": world.researched.duplicate(), "research_progress": world.research_progress, "research_target": world.current_research(), "research_banks": world.research_banks.duplicate(), "automation_awards": world.automation_awards.duplicate(), "plans": world.plans.serialize(),
 		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
 
@@ -152,7 +152,7 @@ static func decode(data) -> Dictionary:
 		var recipes: Array = Catalog.BUILDINGS[entity.kind].get("recipes", [])
 		if (recipes.is_empty() and record.get("recipe") != "") or (not recipes.is_empty() and record.get("recipe") not in recipes): return {"error": "Invalid machine recipe."}
 		entity.recipe = record.recipe
-		if not _integer(record.get("health", entity.max_health()), 0, entity.max_health()) or not _integer(record.get("attack_cooldown", 0), 0, 4): return {"error": "Invalid structure health or combat timer."}
+		if not _integer(record.get("health", entity.max_health()), 0, entity.max_health()) or not _integer(record.get("attack_cooldown", 0), 0, int(Catalog.Combat.TURRETS.get(entity.kind, {"cooldown": 0}).cooldown)): return {"error": "Invalid structure health or combat timer."}
 		entity.health = int(record.get("health", entity.max_health()))
 		entity.attack_cooldown = int(record.get("attack_cooldown", 0))
 		if not _integer(record.get("routing_cursor", 0), 0, 1) or not _integer(record.get("merge_cursor", 0)) or not record.get("underground_exit", false) is bool: return {"error": "Invalid transport state."}
@@ -162,7 +162,7 @@ static func decode(data) -> Dictionary:
 		if entity.kind != "splitter" and entity.routing_cursor != 0: return {"error": "Invalid splitter state."}
 		if entity.kind not in Catalog.TRANSPORT and entity.merge_cursor != 0: return {"error": "Invalid merge state."}
 		if entity.kind != "underground_belt" and entity.underground_exit: return {"error": "Invalid tunnel state."}
-		if entity.kind != "turret" and entity.attack_cooldown != 0: return {"error": "Invalid turret timer."}
+		if not Catalog.Combat.TURRETS.has(entity.kind) and entity.attack_cooldown != 0: return {"error": "Invalid turret timer."}
 		if not entity.recipe.is_empty() and not world.unlocked(Catalog.RECIPES[entity.recipe]): return {"error": "Recipe is not researched."}
 		var duration: int = int(Catalog.RECIPES[entity.recipe].ticks) if not entity.recipe.is_empty() else (30 if entity.kind == "lab" else 15)
 		var fuel_limit: int = (96 if world.settlements.sites.workshop.repaired else 80) + world.settlements.district_level() * 4
@@ -208,6 +208,7 @@ static func decode(data) -> Dictionary:
 		world.craft_queue.append({"id": int(job_id), "recipe": entry.recipe, "remaining": int(entry.remaining), "work": int(work)})
 	if not _integer(data.get("next_craft_id", maximum_job_id + 1), maximum_job_id + 1): return {"error": "Invalid next crafting job ID."}
 	world.next_craft_id = int(data.get("next_craft_id", maximum_job_id + 1))
+	if data.has("combat") and not world.combat.restore(data.combat, world): return {"error": "Invalid engineer combat state."}
 	if data.has("defense") and not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
 	if data.has("story") and not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
 	if data.has("plans") and not world.plans.restore(data.plans, world): return {"error": "Invalid construction plans."}

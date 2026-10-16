@@ -154,12 +154,17 @@ func _draw() -> void:
 				if drawable.data.id == "town_hall": NpcArt.draw_neighborhoods(self, drawable.data, world.settlements.district_level(), animation_time)
 			"npc": NpcArt.draw_npc(self, world, drawable.data, animation_time, pointer_in_world and hover == world.story.npc_cell(world, drawable.data))
 			"machine": _machine(drawable.data)
-			"enemy": DefenseView.draw_enemy(self, drawable.data, world.defense.enemy_health(), animation_time)
+			"enemy": DefenseView.draw_enemy(self, drawable.data, world.defense.enemy_health(drawable.data.kind), animation_time, world.ticks, reduced_motion)
 			"engineer":
 				var mining: bool = world.mining and world.mining_progress > 0
 				var facing := (Vector2(world.mining_cell) * TILE + Vector2.ONE * 24 - engineer).normalized() if mining else engineer_facing
+				if world.combat.armed: facing = (world.combat.aim - world.player_position).normalized()
 				EngineerArt.draw(self, engineer, facing, animation_time, not paused and world.previous_position != world.player_position, mining, Vector2(world.mining_cell) * TILE + Vector2.ONE * 24)
-	DefenseView.draw_shots(self, world)
+	DefenseView.draw_shots(self, world, reduced_motion or not ambient_enabled)
+	DefenseView.draw_player(self, world, pointer_in_world, reduced_motion, engineer)
+	if Catalog.Combat.TURRETS.has(world.at(selected).kind if world.at(selected) != null else ""):
+		var turret = world.at(selected)
+		draw_arc((Vector2(selected) + Vector2.ONE * 0.5) * TILE, float(Catalog.Combat.TURRETS[turret.kind].range) * TILE, 0, TAU, 96, Color(0.5, 0.85, 0.75, 0.35), 2)
 	effects.draw(self)
 	if not resource_target.is_empty():
 		var target := Vector2(resource_target.cell) * TILE + Vector2.ONE * 24
@@ -202,7 +207,7 @@ func _machine(entity: RefCounted) -> void:
 	var center := Vector2(entity.cell) * TILE + Vector2.ONE * 24
 	var aim := Vector2(World.DIRS[entity.direction])
 	var firing := false
-	if entity.kind == "turret":
+	if Catalog.Combat.TURRETS.has(entity.kind):
 		var closest := INF
 		for enemy in world.defense.enemies.values():
 			var distance := Vector2(enemy.cell - entity.cell).length_squared()
@@ -210,8 +215,8 @@ func _machine(entity: RefCounted) -> void:
 				closest = distance
 				aim = Vector2(enemy.cell - entity.cell).normalized()
 		for shot in world.defense.shots:
-			if shot.from == entity.cell:
-				aim = Vector2(shot.to - entity.cell).normalized()
+			if Vector2(shot.from) == Vector2(entity.cell):
+				aim = (Vector2(shot.to) - Vector2(entity.cell)).normalized()
 				firing = true
 	MachineArt.draw(self, entity, center, animation_time, aim, firing, interpolation)
 	if entity.kind in Catalog.TRANSPORT and entity.inventory.total() > 0:
@@ -233,7 +238,7 @@ func _machine(entity: RefCounted) -> void:
 			Art.box(self, Rect2(center + Vector2(-17, 20), Vector2(34, 3)), Art.INK, 1)
 			Art.box(self, Rect2(center + Vector2(-17, 20), Vector2(34.0 * entity.progress / duration, 3)), Color("a5cdb1"), 1)
 	if entity.output.total() > 0: _item(center + Vector2(12, 14), entity.output.contents.keys()[0], 0.65)
-	if entity.health < entity.max_health() or entity.kind in ["wall", "turret"]:
+	if entity.health < entity.max_health() or entity.kind in (["wall"] + Catalog.Combat.TURRETS.keys()):
 		Art.box(self, Rect2(center + Vector2(-19, -32), Vector2(38, 4)), Art.INK, 2)
 		if entity.health > 0: Art.box(self, Rect2(center + Vector2(-19, -32), Vector2(38.0 * entity.health / entity.max_health(), 4)), Color("91bc97"), 2)
 		else:
@@ -295,8 +300,8 @@ func _draw_tunnel_link() -> void:
 
 func _on_feedback(cue: String, cell: Vector2i) -> void:
 	if reduced_motion or not ambient_enabled: return
-	if cue in ["build", "pickup", "success"]:
-		var color := Art.AMBER if cue == "success" else TEAL
+	if cue in ["build", "pickup", "success", "damage"]:
+		var color := Color("e67c63") if cue == "damage" else (Art.AMBER if cue == "success" else TEAL)
 		effects.pulse((Vector2(cell) + Vector2.ONE * 0.5) * TILE, color)
 		if cue == "build": effects.burst((Vector2(cell) + Vector2.ONE * 0.5) * TILE, Art.CREAM, cell.x * 31 + cell.y * 17, 5)
 

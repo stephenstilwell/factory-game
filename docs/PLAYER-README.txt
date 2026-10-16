@@ -31,6 +31,9 @@ T: Town projects
 M: Resource survey
 P: Engineer upgrades and skills
 H: Repair a structure
+V: Draw / holster a carried service rifle
+Left mouse / Space while rifle drawn: Aim and fire during an active wave
+Q / right mouse / Esc while rifle drawn: Holster before building or mining
 Esc: Close interface, clear cursor, then open pause menu
 F11: Toggle fullscreen / windowed
 Mouse wheel: Zoom
@@ -49,7 +52,12 @@ WHAT IS PLAYABLE
 Finite seeded resource deposits, mining, crafting, belts and inserters,
 production, introductory research, town restoration and trade income,
 engineer upgrades, three skills with a level cap of 99, and voluntary
-beacon defense waves after restoring Town Hall.
+beacon defense waves after restoring Town Hall. Craft a service rifle, keep
+ammo in your pack, and use gun, piercing, and pulse turrets to cover the
+marked eastern gates. Scouts flank walls; dismantlers break through;
+armored haulers resist ordinary bullets. Step out of orange melee markers.
+Engineer health regenerates after five seconds without damage. Defeat
+retreats with your items intact, while the wave continues.
 
 EARLY BUILD NOTES
 This is a development prototype. Balance, visuals, and systems will change.

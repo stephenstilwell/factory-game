@@ -39,8 +39,8 @@ The simulation and model use `RefCounted` objects and can run without a scene tr
 | `scripts/data/settlement_catalog.gd` | Stable civic project, contract, hatch, and global effect definitions |
 | `scripts/model/settlement_site.gd` | Persistent landmark inventory, repair state, and shipment state |
 | `scripts/simulation/settlements.gd` | Settlement spatial indexes, repair economy, timed shipments, and derived civic effects |
-| `scripts/simulation/defense.gd` / `scripts/persistence/defense_save.gd` | Voluntary beacon waves, deterministic lane combat, targeting, damage/recovery, and combat save invariants |
-| `scripts/view/defense_view.gd` | Approach markers, scavenger rendering, and transient shot presentation |
+| `scripts/simulation/defense.gd` / `scripts/persistence/defense_save.gd` | Voluntary beacon waves, typed constructs, voluntary multi-gate combat, targeting, damage/recovery, and combat save invariants |
+| `scripts/view/defense_view.gd` | Arrival markers, typed construct art, strike telegraphs, rifle aim, health, and transient shot presentation |
 | `scripts/persistence/settlement_save.gd` | Settlement extension validation and currency reconciliation |
 | `scripts/ui/settlement_panel.gd` / `scripts/view/settlement_view.gd` | Town UI intent and procedural landmark presentation |
 | `scripts/persistence/save_service.gd` | Schema validation, integer normalization, migration, transactional save writes |
@@ -125,3 +125,7 @@ ConstructionPlans owns configuration-only clipboard records and validated persis
 ProductionMetrics keeps at most 60 per-second buckets of actual production and selected consumption events. It is transient and resets its observation window on load. Research definitions carry prerequisite IDs; shared project selection banks consumed science under inactive IDs. Commissioning awards use stable persistent keys, independent of lifetime production counters and manual XP.
 
 Settlement neighborhood level derives from completed housing deliveries, and bonuses derive from current service availability. No separate writable neighborhood count can drift out of sync. Optional v2 fields preserve existing worlds; all persistent extensions are validated before replacing the live world. See factory-expansion.md for controls and limits.
+
+## Combat expansion
+
+combat_catalog.gd owns construct identities, turret roles, rifle values, and deterministic wave composition. player_combat.gd owns engineer health, protection, rifle state, and recoverable retreat. combat_navigation.gd caches bounded AStarGrid2D routes per construct type; a transient world topology revision invalidates grids on construction/removal and disabling/repairing blockers. The simulation advances the engineer weapon before turrets/enemies, after inserter delivery. Attack windups and slows use saved integer tick budgets; render-only flashes, traces, and cache data remain transient. See defense.md for phase, compatibility, and control contracts.

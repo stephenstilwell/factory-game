@@ -12,7 +12,7 @@ The playable loop is now: learn extraction and smelting, build automated compone
 | Settlement | Three repair projects, recurring post/workshop contracts, housing deliveries, three visible neighborhoods, civic buffs | Specialist services, branching projects, more reasons to spend credits |
 | Engineer | Material-funded equipment, three skills to 99, automation commissioning milestones | Further equipment only when new exploration/building problems justify it |
 | Building UX | Customizable hotbar, recipe picker, production rates, missing ingredients, copy/paste configuration ghosts | Undo, ghost shortages grouped by available supplies, richer production graphs |
-| Defense/story | Three keepers, persistent journal, voluntary ten-wave beacon defense, recoverable breach | Broader enemy behavior and settlement-driven story events |
+| Defense/story | Three keepers, persistent journal, voluntary ten-wave defense, player rifle/health/retreat, three typed constructs, weighted multi-gate routing, three turret roles, recoverable breach | More encounter variety, terrain-based combat, and settlement-driven story events |
 | Persistence | Validated v2 extensions, backups, older-world compatibility | Named slots and autosave recovery UI |
 
 ## Next substantial system: electricity

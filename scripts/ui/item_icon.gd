@@ -33,6 +33,9 @@ func _draw() -> void:
 			draw_line(center + arm * radius * 0.6, center + arm * radius, color, 5)
 		draw_circle(center, radius * 0.7, color)
 		draw_circle(center, radius * 0.3, Color("1c2c30"))
+	elif item_id == "service_rifle":
+		draw_line(center + Vector2(-12, 4), center + Vector2(14, -4), color, 6, true)
+		draw_line(center + Vector2(-4, 2), center + Vector2(-2, 9), color.darkened(0.3), 4, true)
 	elif item_id == "ammo":
 		for x in [-7, 0, 7]:
 			draw_rect(Rect2(center + Vector2(x - 2, -7), Vector2(4, 15)), color)

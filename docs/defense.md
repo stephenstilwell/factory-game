@@ -1,49 +1,71 @@
-# Oldbridge beacon defense
+# Oldbridge combat and beacon defense
 
-The Town Hall is Oldbridge's shelter and signal station. Its beacon guides families home and draws old salvage sentries along the eastern road. This first slice uses **one marked, fixed approach** and **ten voluntary waves**. There are no unannounced raids, character damage, weapons, or general enemy pathfinding yet.
+Oldbridge's beacon calls families home and wakes malfunctioning maintenance constructs from its old enchanted network. The engineer can now join a defense with a manufactured service rifle. Waves remain voluntary; new games still start empty.
 
-## Playing the first defense
+## Try it
 
-For a quick interactive sandbox with a restored hall, two loaded turrets, a wall, and spare supplies, run:
+For a prepared interactive sandbox, run:
 
 ```powershell
 godot --path . --script res://tests/play_defense.gd
 ```
 
-Its Town Hall panel opens ready to signal. Save/Load use a separate `defense_playtest_v1.json` slot; regular saves and normal new-game progression remain separate. In the main game, earn the setup through the steps below.
+This fixture supplies a restored town, mixed loaded defenses, a rifle, spare buildings, and ammunition. Its Save/Load slot is **defense_playtest_v2.json**, separate from normal saves. Close the Town panel after signaling, draw the rifle with V, and move toward the marked arrivals during the warning.
 
-1. Reopen the trading post and fund the engineers' workshop as before.
-2. Rebuild the Town Hall at **(42, 12)**, hatch **(42, 13)**: **40 stone, 40 iron plates, 10 gears, 10 wire**. It requires the workshop; no additional trade-credit payment.
-3. Research **Logistics I**. Craft gun turrets, ammo rounds, stone walls, and repair kits in **C**. Double-click walls/turrets in your pack to equip them for placement. The original eight factory hotbar slots retain their controls.
-4. Follow the marked eastern approach. A useful first layout puts turrets at **(51, 11)** and **(51, 15)**, with a wall at **(49, 13)**. Supply ammo through the machine UI, Ctrl-click, or inserters. Stock ten rounds per turret for the first wave and bring repair kits.
-5. Return to the Town Hall hatch, click it (or select it in **T → Town Hall**), then choose **Light beacon**. A **15-second warning** gives you time to prepare. You can extinguish it during this warning to cancel the arrival. An active attack must be defended.
-6. Turrets fire automatically. Use **H** over damaged structures, or the repair button in their inspection panels, to consume a kit and restore **50 health**.
+In a normal game, restore the trading post, restore the workshop, research Logistics I, and rebuild Town Hall. Craft equipment in C or automate it with assemblers. Walk within reach of the Hall hatch and choose **Light beacon** in T → Town Hall. A 15-second warning shows the incoming composition. You may cancel during this warning; once active, defend or recover from a breach.
 
-Coordinates follow the Town Hall if a migrated factory needs its ruin relocated. The route marker and Town UI show the actual approach; enemies always enter 22 tiles east of the hall's origin, on its middle row.
+## Player weapon and health
 
-| Item | Material cost | Behavior |
-| --- | --- | --- |
-| Stone wall | 5 stone | 120 health; blocks the approach |
-| Gun turret | 12 iron plates, 5 gears, 5 copper plates | 100 health; range 6; 12 damage per round, one shot per 0.5 seconds |
-| 5 ammo rounds | 2 iron plates | Loaded into turrets; assembler production supported |
-| Repair kit | 2 iron plates, 1 copper plate | Restores up to 50 health; hand or assembler production |
+- Craft a **service rifle** using 8 iron plates, 4 gears, and 4 copper plates. It requires the workshop and Logistics I. Carry it in your pack; drawing it does not consume it.
+- **V** draws/holsters. You can also double-click it in the pack or use its equip button.
+- While drawn, **hold left mouse or Space** to fire toward the cursor during an active wave. Range is eight tiles, damage 16 before armor, and cooldown 0.3 seconds. The nearest construct intersecting the aim ray takes the hit. Misses consume ammunition. No firing/ammo consumption occurs between waves.
+- Selecting a building or starting a blueprint holsters the weapon. Q, right mouse, or Esc also holsters before their normal world action. Menus and focus loss release the trigger; loading never resumes held input.
+- The engineer has 100 health. Marked orange cells warn of a melee strike for 0.4 seconds; leave the marked cell to dodge. After five seconds without damage, health regenerates at ten points per simulated second.
+- At zero health, retreat to a vacant cell near the Hall with inventory/equipment intact and five seconds of protection. The wave continues: turrets must protect the Hall while you recover.
 
-Walls and repair kits unlock after trading-post restoration. Turrets and ammo require the workshop and Logistics I. Turrets accept up to ten buffered rounds through normal manual/inserter loading. No target means no ammo consumed. Combat does not award Mining/Fabrication/Exploration XP; hand-crafting defense supplies grants ordinary Fabrication XP.
+The combat HUD shows health, available pack ammunition, protection, and the current weapon mode. Enemy hover text shows type, health, armor, and role. Building inspection and selected range rings explain turret coverage.
 
-The first wave has **four 24-health scavengers**. Each later wave adds two scavengers and four health per scavenger. A successful defense increases the completed-wave count and records three sheltered families per wave. The first victory earns a persistent **5% movement bonus** from returning road crews while the hall is operational. These families are a progress counter, not a simulated population system. Wave ten secures this approach; no further wave can start.
+## Constructs and wave progression
 
-## Damage and recovery
+| Construct | Former job / behavior | Base health | Armor | Structure/melee damage |
+| --- | --- | --- | --- | --- |
+| Signal scout | Road surveyor; fast, routes around isolated walls | 24 | 0 | 6 |
+| Dismantler | Demolition machine; favors breaking through blockers | 40 | 2 | 16 |
+| Armored hauler | Freight carrier; slow, heavily plated | 72 | 6 | 10 |
 
-Scavengers move west along the marked lane. They stop to attack healthy solid buildings and civic landmarks in their way. Belts and inserters do not block them. Turrets prioritize the enemy closest to the hall; walls do not block friendly fire.
+Wave one brings four scouts through the central eastern gate. Wave two adds dismantlers and opens the northern/southern gates. Wave three introduces haulers. Each subsequent wave adds two constructs; scouts/dismantlers gain four health per completed wave and haulers gain six.
 
-At zero health, factory structures remain as **disabled, passable ruins**. Inventories, outputs, inserter hands, stored fuel, and work progress remain owned by those structures. Disabled production/transport stops, and new machine deliveries are rejected. Repair restores operation. Damaged structures must be repaired before reclamation, preventing free repairs by picking them up and replacing them. You cannot rebuild a solid ruin while the engineer or a scavenger occupies its tile.
+These are machines carrying out a broken salvage order, not human bandits. Their shared fractured relay rune and Oren/Ada's dialogue connect them to the Quiet and the warning found beneath the workshop. Their final cause remains part of the story mystery.
 
-If the **Town Hall reaches zero health**, the beacon goes dark, remaining enemies withdraw, and the wave fails. Trade shipments and regional workshop bonuses pause. Research, skills, equipment, factory stock, and earlier victories survive. Repairing the hall reactivates services; fully restoring its health allows a retry at the same wave. It takes six kits to repair a completely breached hall. A damaged trading post pauses its own income at zero health, and a disabled workshop suspends its fuel bonus until repaired. This one-route slice only attacks structures on that route.
+Enemies choose four-direction paths in a bounded 29×15 arena relative to Town Hall. Weighted A* routes scouts around costly structures while dismantlers favor direct demolition. They attack solid obstacles before entering and can threaten a nearby engineer, but the Hall remains their objective. The gate markers show arrivals and general approaches, not immutable lanes. Walls shape routes; one wall does not seal a flank. There is no unlimited roaming-world pursuit.
 
-## Implementation and persistence
+## Defenses and supplies
 
-`simulation/defense.gd` owns the deterministic wave state machine, stable enemy IDs, lane movement, targeting, ammo consumption, and victory/recovery. It runs after inserters and before settlement economy, so delivered ammo can fire that tick and a breach immediately suspends shipments. Visual shot lines are transient; all authoritative combat timers, enemy positions/health, pending arrivals, and preparation countdowns are saved.
+| Defense | Unlock | Range | Effect | Ammunition / interval |
+| --- | --- | --- | --- | --- |
+| Gun turret | Workshop + Logistics I | 6 | 12 damage, armor applies; prioritizes threats near Hall | 1 / 0.5 s |
+| Piercing cannon | Workshop + Metallurgy | 8 | 32 damage ignoring armor; prioritizes haulers | 2 / 1.5 s |
+| Pulse turret | Workshop + Advanced routing | 4.5 | 8 armor-ignoring damage in a 1.8-tile radius, slows for 2.5 s | 2 / 1.2 s |
+| Stone wall | Trading post | — | 120 health; shapes routes and delays dismantlers | — |
 
-Buildings and civic sites store health. Existing entity records without health load fully healthy; previously restored civic sites also gain full health. Settlement extension version 2 adds the Town Hall and health. Version 1 saves keep their existing landmarks and receive only the missing ruin, placed on vacant land without displacing machines or the engineer. Saves without defense data start idle, so loading an established factory never starts an attack.
+A cannon costs 8 iron plates, 6 steel, 4 gears, and 4 copper plates; a pulse turret costs 8 iron plates, 6 wire, and 4 gears. Cannons have 140 health; gun/pulse turrets have 100. All defense buildings and rifles have assembler recipes. One batch of two iron plates makes five ammunition items, shared by rifles and all turret types.
 
-`persistence/defense_save.gd` checks phase invariants, unique enemy IDs/positions, route bounds, wave sizes, health, and timers before a decoded world can replace the live one. Mid-warning, active combat, and recovery round-trips are tested along with deterministic continuation, ammo conservation, automated resupply, and old-save placement. Preview defenses live in `tests/fixtures.gd`; normal new games remain empty.
+Turrets accept ten buffered rounds through normal manual/inserter loading and consume nothing without an in-range target. A cannon/pulse needs two rounds before firing. Combat consumption appears in F → Production. Shots pass over structures and never damage friendly buildings. There is no ballistic wall-occlusion model.
+
+Manufacture ammunition in assemblers, move it through chests/belts/inserters, and keep defensive buffers stocked. Build overlapping coverage: guns handle scouts, cannons counter armor, and pulses keep groups under fire. H consumes a real repair kit to restore up to 50 structure health; it does not heal the engineer.
+
+## Victory, damage, and recovery
+
+Ten defenses secure the eastern route. Each victory records three sheltered families; the first grants +5% movement while the Hall operates. No following wave starts automatically. Families are a progress counter rather than simulated combatants.
+
+At zero health, buildings remain disabled, passable ruins retaining inventories/work. Repair them before reclamation; you cannot repair a solid structure under the engineer or an enemy. A breached Hall withdraws remaining constructs, fails the current wave, and suspends civic services. Repair restores services; full Hall health permits retrying the same wave. Previously won waves, stock, skills, equipment, neighborhoods, and research remain.
+
+Combat itself grants no repeatable skill XP or loot. Defense-supply crafting and first automated recipe commissions use the existing Fabrication rules.
+
+## Foundation and compatibility
+
+combat_catalog.gd defines weapon/enemy roles and deterministic compositions. defense.gd owns waves, attacks, physical-ammo turret behavior, and damage. player_combat.gd owns the rifle, health, retreat, and transient aim/trigger intent. combat_navigation.gd caches one weighted grid per enemy type, invalidating on placement, reclamation, and disabling/repairing structures.
+
+Authoritative enemy types, health, slows, windups, target cells, turret cooldowns, player health/protection, and equipped state persist. Aim, held input, shot tracers, impacts, hit flashes, and path caches do not. Defense extension v2 accepts older v1 waves, treating existing enemies as scouts with default new timers; older factories default to a healthy unarmed engineer. Migrated active enemies adopt the new routing behavior. Validation rejects impossible phases, unknown types, duplicate cells/IDs, out-of-arena coordinates, invalid targets/timers, and invalid engineer state.
+
+Checks cover ammunition conservation/misses, armor and piercing, pulse groups/slows, obstacle-routing changes, dodging, safe retreat, input/menu isolation, mid-windup deterministic saves, old-wave migration, and a resupplied mixed-defense ten-wave campaign. Native captures review the battlefield, briefing, and turret inspection at 1280×800 and 1100×720.

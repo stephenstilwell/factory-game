@@ -5,8 +5,8 @@ static func integer(value, minimum: int, maximum: int) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) and float(value) == floor(float(value)) and value >= minimum and value <= maximum
 
 static func restore(world: RefCounted, data) -> bool:
-	if not data is Dictionary or data.get("version") != 1 or data.get("phase") not in ["idle", "warning", "active", "recovery"]: return false
-	if not integer(data.get("cleared"), 0, Defense.MAX_WAVES) or not integer(data.get("warning"), 0, Defense.WARNING_TICKS) or not integer(data.get("pending"), 0, 22) or not integer(data.get("spawn_timer"), 0, 14) or not integer(data.get("next_id"), 1, 10000): return false
+	if not data is Dictionary or not integer(data.get("version"), 1, 2) or data.get("phase") not in ["idle", "warning", "active", "recovery"]: return false
+	if not integer(data.get("cleared"), 0, Defense.MAX_WAVES) or not integer(data.get("warning"), 0, Defense.WARNING_TICKS) or not integer(data.get("pending"), 0, 22) or not integer(data.get("spawn_timer"), 0, 14) or not integer(data.get("next_id"), 1, 2000000000): return false
 	if not data.get("enemies") is Array or data.enemies.size() > 22: return false
 	var state := Defense.new()
 	state.phase = data.phase
@@ -30,10 +30,19 @@ static func restore(world: RefCounted, data) -> bool:
 	var records: Array = data.enemies.duplicate()
 	records.sort_custom(func(a, b): return int(a.get("id", 0)) < int(b.get("id", 0)) if a is Dictionary and b is Dictionary else false)
 	for record in records:
-		if not record is Dictionary or not integer(record.get("id"), 1, state.next_id - 1) or not integer(record.get("x"), hall.origin.x + 3, hall.origin.x + 22) or not integer(record.get("y"), hall.origin.y + 1, hall.origin.y + 1) or not integer(record.get("health"), 1, state.enemy_health()) or not integer(record.get("cooldown"), 0, 9): return false
+		if not record is Dictionary: return false
+		var kind = record.get("kind", "scout")
+		if not kind is String or not Defense.Definitions.ENEMIES.has(kind): return false
+		if not integer(record.get("id"), 1, state.next_id - 1) or not integer(record.get("x"), hall.origin.x - 5, hall.origin.x + 23) or not integer(record.get("y"), hall.origin.y - 6, hall.origin.y + 8) or not integer(record.get("health"), 1, state.enemy_health(kind)) or not integer(record.get("cooldown"), 0, 11): return false
+		if not integer(record.get("slow", 0), 0, 25) or not integer(record.get("attack_ticks", 0), 0, 4) or not record.get("attack_player", false) is bool: return false
+		if not integer(record.get("attack_x", record.x), -1000000, 1000000) or not integer(record.get("attack_y", record.y), -1000000, 1000000): return false
 		var cell := Vector2i(int(record.x), int(record.y))
+		var attack_cell := Vector2i(int(record.get("attack_x", record.x)), int(record.get("attack_y", record.y)))
+		if int(record.get("attack_ticks", 0)) > 0:
+			var distance := Vector2(attack_cell - cell).length()
+			if distance > (2.5 if record.get("attack_player", false) else 1.0): return false
 		if state.enemies.has(int(record.id)) or occupied.has(cell): return false
 		occupied[cell] = true
-		state.enemies[int(record.id)] = {"id": int(record.id), "cell": cell, "health": int(record.health), "cooldown": int(record.cooldown)}
+		state.enemies[int(record.id)] = {"id": int(record.id), "kind": kind, "cell": cell, "health": int(record.health), "cooldown": int(record.cooldown), "slow": int(record.get("slow", 0)), "attack_ticks": int(record.get("attack_ticks", 0)), "attack_cell": attack_cell, "attack_player": bool(record.get("attack_player", false)), "hit_until": 0}
 	world.defense = state
 	return true

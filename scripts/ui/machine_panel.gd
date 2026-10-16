@@ -131,6 +131,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	reclaim_button.text = "Pick up building" if reclaim_blocker.is_empty() else "Pick up building (unavailable)"
 	if not reclaim_blocker.is_empty(): status_label.text += "\nPickup: " + reclaim_blocker
 	reclaim_button.tooltip_text = reclaim_blocker if not reclaim_blocker.is_empty() else "Returns the building, fuel, inputs, and output to your pack. Also: close this panel and hold right mouse over the building for 0.5 seconds. Unfinished work and spent fuel energy are lost."
+	if Catalog.Combat.TURRETS.has(entity.kind): status_label.text += "\n" + Catalog.item_description(entity.kind)
 	if entity.kind == "drill":
 		var deposit: Dictionary = world.terrain.tile(entity.cell)
 		status_label.text += "\n%d units remaining under this drill" % int(deposit.get("amount", 0)) if not deposit.is_empty() else "\nPress M to survey another deposit, then hold right mouse to reclaim and relocate this drill."
@@ -138,7 +139,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	supply_button.disabled = not reachable or entity.kind == "inserter"
 	collect_button.text = "Take all [X]" if entity.kind in (["chest"] + Catalog.TRANSPORT) else ("Recover hand [X]" if entity.kind == "inserter" else "Collect output [X]")
 	collect_button.disabled = not reachable
-	if entity.kind == "turret": collect_button.text = "Unload ammo [X]"
+	if Catalog.Combat.TURRETS.has(entity.kind): collect_button.text = "Unload ammo [X]"
 	if entity.kind == "wall": collect_button.visible = false
 	else: collect_button.visible = true
 	var ids: Array = Catalog.BUILDINGS[entity.kind].get("recipes", []).filter(func(id): return world.unlocked(Catalog.RECIPES[id]) and world.content_available(id))
@@ -153,7 +154,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	if entity.recipe != "": progress.value = 100.0 * entity.progress / int(Catalog.RECIPES[entity.recipe].ticks)
 	var input: Dictionary = entity.inventory.contents.duplicate()
 	var expected: Array = []
-	if entity.kind == "turret": expected = ["ammo"]
+	if Catalog.Combat.TURRETS.has(entity.kind): expected = ["ammo"]
 	var output_expected: Array = []
 	if entity.recipe != "":
 		expected = Catalog.RECIPES[entity.recipe]["in"].keys()
@@ -161,7 +162,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	fuel_box.visible = Catalog.BUILDINGS[entity.kind].get("fuel", false)
 	if fuel_box.visible: input.erase("coal")
 	input_box.visible = entity.kind not in ["inserter", "wall"]
-	output_box.visible = entity.kind not in (["chest", "turret", "wall"] + Catalog.TRANSPORT)
+	output_box.visible = entity.kind not in (["chest", "wall"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT)
 	input_grid.grid.columns = 6 if entity.kind == "chest" else 3
 	var descriptor := {"kind": "input", "entity_id": entity.id}
 	for grid in [input_grid, fuel_grid, output_grid]:
@@ -187,5 +188,5 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	output_grid.refresh(output, output_expected)
 	summary.text = "Click a filled tile to take items; click an empty ingredient to load it. Drag pack items into INPUT or FUEL. Output collection leaves fuel and ingredients in place."
 	if entity.kind == "chest": summary.text = "Drop pack items into storage, or Shift-click them in your pack to transfer all. Ctrl-click stacks only item types already stored here; it never dumps unrelated supplies."
-	if entity.kind == "turret": summary.text = "Load ammunition into INPUT manually or by inserter. Range: 6 tiles; 12 damage per round; one shot every 0.5 seconds. A wall across the marked lane buys more firing time."
+	if Catalog.Combat.TURRETS.has(entity.kind): summary.text = "Load ammunition into INPUT manually or by inserter. Guns stop scouts, cannons counter armor, and pulses slow groups. Walls shape routes; scouts can go around isolated barriers. Select a turret to see its range."
 	if entity.kind == "wall": summary.text = "Blocks the marked approach until its health reaches zero. Disabled walls stay in place as passable ruins; repair them with kits [H]. Damaged structures must be repaired before reclamation."

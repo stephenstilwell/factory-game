@@ -10,6 +10,7 @@ const Workspace = preload("res://scripts/ui/inventory_workspace.gd")
 const Survey = preload("res://scripts/ui/resource_survey.gd")
 const SkillDefinitions = preload("res://scripts/data/skill_catalog.gd")
 
+signal weapon_requested
 signal build_selected(kind: String)
 signal journal_requested
 signal factory_requested
@@ -49,6 +50,9 @@ var lesson_hint: Label
 var research: Label
 var defense_status: Label
 var hover_label: Label
+var combat_panel: PanelContainer
+var combat_label: Label
+var weapon_button: Button
 var inventory_label: Label
 var xp_label: Label
 var xp_time := 0.0
@@ -140,6 +144,19 @@ func _ready() -> void:
 	notice_label = Style.label("", 13, Style.GOLD)
 	notice_label.max_lines_visible = 1
 	bottom_box.add_child(notice_label)
+	combat_panel = PanelContainer.new()
+	combat_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	combat_panel.offset_left = -450
+	combat_panel.offset_right = -16
+	combat_panel.offset_top = 142
+	combat_panel.offset_bottom = 210
+	root.add_child(combat_panel)
+	var combat_box := VBoxContainer.new()
+	combat_panel.add_child(combat_box)
+	combat_label = Style.label("", 14, Style.GOLD)
+	combat_box.add_child(combat_label)
+	weapon_button = Style.button(combat_box, "Draw rifle [V]", func(): weapon_requested.emit())
+	weapon_button.tooltip_text = "Craft and carry a service rifle. V draws/holsters; hold LMB or Space during a wave. Uses pack ammo; misses spend rounds. Health recovers after 5 seconds without damage. Defeat retreats without losing items."
 	backdrop = ColorRect.new()
 	backdrop.color = Color(0.025, 0.045, 0.055, 0.76)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -163,6 +180,7 @@ func _ready() -> void:
 	workspace.building_pickup_requested.connect(func(): building_pickup_requested.emit())
 	workspace.underground_mode_requested.connect(func(enabled): underground_mode_requested.emit(enabled))
 	workspace.context_changed.connect(_sync_context)
+	workspace.weapon_requested.connect(func(): weapon_requested.emit())
 	workspace.build_requested.connect(func(id): build_selected.emit(id))
 	workspace.transfer_requested.connect(func(item, amount, from, to, token): transfer_requested.emit(item, amount, from, to, token))
 	workspace.craft_requested.connect(func(id, count): craft_requested.emit(id, count))
@@ -202,7 +220,7 @@ func _ready() -> void:
 	menu.add_theme_constant_override("separation", 12)
 	scroll.add_child(menu)
 	menu.add_child(Style.label("PAUSED", 26, Style.ACCENT))
-	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nF — Research, production rates, and plans\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nPause key — Pause or resume • F11 — Fullscreen", 16)
+	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nF — Research, production rates, and plans\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nV — Draw / holster rifle • LMB / Space — Fire\nPause key — Pause or resume • F11 — Fullscreen", 16)
 	controls_help.hide()
 	Style.button(menu, "Controls and shortcuts", func(): controls_help.visible = not controls_help.visible)
 	menu.add_child(controls_help)
@@ -286,6 +304,11 @@ func _sync_context() -> void:
 
 func refresh() -> void:
 	if world == null or status == null: return
+	combat_panel.visible = world.content_available("service_rifle") or world.combat.health < 100
+	combat_label.text = "ENGINEER %d/100 • Ammo %d%s" % [world.combat.health, world.player.count("ammo"), " • Protected" if world.combat.invulnerable > 0 else ""]
+	combat_label.add_theme_color_override("font_color", Style.ERROR if world.combat.health < 35 else Style.GOLD)
+	weapon_button.text = ("Holster rifle [V] • Hold LMB / Space to fire" if world.combat.armed else "Draw rifle [V]")
+	weapon_button.disabled = not world.combat.armed and world.player.count("service_rifle") == 0
 	defense_status.visible = world.settlements.enabled and world.settlements.sites.town_hall.repaired
 	defense_status.text = "TOWN HALL %d/%d • %s [T]" % [world.settlements.sites.town_hall.health, world.settlements.sites.town_hall.max_health(), world.defense.summary()]
 	objective.visible = world.guide.enabled
@@ -313,6 +336,7 @@ func refresh() -> void:
 func world_has_pointer() -> bool:
 	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible or factory_panel.visible: return false
 	var pointer := get_viewport().get_mouse_position()
+	if combat_panel.visible and combat_panel.get_global_rect().has_point(pointer): return false
 	return not top.get_global_rect().has_point(pointer) and not bottom.get_global_rect().has_point(pointer)
 
 func toggle_survey() -> void:

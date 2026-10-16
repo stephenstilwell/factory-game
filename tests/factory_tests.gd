@@ -1,5 +1,6 @@
 extends SceneTree
 
+const CombatTests = preload("res://tests/combat_tests.gd")
 const PresentationTests = preload("res://tests/presentation_tests.gd")
 const ExpansionTests = preload("res://tests/expansion_tests.gd")
 const World = preload("res://scripts/simulation/world.gd")
@@ -41,6 +42,7 @@ func _run() -> void:
 	CharacterTests.run(self)
 	SkillTests.run(self)
 	DefenseTests.run(self)
+	CombatTests.run(self)
 	_construction()
 	_transport()
 	_production()
@@ -54,6 +56,7 @@ func _run() -> void:
 	await StoryTests.run(self)
 	await ExpansionTests.ui(self)
 	await PresentationTests.run(self)
+	await CombatTests.ui(self)
 	await _scene_smoke()
 	await InventoryUXTests.ui(self)
 	print("Factory verification: %d checks, %d failures" % [checks, failures])

@@ -12,6 +12,7 @@ const CharacterPanel = preload("res://scripts/ui/character_panel.gd")
 signal close_requested
 signal upgrade_requested(id: String, rank: int)
 signal context_changed
+signal weapon_requested
 signal build_requested(id: String)
 signal transfer_requested(item: String, amount: int, source: Dictionary, target: Dictionary, token: int)
 signal craft_requested(id: String, count: int)
@@ -132,7 +133,9 @@ func _ready() -> void:
 	details.add_child(detail_title)
 	detail_text = Style.label("", 16)
 	details.add_child(detail_text)
-	equip_button = Style.button(details, "Equip for building", func(): build_requested.emit(selected_item))
+	equip_button = Style.button(details, "Equip for building", func():
+		if selected_item == "service_rifle": weapon_requested.emit()
+		else: build_requested.emit(selected_item))
 	recipe_button = Style.button(details, "Show crafting recipe", _show_selected_recipe)
 	crafting = CraftPanel.new()
 	right.add_child(crafting)
@@ -195,7 +198,8 @@ func destination() -> Dictionary:
 func _pack_click(item: String, gesture: String) -> void:
 	selected_item = item
 	var target := destination()
-	if gesture == "equip" and Catalog.BUILDINGS.has(item): build_requested.emit(item)
+	if gesture == "equip" and item == "service_rifle": weapon_requested.emit()
+	elif gesture == "equip" and Catalog.BUILDINGS.has(item): build_requested.emit(item)
 	elif gesture in ["one", "all"] and not target.is_empty():
 		transfer_requested.emit(item, 1 if gesture == "one" else 0, {"kind": "player"}, target, world.get_instance_id())
 	refresh(world)
@@ -254,7 +258,8 @@ func refresh(state: RefCounted) -> void:
 	else:
 		detail_title.text = Catalog.item_name(selected_item)
 		detail_text.text = "%s\n\nIn pack: %d\nCategory: %s\n\n%s" % [Catalog.item_description(selected_item), world.player.count(selected_item), Catalog.category(selected_item), _uses(selected_item)]
-	equip_button.visible = Catalog.BUILDINGS.has(selected_item)
+	equip_button.visible = Catalog.BUILDINGS.has(selected_item) or selected_item == "service_rifle"
+	equip_button.text = "Draw / holster rifle [V]" if selected_item == "service_rifle" else "Equip for building"
 	equip_button.disabled = world.player.count(selected_item) == 0 or not world.content_available(selected_item) or not world.unlocked(Catalog.BUILDINGS.get(selected_item, {}))
 	recipe_button.visible = Catalog.RECIPES.has(selected_item) and world.Crafting.available(world, selected_item)
 

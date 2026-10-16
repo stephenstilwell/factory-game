@@ -10,6 +10,8 @@ Your first regional goal is to **reopen Oldbridge's ruined trading post**, suppl
 
 Press **F** for the new factory workbench: choose research, compare recent production and consumption, inspect stalled production, and manage construction plans. Assemblers can manufacture every placeable building. After Logistics I, choose routing tools or steel production; Construction engineering turns steel into housing supplies for a growing Oldbridge. See [factory expansion](docs/factory-expansion.md).
 
+The engineer can join voluntary defenses with a **service rifle [V]**. Hold **left mouse / Space** to fire while drawn; shared ammunition comes from your pack. Three types of old-network maintenance constructs use multiple approaches. Gun turrets, piercing cannons, pulse turrets, and walls provide complementary defenses. See [combat and beacon defense](docs/defense.md) for a prepared playtest and controls.
+
 ## Play
 
 New games start with **an empty inventory and no working factory buildings**. Three abandoned civic landmarks are waiting to be restored using your production. You appear near stone at (26, 9). The learning guide shows one objective at a time, with a direction arrow and a highlighted resource/machine where relevant. Hold **right mouse** over a nearby deposit to mine by hand.

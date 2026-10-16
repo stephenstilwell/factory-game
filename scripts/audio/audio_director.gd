@@ -2,6 +2,7 @@ extends Node
 ## Presentation-only audio: bounded voices, cue cooldowns, separate buses, local preferences.
 const SETTINGS_PATH := "user://audio_settings.cfg"
 const CUES := {
+	"damage": preload("res://assets/audio/mine.wav"),
 	"ui": preload("res://assets/audio/ui.wav"),
 	"open": preload("res://assets/audio/open.wav"),
 	"close": preload("res://assets/audio/close.wav"),

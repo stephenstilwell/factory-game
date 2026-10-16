@@ -52,7 +52,7 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 	match kind:
 		"furnace": _furnace(canvas, center, time, entity.id, working)
 		"drill": _drill(canvas, center, time, direction, working)
-		"turret":
+		"turret", "cannon_turret", "pulse_turret":
 			Art.ellipse(canvas, center + Vector2(0, 3), Vector2(18, 14), Art.INK)
 			Art.ellipse(canvas, center - Vector2(0, 2), Vector2(17, 13), Art.STEEL)
 			var barrel := aim.normalized()
@@ -60,6 +60,11 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 			canvas.draw_line(center - Vector2(0, 4), center - Vector2(0, 4) + barrel * (23 if firing else 26), Art.STEEL_LIGHT, 6, true)
 			Art.box(canvas, Rect2(center + Vector2(-10, -13), Vector2(20, 18)), Art.STEEL, 6)
 			Art.box(canvas, Rect2(center + Vector2(-6, -11), Vector2(12, 5)), Art.COPPER, 2)
+			if kind == "cannon_turret":
+				canvas.draw_line(center - Vector2(0, 4) + barrel * 12, center - Vector2(0, 4) + barrel * 31, Art.COPPER, 10, true)
+			elif kind == "pulse_turret":
+				canvas.draw_arc(center - Vector2(0, 6), 12, 0, TAU, 20, Color("86d6cb"), 4, true)
+				canvas.draw_circle(center - Vector2(0, 6), 5, Art.CREAM)
 			if firing:
 				var muzzle := center - Vector2(0, 4) + barrel * 27
 				Art.glow(canvas, muzzle, 13, Art.AMBER)

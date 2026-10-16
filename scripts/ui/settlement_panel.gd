@@ -147,7 +147,7 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	damage_button.visible = site.repaired and site.health < site.max_health()
 	damage_button.disabled = not reachable or world.player.count("repair_kit") == 0
 	if defense_status.visible:
-		defense_status.text = "%s\nEAST approach: %d scavengers, %d health each. Turrets need ammunition.\nFirst victory: returning road crews grant +5%% movement. No wave starts automatically." % [world.defense.summary(), world.defense.wave_size(), world.defense.enemy_health()]
+		defense_status.text = "%s\nNEXT: %s\n%s\nRifle [V], turrets, walls, and repair kits. No automatic waves." % [world.defense.summary(), Catalog.Combat.composition(world.defense.cleared), "Central eastern gate." if world.defense.cleared == 0 else "Three marked eastern gates. Scouts flank walls; dismantlers break through; haulers resist ordinary rounds."]
 		if world.defense.cleared == world.defense.MAX_WAVES: defense_status.text = "%s\n%d families sheltered. Road crews remain active while the hall is operational." % [world.defense.summary(), world.defense.cleared * 3]
 		var blocked: String = world.defense.ready_reason(world)
 		beacon_button.disabled = not reachable or not blocked.is_empty()
