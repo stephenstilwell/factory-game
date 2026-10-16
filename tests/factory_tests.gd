@@ -1,5 +1,6 @@
 extends SceneTree
 
+const AdaptiveMusicTests = preload("res://tests/adaptive_music_tests.gd")
 const EarlyProgressionTests = preload("res://tests/early_progression_tests.gd")
 const SettlementAgeTests = preload("res://tests/settlement_age_tests.gd")
 const FrontierTests = preload("res://tests/frontier_tests.gd")
@@ -62,6 +63,7 @@ func _run() -> void:
 	SettlementTests.run(self)
 	InventoryUXTests.models(self)
 	await AudioTests.run(self)
+	await AdaptiveMusicTests.run(self)
 	await HotbarTests.run(self)
 	await StoryTests.run(self)
 	await ExpansionTests.ui(self)

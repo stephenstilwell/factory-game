@@ -121,7 +121,7 @@ Previews are stored under the ignored `.godot/verification/` directory.
 
 See [the release guide](docs/releases.md) for local Windows packages, automated GitHub Actions builds, and draft prereleases.
 
-Music and action sounds are included. Press **Esc** for Master, Music, and Sound effects volume sliders; preferences persist between sessions. See [audio](docs/audio.md) for the palette and extension points.
+Five original music tracks adapt to wilderness, home, orchard farmlands, Greybank highlands, and beacon defense with smooth crossfades. Press **Esc** for volume sliders, the adaptive-music toggle, and the current track title; preferences persist between sessions. See [audio](docs/audio.md) for the palette and extension points.
 
 The bottom building hotbar has ten customizable slots and two pages. **Right-click a slot** to assign a building, drag from your pack to pin one, drag between slots to swap, and press **Tab** to change pages. **Alt + number** pins the current build cursor. Layouts persist between sessions. See [the hotbar guide](docs/hotbar.md).
 

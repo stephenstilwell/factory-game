@@ -1,4 +1,4 @@
-﻿IRONWORKS / OLDBRIDGE
+IRONWORKS / OLDBRIDGE
 Early playable prototype - Windows 64-bit
 
 PLAY
@@ -74,6 +74,9 @@ Aether and magical restoration remain future chapters.
 
 PRESENTATION
 Esc opens saved options for reduced motion, ambient effects and sound.
+Five original music tracks follow wilderness, home, farmland, highlands and
+beacon defense. Transitions are gradual. Disable the adaptive-music toggle
+for a fixed calm theme, or use the Music slider to adjust/mute either mode.
 
 EARLY BUILD NOTES
 Balance, visuals and systems will change. The executable is not code-signed.

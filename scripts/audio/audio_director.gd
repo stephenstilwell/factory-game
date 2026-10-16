@@ -17,12 +17,14 @@ const CUES := {
 	"warning": preload("res://assets/audio/warning.wav"),
 	"shot": preload("res://assets/audio/shot.wav"),
 }
-const MUSIC := preload("res://assets/audio/oldbridge.wav")
+const Score = preload("res://scripts/audio/adaptive_music.gd")
 var output_enabled := DisplayServer.get_name() != "headless"
 var settings_path := SETTINGS_PATH
 var levels := {"Master": 0.75, "Music": 0.35, "SFX": 0.7}
 var voices: Array[AudioStreamPlayer] = []
-var music: AudioStreamPlayer
+var music: Node
+var adaptive_music := true
+var music_caption: Label
 var cooldowns: Dictionary = {}
 var world: RefCounted
 var suspended := false
@@ -43,22 +45,19 @@ func _ready() -> void:
 		for bus_name in levels:
 			var value = config.get_value("volume", bus_name, levels[bus_name])
 			if (value is float or value is int) and is_finite(float(value)): levels[bus_name] = clampf(float(value), 0.0, 1.0)
+	var stored_adaptive = config.get_value("music", "adaptive", true)
+	adaptive_music = stored_adaptive if stored_adaptive is bool else true
 	for bus_name in levels: _apply(bus_name)
 	for i in range(10):
 		var player := AudioStreamPlayer.new()
 		player.bus = "SFX"
 		add_child(player)
 		voices.append(player)
-	music = AudioStreamPlayer.new()
-	music.bus = "Music"
-	var loop: AudioStreamWAV = MUSIC.duplicate()
-	loop.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	loop.loop_begin = 0
-	loop.loop_end = int(loop.get_length() * loop.mix_rate)
-	music.stream = loop
-	music.volume_db = -6.0
+	music = Score.new()
+	music.output_enabled = output_enabled
+	music.adaptive = adaptive_music
 	add_child(music)
-	if output_enabled: music.play()
+	music.track_changed.connect(func(_id): _refresh_music_caption())
 	settings_timer = Timer.new()
 	settings_timer.one_shot = true
 	settings_timer.wait_time = 0.4
@@ -79,6 +78,7 @@ func bind_world(state: RefCounted) -> void:
 	cooldowns.clear()
 	machine_timer = 0.0
 	for voice in voices: voice.stop()
+	music.bind_world(world)
 
 func watch_ui(root_node: Node) -> void:
 	panel = root_node
@@ -99,7 +99,6 @@ func set_interface_state(visible: bool, paused: bool) -> void:
 		play_cue("open" if visible else "close")
 		ui_visible = visible
 	game_paused = paused
-	music.volume_db = -12.0 if paused else -6.0
 
 func _feedback(cue: String, cell: Vector2i) -> void:
 	play_cue(cue, cell)
@@ -128,7 +127,7 @@ func play_cue(cue: String, cell: Variant = null) -> bool:
 	return false
 
 func _process(delta: float) -> void:
-	music.stream_paused = suspended
+	music.step(minf(delta, 0.25), world, game_paused, suspended)
 	if world == null or suspended or ui_visible or game_paused: return
 	machine_timer -= delta
 	if machine_timer > 0: return
@@ -157,6 +156,7 @@ func set_level(bus_name: String, value: float) -> void:
 func save_settings() -> void:
 	var config := ConfigFile.new()
 	for bus_name in levels: config.set_value("volume", bus_name, levels[bus_name])
+	config.set_value("music", "adaptive", adaptive_music)
 	if config.save(settings_path) != OK: push_warning("Audio preferences could not be saved.")
 
 func create_controls(parent: Node) -> void:
@@ -186,6 +186,22 @@ func create_controls(parent: Node) -> void:
 			percentage.text = "%d%%" % value
 			set_level(bus_name, value / 100.0))
 		slider.drag_ended.connect(func(_changed): play_cue("ui"))
+	var adaptive_toggle := CheckButton.new()
+	adaptive_toggle.text = "Music follows places and beacon activity"
+	adaptive_toggle.button_pressed = adaptive_music
+	adaptive_toggle.tooltip_text = "Smooth transitions between home, wilderness, farmland, highlands and defense. Disable for a fixed calm theme. Music volume still controls both modes."
+	parent.add_child(adaptive_toggle)
+	adaptive_toggle.toggled.connect(func(value):
+		adaptive_music = value
+		music.set_adaptive(value, world)
+		settings_timer.start())
+	music_caption = Label.new()
+	music_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(music_caption)
+	_refresh_music_caption()
+
+func _refresh_music_caption() -> void:
+	if music_caption != null: music_caption.text = "Now playing: " + Score.Catalog.TRACKS[music.current].title
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
@@ -194,10 +210,6 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN: suspended = false
 
 func _exit_tree() -> void:
-	if music != null:
-		music.stream_paused = false
-		music.stop()
-		music.stream = null
 	for voice in voices:
 		voice.stop()
 		voice.stream = null
