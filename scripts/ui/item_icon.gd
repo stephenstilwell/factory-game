@@ -22,6 +22,14 @@ func _draw() -> void:
 		MachineArt.draw(self, preview, Vector2.ZERO, 0.0, Vector2.RIGHT, false)
 		draw_set_transform(Vector2.ZERO)
 		return
+	if item_id in ["timber", "plank"]:
+		for row in range(3):
+			draw_line(center + Vector2(-radius, -7 + row * 7), center + Vector2(radius, -10 + row * 7), color, 5)
+		return
+	if item_id == "stone_axe":
+		draw_line(center + Vector2(-7, 11), center + Vector2(5, -10), Color("ac8759"), 4)
+		draw_colored_polygon(PackedVector2Array([center + Vector2(1, -10), center + Vector2(12, -11), center + Vector2(10, 0), center + Vector2(0, -2)]), color)
+		return
 	if item_id.ends_with("ore") or item_id in ["stone", "coal"]:
 		draw_colored_polygon(PackedVector2Array([center + Vector2(-radius, radius * 0.5), center + Vector2(-radius * 0.6, -radius * 0.7), center + Vector2(radius * 0.45, -radius), center + Vector2(radius, radius * 0.35), center + Vector2(0, radius)]), color)
 		draw_line(center + Vector2(-radius * 0.4, -radius * 0.45), center + Vector2(radius * 0.35, -radius * 0.55), color.lightened(0.4), 2)

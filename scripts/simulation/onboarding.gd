@@ -28,12 +28,17 @@ const REVEALS := {
 	"fast_belt": "research",
 }
 
+const CHARCOAL_STAGE := {"id": "ingredients", "title": "Gather iron and prepare charcoal", "goals": {"mined:iron_ore": 5, "produced:coal": 2}, "target": "iron_ore", "hint": "Now you can mine iron. Gather 5 ore near (14, 16). Your charcoal clamp produces furnace fuel from timber; collect it with X. No coal mining is required."}
+var timber_opening := false
 var enabled := false
 var counters: Dictionary = {}
 var completed: Array = []
 
+func stage_at(index: int) -> Dictionary:
+	return CHARCOAL_STAGE if timber_opening and index == 3 else STAGES[index]
+
 func current() -> Dictionary:
-	return STAGES[completed.size()] if enabled and completed.size() < STAGES.size() else {}
+	return stage_at(completed.size()) if enabled and completed.size() < STAGES.size() else {}
 
 func available(id: String) -> bool:
 	return not enabled or not REVEALS.has(id) or REVEALS[id] in completed
@@ -84,4 +89,4 @@ func target(world: RefCounted) -> Dictionary:
 	return {}
 
 func serialize() -> Dictionary:
-	return {"enabled": enabled, "counters": counters.duplicate(), "completed": completed.duplicate()}
+	return {"enabled": enabled, "timber_opening": timber_opening, "counters": counters.duplicate(), "completed": completed.duplicate()}

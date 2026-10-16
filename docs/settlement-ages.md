@@ -1,5 +1,7 @@
 # Oldbridge through the ages: Timber to Stone
 
+**New games:** this original civic overlay has been replaced by [the actual timber-to-iron opening](timber-opening.md). The Hall project below remains available to existing saves so their progression is preserved.
+
 This first playable chapter makes town restoration distinct from the machine technology tree. New towns begin in **Timber & Hearth**. Machinery still unlocks through existing research; the civic age describes the settlement's homes, materials and shared prosperity.
 
 ## Two landscapes, two reasons to explore

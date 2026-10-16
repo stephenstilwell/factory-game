@@ -8,8 +8,9 @@ func fresh() -> void:
 
 func conversation(world: RefCounted, site_id: String) -> String:
 	if not world.settlements.enabled or not Definitions.NPCS.has(site_id): return ""
+	if world.early.active() and site_id == "trading_post": return "arrival"
 	var site = world.settlements.sites[site_id]
-	if site_id == "workshop" and world.settlements.age >= 1: return "stone_homecoming"
+	if site_id == "workshop" and site.repaired and world.settlements.age >= 1: return "stone_homecoming"
 	if site_id == "town_hall" and site.repaired:
 		if site.health == 0: return "ada_recovery"
 		if world.defense.cleared > 0: return "first_homecoming"
@@ -20,7 +21,7 @@ func available(world: RefCounted, chapter: String) -> bool:
 	if chapter == "arrival": return true
 	if not world.settlements.enabled: return false
 	var data: Dictionary = Definitions.CHAPTERS[chapter]
-	if chapter == "stone_homecoming": return world.settlements.age >= 1
+	if chapter == "stone_homecoming": return world.settlements.age >= 1 and world.settlements.sites.workshop.repaired
 	if chapter == "first_homecoming": return world.settlements.sites.town_hall.repaired and world.defense.cleared > 0
 	if chapter == "ada_recovery": return world.settlements.sites.town_hall.repaired
 	if chapter.ends_with("_after"): return world.settlements.sites[data.site].repaired
@@ -44,6 +45,7 @@ func restore(data: Variant, world: RefCounted) -> bool:
 	return true
 
 func goal(world: RefCounted) -> String:
+	if world.early.active(): return "Give the first neighbors a shelter, then rebuild the crossing with timber, stone and water power. Town [Y] shows the next project."
 	if not world.settlements.enabled: return "Give Oldbridge a reason to welcome people home."
 	var sites: Dictionary = world.settlements.sites
 	if not sites.trading_post.repaired: return "Reopen Mira's market so the supply wagons and first families can return."

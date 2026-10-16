@@ -200,9 +200,11 @@ func _process(delta: float) -> void:
 		elif not npc.is_empty(): text += world.story.Definitions.NPCS[npc].name + " • Click to talk [Q clears build cursor]"
 		elif site != null: text += world.settlements.Definitions.SITES[site.id].name + " - " + world.settlements.status(site.id)
 		elif world.frontier.at(mouse_cell) != "": text += world.frontier.Definitions.SITES[world.frontier.at(mouse_cell)].name + " • Click to investigate [L]"
-		elif world.frontier.tree_at(world, mouse_cell): text += "Grove tree • Hold right mouse to clear • Building clears brush automatically"
+		elif not world.early.resource_at(world, mouse_cell).is_empty(): text += "%s • %d remaining • Hold RMB to gather" % [Catalog.item_name(world.early.resource_at(world, mouse_cell).item), world.early.resource_at(world, mouse_cell).amount]
+		elif world.frontier.tree_at(world, mouse_cell): text += ("Grove tree • Hold RMB to fell for 4 timber • Building clears brush" if world.early.enabled else "Grove tree • Hold right mouse to clear • Building clears brush automatically")
 		elif not deposit.is_empty(): text += "%s: %d remaining  |  Hold right mouse to mine" % [Catalog.item_name(deposit.item), deposit.amount]
-		else: text += "Grassland"
+		else: text += "Old watercourse • Waterwheel sawmill site" if world.early.enabled and world.early.water_at(mouse_cell) else "Grassland"
+		if world.early.active() and not deposit.is_empty() and deposit.item != "stone": text += " • Rebuild the crossing to unlock ore mining [Y]"
 		if not world.in_reach(mouse_cell): text += "  |  Out of reach"
 		if selected_kind != "": text += "  |  Facing " + ["EAST", "SOUTH", "WEST", "NORTH"][facing]
 		hud.hover_label.text = text

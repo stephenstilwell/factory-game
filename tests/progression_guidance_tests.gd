@@ -104,7 +104,7 @@ static func run(test: SceneTree) -> void:
 	bad.guidance.history = [{"text": "Future event", "tick": goal_world.ticks + 1}]
 	test.check(not Saves.decode(bad).error.is_empty(), "Activity history cannot contain future timestamps")
 	var guide := World.new()
-	guide.start()
+	guide.start(false)
 	test.check(not guide.guidance.introduced and guide.guidance.pinned.is_empty(), "New game does not advertise equipment before the working-drill lesson")
 	guide.guide.completed.append("drill_online")
 	guide.guidance.observe(guide)

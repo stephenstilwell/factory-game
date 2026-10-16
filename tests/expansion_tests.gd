@@ -80,6 +80,7 @@ static func _routes(test: SceneTree) -> void:
 
 static func _manufacturing(test: SceneTree) -> void:
 	for recipe_id in Catalog.BUILDINGS.keys() + ["construction_kit"]:
+		if Catalog.RECIPES[recipe_id].get("machine", "") != "assembler": continue
 		var world := Fixtures.defense_town(false)
 		world.researched = ["logistics", "metallurgy", "routing", "construction"]
 		world.player_position = Vector2(2.5, 2.5)

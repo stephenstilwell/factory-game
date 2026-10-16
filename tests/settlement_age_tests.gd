@@ -17,7 +17,7 @@ static func ready_town() -> RefCounted:
 
 static func run(test: SceneTree) -> void:
  var fresh = World.new()
- fresh.start()
+ fresh.start(false)
  test.check(fresh.settlements.age == 0 and fresh.entities.is_empty() and fresh.player.total() == 0, "Timber age keeps the empty opening")
  test.check(not fresh.settlements.advance_age(fresh), "Town age requires civic restoration")
  var world = ready_town()
@@ -80,7 +80,7 @@ static func run(test: SceneTree) -> void:
  var depletion = world.terrain.depleted.duplicate()
  for x in range(-30, 30): world.frontier.landscape_index(Vector2i(x, x))
  test.check(depletion == world.terrain.depleted, "Biome presentation never depletes or moves ore")
- world.start()
+ world.start(false)
  test.check(world.settlements.age == 0 and world.settlements.stone_shipments == 0, "New games reset age and income history")
 
 static func ui(test: SceneTree) -> void:

@@ -5,7 +5,7 @@ const Saves = preload("res://scripts/persistence/save_service.gd")
 
 static func run(test: SceneTree) -> void:
 	var empty := World.new()
-	empty.start()
+	empty.start(false)
 	test.check(not empty.defense.begin(empty) and empty.defense.phase == "idle", "A fresh empty world cannot start an attack")
 	test.advance(empty, 500)
 	test.check(empty.defense.enemies.is_empty() and empty.defense.cleared == 0, "Waves never begin automatically")

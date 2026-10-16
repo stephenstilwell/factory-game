@@ -9,14 +9,14 @@ var active_page := 0
 var revision := 0
 var settings_path: String
 
-func _init(path: String = PATH) -> void:
+func _init(path: String = PATH, starting_slots: Array = []) -> void:
 	settings_path = path
 	for page in PAGES:
 		var row: Array = []
 		row.resize(SLOTS)
 		row.fill("")
 		pages.append(row)
-	var defaults: Array = Catalog.BUILD_ORDER + ["wall", "turret"]
+	var defaults: Array = starting_slots if not starting_slots.is_empty() else Catalog.BUILD_ORDER + ["wall", "turret"]
 	for slot in mini(SLOTS, defaults.size()): pages[0][slot] = defaults[slot]
 	var config := ConfigFile.new()
 	if config.load(settings_path) != OK: return

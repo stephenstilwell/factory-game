@@ -234,7 +234,7 @@ static func ui(test: SceneTree) -> void:
 	scene.world.award_skill("mining", 50)
 	scene.hud.refresh()
 	test.check(engineer.skill_box.visible and not engineer.equipment_box.visible and engineer.skill_rows.mining.title.text.contains("2 / 99") and engineer.skill_rows.mining.bar.value == 0, "Engineer Skills displays earned levels and progress toward the next level")
-	test.check(scene.hud.xp_label.text.contains("+50 Mining XP") and scene.hud.xp_label.text.contains("Level 2"), "Successful XP events show compact level-up feedback")
+	test.check(scene.hud.xp_label.text.contains("+50 Gathering XP") and scene.hud.xp_label.text.contains("Level 2"), "Successful XP events show compact level-up feedback")
 	scene.world.award_skill("fabrication", scene.world.Skills.Definitions.threshold(99))
 	scene.hud.refresh()
 	test.check(engineer.skill_rows.fabrication.bar.value == 100 and engineer.skill_rows.fabrication.progress.text.contains("Mastered"), "Level 99 has a complete mastery display without a next-level division")
@@ -263,7 +263,7 @@ static func ui(test: SceneTree) -> void:
 	test.check(workspace.machine.input_grid.buttons.ammo.visible and not workspace.machine.output_box.visible, "Turret inspection presents ammunition as input rather than a machine output")
 	# Reproduce donating everything to Town Hall before restoring the workshop.
 	var staged_world := World.new()
-	staged_world.start()
+	staged_world.start(false)
 	var staged_hall = staged_world.settlements.sites.town_hall
 	staged_world.player_position = Vector2(staged_hall.port()) + Vector2(-0.5, 0.5)
 	staged_world.player.contents = staged_world.settlements.Definitions.SITES.town_hall.repair.duplicate()
@@ -284,7 +284,7 @@ static func ui(test: SceneTree) -> void:
 	test.check(staged_hall.repaired and staged_hall.health == staged_hall.max_health() and staged_hall.inventory.total() == 0, "Town Hall restoration UI consumes staged goods once and restores full health")
 
 	var pickup_world := World.new()
-	pickup_world.start()
+	pickup_world.start(false)
 	pickup_world.player_position = Vector2(19.5, 17.5)
 	var pickup_furnace = pickup_world.spawn("furnace", Vector2i(20, 17), 0)
 	pickup_furnace.inventory.contents = {"coal": 3, "iron_ore": 2}

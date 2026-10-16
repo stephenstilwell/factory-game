@@ -1,5 +1,6 @@
 extends SceneTree
 
+const EarlyProgressionTests = preload("res://tests/early_progression_tests.gd")
 const SettlementAgeTests = preload("res://tests/settlement_age_tests.gd")
 const FrontierTests = preload("res://tests/frontier_tests.gd")
 const ProgressionGuidanceTests = preload("res://tests/progression_guidance_tests.gd")
@@ -39,6 +40,7 @@ func advance(world: RefCounted, count: int) -> void:
 	for i in range(count): Simulation.step(world)
 
 func _run() -> void:
+	EarlyProgressionTests.run(self)
 	SettlementAgeTests.run(self)
 	FrontierTests.run(self)
 	ProgressionGuidanceTests.run(self)
@@ -65,6 +67,7 @@ func _run() -> void:
 	await ExpansionTests.ui(self)
 	await PresentationTests.run(self)
 	await CombatTests.ui(self)
+	await EarlyProgressionTests.ui(self)
 	await SettlementAgeTests.ui(self)
 	await FrontierTests.ui(self)
 	await ProgressionGuidanceTests.ui(self)
@@ -299,7 +302,7 @@ func _craft_for_lesson(world: RefCounted, id: String, count: int = 1) -> void:
 
 func _onboarding() -> void:
 	var world := World.new()
-	world.start()
+	world.start(false)
 	check(world.entities.is_empty() and world.occupancy.is_empty() and world.player.total() == 0, "New game has no prebuilt factory or starting inventory")
 	check(world.guide.current().id == "stone" and not world.content_available("drill"), "First lesson teaches basic gathering before machines")
 	check(not world.craft("gear") and world.craft_queue.is_empty(), "Undiscovered recipes cannot bypass the learning path")
@@ -461,11 +464,11 @@ func _scene_smoke() -> void:
 	scene.hud.story_panel.close_panel()
 	check(not scene.world.story.seen.has("arrival") and not scene.paused, "Dismissing an unfinished introduction preserves its unread marker and resumes the tutorial")
 	check(scene.world.entities.is_empty() and scene.world.player.total() == 0, "Playable scene starts without buildings or supplies")
-	check(scene.hud.objective.visible and scene.hud.objective.text.contains("Gather stone"), "New player sees the first mining lesson")
-	check(not scene.hud.hotbar.available("drill") and scene.hud.hotbar.available("furnace"), "Hotbar introduces tools gradually without moving shortcut slots")
+	check(scene.hud.objective.visible and scene.hud.objective.text.contains("Gather fallen timber"), "New player sees the first timber gathering lesson")
+	check(not scene.hud.hotbar.available("drill") and not scene.hud.hotbar.available("furnace") and scene.hud.hotbar.available("lumber_camp"), "New hotbar introduces primitive buildings before industry")
 	scene.hud.toggle_crafting()
 	await process_frame
-	check(scene.hud.craft_buttons.furnace.visible and not scene.hud.craft_buttons.science.visible, "New player sees only introductory crafting recipes")
+	check(scene.hud.craft_buttons.plank.visible and scene.hud.craft_buttons.stone_axe.visible and not scene.hud.craft_buttons.furnace.visible and not scene.hud.craft_buttons.science.visible, "New player sees only introductory crafting recipes")
 	scene._bind_world(Fixtures.demo())
 	scene._select("furnace")
 	scene._inspect(Vector2i(19, 15))
@@ -489,7 +492,7 @@ func _scene_smoke() -> void:
 	scene._process(0.5)
 	check(scene.world.ticks == tick, "Pause freezes authoritative simulation")
 	var town := World.new()
-	town.start()
+	town.start(false)
 	town.player_position = Vector2(28.5, 15.5)
 	town.player.contents = {"stone": 10, "iron_plate": 24, "gear": 6}
 	scene._bind_world(town)

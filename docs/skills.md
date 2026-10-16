@@ -1,14 +1,14 @@
 # Skills: learning by doing
 
-Press **P → Skills** to see Mining, Fabrication, and Exploration. Each starts at level 1, caps at **99**, and has an XP bar, visible XP sources, exact XP and reward for its next milestone, and a full reward ladder. Track a personal goal directly from a skill or equipment card. Successful actions show a small XP notification; level gains also announce the new level. Equipment has its own tab and still requires manufactured materials and existing progression gates.
+Press **P → Skills** to see Gathering (saved under the stable `mining` ID), Fabrication, and Exploration. Each starts at level 1, caps at **99**, and has an XP bar, visible XP sources, exact XP and reward for its next milestone, and a full reward ladder. Track a personal goal directly from a skill or equipment card. Successful actions show a small XP notification; level gains also announce the new level. Equipment has its own tab and still requires manufactured materials and existing progression gates.
 
 | Skill | XP sources | Milestone benefits |
 | --- | --- | --- |
-| Mining | 10 XP per hand-mined stone/coal; 12 per iron/copper ore delivered to the pack | Graduated hand-mining work speed, up to +25% |
+| Gathering | 3 XP per fallen timber/berry; 6 per felled tree in new timber worlds; 10 per hand-mined stone/coal; 12 per iron/copper ore delivered to the pack | Hand gathering, felling and mining speed, up to +25% |
 | Fabrication | Finished, delivered hand-craft batches; XP varies by recipe complexity | Graduated hand-crafting work speed, up to +25% |
 | Exploration | 20 XP for entering a new 16×16 area; 40 XP for encountering a previously undiscovered resource patch within two tiles | Graduated movement speed, up to +10%; survey radius increases at 25 and 75 |
 
-Mining and Fabrication reward levels **5, 10, 15, 20, 25, 35, 50, 65, 75, 85, 90, 95, 99**, granting total work bonuses of **2, 5, 7, 9, 10, 12, 15, 18, 20, 22, 23, 24, 25%**. Exploration rewards levels **5, 10, 15, 25, 35, 50, 65, 75, 85, 99**, granting **1–10%** total movement speed. Experience uses an increasing cumulative curve: `round(50 × (1.10^(level−1) − 1) / 0.10)`. Early levels arrive quickly; 99 is a long-term mastery goal. Current content does not require mastery or additional skill grinding to finish its lessons, research, or town projects. No existing equipment is locked away by the addition of skills.
+Gathering and Fabrication reward levels **5, 10, 15, 20, 25, 35, 50, 65, 75, 85, 90, 95, 99**, granting total work bonuses of **2, 5, 7, 9, 10, 12, 15, 18, 20, 22, 23, 24, 25%**. Exploration rewards levels **5, 10, 15, 25, 35, 50, 65, 75, 85, 99**, granting **1–10%** total movement speed. Experience uses an increasing cumulative curve: `round(50 × (1.10^(level−1) − 1) / 0.10)`. Early levels arrive quickly; 99 is a long-term mastery goal. Current content does not require mastery or additional skill grinding to finish its lessons, research, or town projects. No existing equipment is locked away by the addition of skills.
 
 Skill bonuses multiply the relevant equipment stat; they do not change machine production, resource yields, reach, or carrying capacity. Hand work runs at a fixed 10 Hz. Earned surplus work carries between queued craft jobs so short recipes benefit from skill speed; average batch times are shown. Idle time grants no stored work, and cancellation clears surplus. The crafting panel shows the effective per-batch duration and the XP reward. Automation remains the route to sustained mass production.
 

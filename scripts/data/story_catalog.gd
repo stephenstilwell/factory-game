@@ -78,3 +78,11 @@ const CHAPTERS := {
 		], "goal": "Repair Town Hall to restore town services, then prepare before trying again."
 	},
 }
+const TIMBER_ARRIVAL := {
+ "title": "A hearth before a foundry", "speaker": "trading_post", "site": "trading_post",
+ "pages": [
+  "You came. Oldbridge used to be the place every road led to. When the beacon chain went dark, the wagons stopped. The families are waiting beyond the ridge. Before we rebuild a foundry, they need somewhere warm to come home to.",
+  "Start with what the land still gives us. Gather fallen timber beside the road, cut some planks, and collect a few loose stones for an axe. A lumber camp can harvest the grove; a handcart worker will bring its timber to a collection post. We can begin without iron machines.",
+  "Build a communal shelter, gather berries, and open Town with Y to supply the first neighbors. Next we can use stone and the old watercourse to rebuild the crossing. Charcoal and water-powered saws will earn us our first iron furnace. Let every age give people a better home."
+ ], "goal": "Timber, shelter, then the crossing. Earn the first iron industry.", "finish": "Begin with timber"
+}

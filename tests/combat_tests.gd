@@ -18,7 +18,7 @@ static func copy(world: RefCounted) -> Dictionary:
 
 static func run(test: SceneTree) -> void:
 	var empty := World.new()
-	empty.start()
+	empty.start(false)
 	test.check(not empty.combat.toggle(empty) and empty.player.total() == 0, "Fresh engineers receive no free weapon or ammunition")
 	var manufacture := Fixtures.defense_town(false)
 	manufacture.player.contents = World.Catalog.RECIPES.service_rifle["in"].duplicate()

@@ -87,7 +87,7 @@ static func run(test: SceneTree) -> void:
 	test.advance(automated, 40)
 	test.check(automated.skills.xp.mining == 100 and automated.skills.xp.fabrication == 120 and automated.skills.xp.exploration == 0, "First automated resource and recipe batches grant commissioning XP without idle XP")
 	var explorer := World.new(123)
-	explorer.start()
+	explorer.start(false)
 	explorer.move_direction = Vector2.RIGHT
 	test.advance(explorer, 1)
 	test.check(explorer.skills.visited.size() == 1 and explorer.skills.patches.size() > 0 and explorer.skills.xp.exploration > 20, "Walking discovers nearby patches and awards unique area and patch XP")
@@ -135,5 +135,5 @@ static func run(test: SceneTree) -> void:
 	old.erase("skills")
 	result = Saves.decode(old)
 	test.check(result.error.is_empty() and result.world.skills.xp == {"mining": 0, "fabrication": 0, "exploration": 0}, "Older saves gain base skills without retroactive XP")
-	explorer.start()
+	explorer.start(false)
 	test.check(explorer.skills.xp.exploration == 0 and explorer.skills.visited.is_empty() and explorer.skills.patches.is_empty(), "New worlds reset skill progress and discovery history")

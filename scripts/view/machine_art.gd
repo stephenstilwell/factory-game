@@ -1,9 +1,13 @@
 extends RefCounted
+const EarlyArt = preload("res://scripts/view/early_view.gd")
 const Art = preload("res://scripts/view/art.gd")
 const Catalog = preload("res://scripts/data/catalog.gd")
 const DIRS := [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]
 
 static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: float, aim: Vector2, firing: bool, interpolation: float = 1.0) -> void:
+	if entity.kind in ["lumber_camp", "cart_post", "communal_hearth", "watermill", "charcoal_kiln"]:
+		EarlyArt.machine(canvas, entity, center, time)
+		return
 	var kind: String = entity.kind
 	var healthy: bool = entity.health > 0
 	var working: bool = healthy and (entity.status == "Working" or entity.status.begins_with("Mining"))

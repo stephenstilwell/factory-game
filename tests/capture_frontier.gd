@@ -14,7 +14,7 @@ func _capture() -> void:
 	root.size = Vector2i(1280, 800)
 	DirAccess.make_dir_recursive_absolute("res://.godot/verification")
 	var world := World.new(74103)
-	world.start()
+	world.start(false)
 	scene._bind_world(world)
 	scene.set_process(false)
 	scene.paused = true

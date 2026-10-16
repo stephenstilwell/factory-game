@@ -1,79 +1,84 @@
-IRONWORKS / FRONTIER
+﻿IRONWORKS / OLDBRIDGE
 Early playable prototype - Windows 64-bit
 
 PLAY
-Extract the entire ZIP to a folder, then run Ironworks.exe.
+Extract the entire ZIP, then run Ironworks.exe.
 Keep Ironworks.pck and any included graphics libraries beside the executable.
 Godot and the source project are not required.
 
 YOUR FIRST GOAL
-Rebuild Oldbridge by turning raw resources into a working factory.
-You start with an empty inventory. Follow the learning guide:
-mine 5 stone, craft a furnace, then mine iron and coal to make your first plates.
+New games start empty in Timber & Hearth, before metal industry.
+Hold RMB on fallen logs near (23, 13). Gather a few loose stones for an axe,
+then C crafts planks, a lumber camp, a handcart post and a communal shelter.
+A camp harvests nearby finite trees; a post within ten tiles collects timber.
+X takes stored timber from the post. Workers need no fuel or manual hiring.
+After eight delivered timber, stand beside the shelter and open Y. Supply
+12 timber, 8 planks, 4 berries and 8 stone to welcome the first neighbors.
+
+STONE & WATER
+Build a waterwheel sawmill beside the old watercourse near (24, 28).
+Two timber makes six planks. A charcoal clamp turns three timber into two
+burner-fuel units. Posts within five tiles supply their timber automatically.
+Produce 12 water-sawn planks and 4 charcoal; recover Greybank's mason pattern
+through L. At the shelter, Y completes the crossing project for 30 stone,
+12 planks and 4 charcoal. The bridge is repaired and Iron & Industry begins.
+Keep producing charcoal for your first furnace. It shares the coal fuel stock.
+Follow the iron lessons: furnace, plates, gears, drill, mechanical logistics,
+then copper, assembly and research. No metal mining or machines precede this.
 
 CONTROLS
 WASD / arrows: Walk
-Right mouse (hold): Mine nearby deposits / reclaim buildings
-Left mouse: Place a selected building or inspect a machine
-E: Inventory and crafting
+Right mouse (hold): Gather, mine, fell trees, or reclaim buildings
+Left mouse: Place selected building or inspect
+E: Inventory
 C: Crafting
-F: Factory workbench (research, production rates, construction plans)
-Ctrl+C: Drag to copy a factory area
-Ctrl+V: Stamp copied construction ghosts; R rotates the module
-Shift+left mouse with building selected: Place a single ghost
-B: Build reachable ghosts using buildings from your pack
+Y: Town and shelter/crossing projects
+L: Discoveries and exploration leads
+J: Journal and unread conversations
+T: Technology
+F: Production and construction plans
+1-0: Select hotbar slot; Tab: switch page; RMB slot: customize
+Ctrl+C: Copy factory area; Ctrl+V: stamp ghosts; R: rotate module
+Shift+left mouse with building: Place ghost; B: build reachable ghosts
 G: Toggle underground conveyor entrance/exit mode
-Q: Clear building cursor / pick a hovered building
+Q: Clear build cursor / pick hovered building
 R / Shift+R: Rotate
-X: Collect machine output
-Ctrl+left mouse: Supply a machine
-T: Town projects
-M: Resource survey
+X: Collect output or stored goods
+Ctrl+left mouse: Supply machine
+M: Mineral survey (ore becomes useful after the crossing)
 P: Engineer upgrades and skills
-H: Repair a structure
-V: Draw / holster a carried service rifle
-Left mouse / Space while rifle drawn: Aim and fire during an active wave
-Q / right mouse / Esc while rifle drawn: Holster before building or mining
-Esc: Close interface, clear cursor, then open pause menu
-F11: Toggle fullscreen / windowed
-Mouse wheel: Zoom
+H: Repair structure
+V: Draw / holster carried rifle
+Left mouse / Space while armed: Fire during a wave
+Esc: Close interface, clear cursor, then pause menu
+F11: Fullscreen / windowed; mouse wheel: zoom
+
+SAVES AND UPDATES
+Each launch starts a fresh world; Load resumes your save.
+Use Save before quitting; a backup of the previous save is retained.
+Saves live in %APPDATA%/Godot/app_userdata/FactoryGame/.
+Updating the extracted game does not delete this directory.
+Existing factories keep their original progression and layouts. Start a new
+world to experience the timber opening. Industrial and timber hotbars use
+separate preferences, preserving customized industrial shortcuts.
+
+LATER PLAY
+Restore the market and workshop with your new industry, trade manufactured
+parts for credits, rebuild Town Hall and restore its neighborhoods. Town age
+adds two credits to each real supplied market shipment after restoration.
+Three skills have 1-99 progression; equipment upgrades are separate.
+Combat waves begin only when you choose to light the Hall beacon. A rifle,
+gun turrets, piercing cannons, pulse turrets and walls use manufactured ammo.
+There is no hunger, multiplayer, electricity grid or offline town income.
+Aether and magical restoration remain future chapters.
 
 PRESENTATION
-Esc opens options for Reduced motion and Ambient light and particles.
-These preferences are saved separately from your factory.
-
-SAVE YOUR GAME
-Use the top toolbar Save button before quitting.
-Each launch starts a fresh world; use Load to resume your save.
-Saves are stored in %APPDATA%/Godot/app_userdata/FactoryGame/.
-Updating the extracted game does not delete this save directory.
-
-WHAT IS PLAYABLE
-Finite seeded resource deposits, mining, crafting, belts and inserters,
-production, introductory research, town restoration and trade income,
-engineer upgrades, three skills with a level cap of 99, and voluntary
-beacon defense waves after restoring Town Hall. Craft a service rifle, keep
-ammo in your pack, and use gun, piercing, and pulse turrets to cover the
-marked eastern gates. Scouts flank walls; dismantlers break through;
-armored haulers resist ordinary bullets. Step out of orange melee markers.
-Engineer health regenerates after five seconds without damage. Defeat
-retreats with your items intact, while the wave continues.
+Esc opens saved options for reduced motion, ambient effects and sound.
 
 EARLY BUILD NOTES
-This is a development prototype. Balance, visuals, and systems will change.
-There is no electricity network, multiplayer, or offline town income yet.
-Defense waves begin only when you choose to light the Town Hall beacon.
-The Windows executable is not code-signed.
+Balance, visuals and systems will change. The executable is not code-signed.
+The watercourse powers mill placement; it is not a fluid simulation.
 
 ENGINE
 Made with Godot Engine: https://godotengine.org
 Godot license and third-party notices: https://godotengine.org/license/
-
-TOWN AGES
-Oldbridge begins in Timber & Hearth. Recover the Lost Orchard cutting and
-Greybank Quarry mason pattern through Discoveries [L], restore Town Hall,
-then open Town [Y] > View Stone & Water project. Bring 80 stone, 20 iron
-plates and 10 gears to the Hall hatch. Completing the project changes civic
-buildings, grants 500 Fabrication XP, and adds 2 credits to each supplied
-market shipment completed afterward. Oren has a new conversation to read.
-Iron and magical town ages are planned future chapters.

@@ -9,6 +9,7 @@ const DefenseView = preload("res://scripts/view/defense_view.gd")
 const LandscapeView = preload("res://scripts/view/landscape_view.gd")
 const MachineArt = preload("res://scripts/view/machine_art.gd")
 const FrontierView = preload("res://scripts/view/frontier_view.gd")
+const EarlyView = preload("res://scripts/view/early_view.gd")
 const NatureAudio = preload("res://scripts/audio/nature_audio.gd")
 const NpcArt = preload("res://scripts/view/npc_art.gd")
 const EngineerArt = preload("res://scripts/view/engineer_art.gd")
@@ -134,6 +135,7 @@ func _draw() -> void:
 	if world == null: return
 	if copy_rect.has_area(): draw_rect(Rect2(Vector2(copy_rect.position) * TILE, Vector2(copy_rect.size) * TILE), Color(0.4, 0.8, 1.0, 0.6), false, 3)
 	LandscapeView.draw(self, world.settlements, visible_cells)
+	EarlyView.landscape(self, world, visible_cells)
 	_draw_tunnel_link()
 	if pointer_in_world and not ghost_kind.is_empty(): _build_grid()
 	DefenseView.draw_route(self, world, visible_cells, selected_site)
@@ -189,6 +191,8 @@ func _draw() -> void:
 			var axis := toward.normalized()
 			draw_colored_polygon(PackedVector2Array([pointer + axis * 10, pointer - axis * 7 + axis.orthogonal() * 7, pointer - axis * 7 - axis.orthogonal() * 7]), Art.AMBER)
 			draw_string(ThemeDB.fallback_font, engineer + Vector2(-100, -64), "%s • %d tiles" % [world.frontier.Definitions.SITES[tracked].name, ceili(toward.length() / TILE)], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Art.AMBER)
+	EarlyView.settlers(self, world, visible_cells)
+	if not reduced_motion and ambient_enabled: EarlyView.workers(self, world, visible_cells, animation_time)
 	DefenseView.draw_shots(self, world, reduced_motion or not ambient_enabled)
 	DefenseView.draw_player(self, world, pointer_in_world, reduced_motion, engineer)
 	if world.at(selected) != null and world.at(selected).kind == "fuel_depot":
@@ -206,8 +210,9 @@ func _draw() -> void:
 			var direction := toward.normalized()
 			draw_colored_polygon(PackedVector2Array([position + direction * 12, position - direction * 9 + direction.orthogonal() * 8, position - direction * 9 - direction.orthogonal() * 8]), TEAL)
 		draw_string(ThemeDB.fallback_font, engineer + Vector2(-85, -44), "%s: %d tiles" % [Catalog.item_name(resource_target.item), ceili(toward.length() / TILE)], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEAL)
-	var objective: Dictionary = world.guide.target(world)
-	if objective.is_empty(): objective = world.settlements.objective_target()
+	var objective: Dictionary = world.early.objective(world) if world.early.active() else world.guide.target(world)
+	if not objective.has("cell"): objective = {}
+	if objective.is_empty() and not world.early.active(): objective = world.settlements.objective_target()
 	if selected_site != "" and world.settlements.enabled and world.settlements.sites.has(selected_site):
 		objective = {"cell": world.settlements.sites[selected_site].port()}
 	if not objective.is_empty():
@@ -221,7 +226,7 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([pointer + forward * 9, pointer - forward * 7 + side * 6, pointer - forward * 7 - side * 6]), Color("dfc68d"))
 	if world.mining and world.mining_progress > 0:
 		var target := Vector2(world.mining_cell) * TILE + Vector2.ONE * 24
-		var required: int = 600 if world.frontier.tree_at(world, world.mining_cell) else world.mining_duration() * 100
+		var required: int = (300 if world.player.count("stone_axe") > 0 else 600) if not world.early.resource_at(world, world.mining_cell).is_empty() else (600 if world.frontier.tree_at(world, world.mining_cell) else world.mining_duration() * 100)
 		draw_arc(target, 20, -PI / 2, -PI / 2 + TAU * world.mining_progress / float(required), 24, TEAL, 3)
 	if world.at(selected) != null:
 		draw_rect(Rect2(Vector2(selected) * TILE - Vector2.ONE * 2, Vector2.ONE * 52), TEAL, false, 2)
@@ -271,7 +276,8 @@ func _machine(entity: RefCounted) -> void:
 			if Vector2(shot.from) == Vector2(entity.cell):
 				aim = (Vector2(shot.to) - Vector2(entity.cell)).normalized()
 				firing = true
-	MachineArt.draw(self, entity, center, animation_time, aim, firing, interpolation)
+	var machine_time := 0.0 if reduced_motion and entity.kind in world.early.Definitions.BUILDINGS else animation_time
+	MachineArt.draw(self, entity, center, machine_time, aim, firing, interpolation)
 	if entity.kind in Catalog.TRANSPORT and entity.inventory.total() > 0:
 		var item_position := center
 		var next = world.at(entity.cell + World.DIRS[entity.direction])
@@ -282,12 +288,12 @@ func _machine(entity: RefCounted) -> void:
 	if entity.kind == "inserter" and entity.carried != "":
 		_item(center + Vector2(World.DIRS[entity.direction]) * MachineArt.hand_extension(entity, interpolation), entity.carried, 0.7)
 	if entity.kind not in (Catalog.TRANSPORT + ["inserter", "chest", "wall"]):
-		var working: bool = entity.status in ["Working", "Firing"] or entity.status.begins_with("Researching") or entity.status.begins_with("Mining")
+		var working: bool = entity.status in ["Working", "Firing"] or entity.status.begins_with("Researching") or entity.status.begins_with("Mining") or entity.status.begins_with("Harvesting")
 		var indicator := Color("9dccab") if working else Color("ddae6f")
 		draw_circle(center + Vector2(17, 13), 3.5, Art.INK)
 		draw_circle(center + Vector2(17, 12), 2.2, indicator if entity.health > 0 else Color("bd7563"))
 		if entity.progress > 0:
-			var duration: int = int(Catalog.RECIPES[entity.recipe].ticks) if entity.recipe != "" else (30 if entity.kind == "lab" else 15)
+			var duration: int = int(Catalog.RECIPES[entity.recipe].ticks) if entity.recipe != "" else (30 if entity.kind == "lab" else int(Catalog.BUILDINGS[entity.kind].get("work_ticks", 15)))
 			Art.box(self, Rect2(center + Vector2(-17, 20), Vector2(34, 3)), Art.INK, 1)
 			Art.box(self, Rect2(center + Vector2(-17, 20), Vector2(34.0 * entity.progress / duration, 3)), Color("a5cdb1"), 1)
 	if entity.output.total() > 0: _item(center + Vector2(12, 14), entity.output.contents.keys()[0], 0.65)

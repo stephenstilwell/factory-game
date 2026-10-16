@@ -49,7 +49,8 @@ func _ready() -> void:
 	age_text = _label("", 15, Color("e4c58b"))
 	age_box.add_child(age_text)
 	age_button = _button(age_box, "Town age project", func():
-		if selected_id != "town_hall": site_selected.emit("town_hall")
+		if world != null and world.early.enabled: age_requested.emit()
+		elif selected_id != "town_hall": site_selected.emit("town_hall")
 		else: age_requested.emit())
 	overview = VBoxContainer.new()
 	add_child(overview)
@@ -120,19 +121,26 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	overview.visible = id.is_empty()
 	detail.visible = not id.is_empty()
 	var region = world.settlements
-	age_box.visible = region.enabled and (id.is_empty() or id == "town_hall")
+	age_box.visible = region.enabled and (world.early.enabled or id.is_empty() or id == "town_hall")
 	age_text.text = region.age_summary(world) if id == "town_hall" else "TOWN AGE: " + region.Ages.AGES[region.age].name + "\n" + ("Next: recover orchard cuttings and the Greybank mason pattern [L], then rebuild at the Hall." if region.age == 0 else "Stone civic buildings • Market shipments +2 credits")
 	age_button.visible = region.age == 0
 	age_button.text = "View Stone & Water project" if id != "town_hall" else "Rebuild Oldbridge — enter Stone & Water"
 	age_button.disabled = id == "town_hall" and not region.age_reason(world).is_empty()
 	age_button.tooltip_text = region.age_reason(world) if id == "town_hall" else "View requirements, supplies and rewards at the Town Hall."
+	if world.early.enabled:
+		age_text.text = world.early.summary(world)
+		age_button.visible = world.early.active()
+		age_button.text = "Supply shelter — enter Stone & Water" if world.early.phase == 0 else "Rebuild crossing — enter Iron & Industry"
+		age_button.disabled = not world.early.project_reason(world).is_empty()
+		age_button.tooltip_text = world.early.project_reason(world)
 	if id.is_empty():
 		overview_text.text = "Mira promised the families beyond the ridge a market, a working road, and somewhere dry to sleep. Your factory can make that promise real.\n\nTrade credits: %d\nLifetime earned: %d\n\n%s\n" % [region.credits, region.total_earned, region.objective_text()]
 		if region.effect("burner_ticks") > 0: overview_text.text += "\nACTIVE REGIONAL BONUS\nBurner coal lasts 20% longer.\n"
 		for project in project_buttons:
 			var landmark = region.sites[project]
 			project_buttons[project].text = "%s\n%s" % [Definitions.SITES[project].name, ("Disabled — repair [H]" if landmark.health == 0 else "Restored") if landmark.repaired else "Ruined"]
-			project_buttons[project].disabled = not region.enabled
+			project_buttons[project].disabled = not region.enabled or world.early.active()
+			if world.early.active(): project_buttons[project].text += " — after the crossing"
 		return
 	if not region.sites.has(id): return
 	var site = region.sites[id]
@@ -221,10 +229,14 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 		text += "%s\n\"%s\"\n\n" % [definition.keeper, definition.greeting]
 		if definition.has("contract"):
 			var contract: Dictionary = Definitions.CONTRACTS[definition.contract]
-			var benefit := "Housing progress" if id == "town_hall" else "%d credits" % (int(contract.reward) + (region.Ages.STONE_MARKET_BONUS if id == "trading_post" and region.age == 1 else 0))
+			var benefit := "Housing progress" if id == "town_hall" else "%d credits" % (int(contract.reward) + (region.Ages.STONE_MARKET_BONUS if id == "trading_post" and region.age >= 1 else 0))
 			text += "CONTRACT: %s\n%s\n%s per %.0f-second shipment.\n\nBuffered: %s\nDelivered shipments: %d\n" % [contract.name, Catalog.describe(contract.goods), benefit, contract.ticks / 10.0, Catalog.describe(site.inventory.contents), site.shipments]
 			if id == "town_hall": text += "\nEvery 3 housing deliveries restores a neighborhood (3 total). Each adds 5% coal working time. Dispatch stops at full restoration.\n"
 			else: text += "\nGoods are committed when a shipment departs. Income pauses when supplies run out. Repairs remain complete.\n"
 		else: text += "RESTORATION REWARD\n" + definition.reward + "\n"
 	text += "\nDELIVERY HATCH (%d, %d)\nManual: delivery button / Ctrl-click supplies; X withdraws.\nAutomation: inserter at (%d, %d), facing EAST; pickup at (%d, %d).\n" % [port.x, port.y, port.x - 1, port.y, port.x - 2, port.y]
+	if world.early.active():
+		restore_button.disabled = true
+		supply_button.disabled = true
+		state_label.text = "Later civic project — rebuild the crossing to enter Iron & Industry first. The shelter project above welcomes the first neighbors."
 	information.text = text

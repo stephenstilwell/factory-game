@@ -248,7 +248,7 @@ func refresh(state: RefCounted) -> void:
 	pack_grid.transfer_amount = quantity
 	pack_grid.can_transfer = _can_drop
 	pack_grid.refresh(world.player.contents, [], search.text, category.get_item_text(category.selected), selected_item)
-	if world.player.total() == 0 and search.text.is_empty(): pack_grid.empty_label.text = "Your pack is empty.\nHover a nearby deposit and hold right mouse to mine, then open Crafting."
+	if world.player.total() == 0 and search.text.is_empty(): pack_grid.empty_label.text = ("Your pack is empty.\nGather fallen timber and berries with RMB, then press C to craft." if world.early.active() else "Your pack is empty.\nHover a nearby deposit and hold right mouse to mine, then open Crafting.")
 	pack_capacity.text = "YOUR PACK  •  %d / %d items" % [world.player.total(), world.player.capacity]
 	pack_progress.value = 100.0 * world.player.total() / world.player.capacity if world.player.capacity > 0 else 0
 	pack_hint.text = "Shift-click pack items to send them to the open destination." if not destination().is_empty() else "Select an item for details. Double-click buildings to equip."

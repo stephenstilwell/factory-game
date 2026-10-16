@@ -86,8 +86,11 @@ func present(state: RefCounted, chapter: String) -> bool:
 	show()
 	return true
 
+func _chapter(id: String) -> Dictionary:
+	return Definitions.TIMBER_ARRIVAL if id == "arrival" and world != null and world.early.enabled else Definitions.CHAPTERS[id]
+
 func _refresh_page() -> void:
-	var chapter: Dictionary = Definitions.CHAPTERS[chapter_id]
+	var chapter: Dictionary = _chapter(chapter_id)
 	var npc: Dictionary = Definitions.NPCS[chapter.speaker]
 	title.text = chapter.title
 	speaker.text = "%s • %s" % [npc.name, npc.role]
@@ -98,11 +101,12 @@ func _refresh_page() -> void:
 	progress.text = "%d / %d   •   Enter / Space to continue • J opens your journal after the conversation" % [page + 1, chapter.pages.size()]
 	next_button.text = "Continue" if page < chapter.pages.size() - 1 else chapter.get("finish", "Back to Oldbridge")
 	project_button.text = "View " + world.settlements.Definitions.SITES[chapter.site].name
+	if world.early.active(): project_button.text = "View shelter & crossing projects [Y]"
 	project_button.show()
 
 func advance() -> void:
 	if chapter_id.is_empty(): return
-	var chapter: Dictionary = Definitions.CHAPTERS[chapter_id]
+	var chapter: Dictionary = _chapter(chapter_id)
 	if page + 1 < chapter.pages.size():
 		page += 1
 		_refresh_page()
@@ -139,7 +143,7 @@ func open_journal(state: RefCounted) -> void:
 
 func close_panel() -> void:
 	if not visible: return
-	var completed := chapter_id if not chapter_id.is_empty() and page == Definitions.CHAPTERS[chapter_id].pages.size() - 1 else ""
+	var completed := chapter_id if not chapter_id.is_empty() and page == _chapter(chapter_id).pages.size() - 1 else ""
 	hide()
 	chapter_id = ""
 	finished.emit(completed)
@@ -149,6 +153,7 @@ func dismiss_silently() -> void:
 	chapter_id = ""
 
 func _view_project() -> void:
-	var site_id: String = Definitions.CHAPTERS[chapter_id].site if not chapter_id.is_empty() else ""
+	var site_id: String = _chapter(chapter_id).site if not chapter_id.is_empty() else ""
+	if world.early.active(): site_id = ""
 	close_panel()
 	project_requested.emit(site_id)

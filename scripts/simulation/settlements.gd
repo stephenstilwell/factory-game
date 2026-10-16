@@ -22,6 +22,7 @@ const SUPPLY_COST := 20
 const SUPPLY_BUNDLE := {"coal": 20, "ammo": 10, "repair_kit": 2}
 
 func age_reason(world: RefCounted, require_reach: bool = true) -> String:
+	if world.early.enabled: return "Use the shelter and crossing projects in Town [Y]."
 	if age > 0: return "Stone & Water is already established."
 	if not enabled or not sites.town_hall.repaired: return "Restore the market, workshop and Town Hall first."
 	if not services_online(): return "Repair the breached Hall before rebuilding."
@@ -33,6 +34,7 @@ func age_reason(world: RefCounted, require_reach: bool = true) -> String:
 	return ""
 
 func advance_age(world: RefCounted) -> bool:
+	if world.early.enabled: return world.early.advance(world)
 	var reason := age_reason(world)
 	if not reason.is_empty():
 		world.message.emit(reason)
@@ -47,6 +49,7 @@ func advance_age(world: RefCounted) -> bool:
 	return true
 
 func age_summary(world: RefCounted) -> String:
+	if world.early.enabled: return world.early.summary(world)
 	var text: String = "TOWN AGE: " + Ages.AGES[age].name + "\n" + Ages.AGES[age].description
 	if age == 0:
 		text += "\nNEXT: Stone & Water • dressed-stone civic buildings, +2 credits per future market shipment, 500 Fabrication XP."
@@ -185,7 +188,7 @@ func step(world: RefCounted) -> void:
 			if district_level() > previous_district:
 				world.message.emit("A neighborhood is restored! District %d/3. New coal gains another 5%% working time." % district_level())
 				world.feedback_requested.emit("success", site.port())
-			var premium := Ages.STONE_MARKET_BONUS if age == 1 and id == "trading_post" else 0
+			var premium := Ages.STONE_MARKET_BONUS if age >= 1 and id == "trading_post" else 0
 			if premium > 0: stone_shipments += 1
 			credits += int(contract.reward) + premium
 			total_earned += int(contract.reward) + premium

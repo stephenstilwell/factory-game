@@ -6,7 +6,7 @@ func run() -> void:
  scene = load("res://main.tscn").instantiate()
  root.add_child(scene)
  var world = load("res://scripts/simulation/world.gd").new(74103)
- world.start()
+ world.start(false)
  scene._bind_world(world)
  scene.camera.position = world.player_position * 48
  root.size = Vector2i(1920, 1080)

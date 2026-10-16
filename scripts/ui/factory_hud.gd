@@ -84,7 +84,7 @@ var site_id := ""
 var town_open := false
 var crafting_open := false
 var selection := ""
-var notice := "Mine nearby stone to begin. E opens crafting; M surveys resources; T opens technology; Y shows town projects."
+var notice := "Hold RMB to gather or mine. C opens crafting; Y shows town projects; L tracks discoveries."
 var notice_time := 12.0
 var refresh_time := 0.0
 
@@ -349,6 +349,13 @@ func refresh() -> void:
 	if world.guide.enabled:
 		objective.text = world.guide.objective_text() if not world.guide.current().is_empty() else world.settlements.objective_text()
 		lesson_hint.text = world.guide.current().get("hint", "")
+	if world.early.active():
+		var opening: Dictionary = world.early.objective(world)
+		objective.show()
+		lesson_hint.show()
+		objective.text = opening.title
+		lesson_hint.text = opening.hint
+		lesson_hint.tooltip_text = world.early.summary(world)
 	research.visible = not world.guide.enabled or world.content_available("lab")
 	status.text = "Credits %d  |  %d machines  |  Pack %d / %d  |  WASD move • Hold RMB mine • E inventory • Esc menu" % [world.settlements.credits, world.entities.size(), world.player.total(), world.player.capacity]
 	if world.settlements.effect("burner_ticks") > 0: status.text += "  |  Coal +%d%%" % (world.settlements.effect("burner_ticks") * 100 / Catalog.FUEL_TICKS)

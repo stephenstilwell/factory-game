@@ -21,7 +21,7 @@ static func encode(world: RefCounted) -> Dictionary:
 		depletion.append([cell.x, cell.y, world.terrain.depleted[cell]])
 	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "resource_scale": world.terrain.stock_scale, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
-		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(), "frontier": world.frontier.serialize(),
+		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(), "frontier": world.frontier.serialize(), "early": world.early.serialize(),
 		"researched": world.researched.duplicate(), "research_progress": world.research_progress, "research_target": world.current_research(), "research_banks": world.research_banks.duplicate(), "automation_awards": world.automation_awards.duplicate(), "plans": world.plans.serialize(),
 		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "craft_credit": world.craft_credit, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
 
@@ -78,10 +78,12 @@ static func _restore_guide(world: RefCounted, data) -> bool:
 		if parts[0] == "researched":
 			if Catalog.technology(parts[1]).is_empty(): return false
 		elif parts[0] not in ["mined", "crafted", "placed", "fed", "collected", "extracted", "smelted", "assembled", "stored", "produced"] or not Catalog.ITEMS.has(parts[1]): return false
+	if not data.get("timber_opening", false) is bool: return false
+	world.guide.timber_opening = data.get("timber_opening", false)
 	world.guide.enabled = data.enabled
 	world.guide.counters = _counts(data.counters)
 	for i in range(data.completed.size()):
-		var stage: Dictionary = world.guide.STAGES[i]
+		var stage: Dictionary = world.guide.stage_at(i)
 		if data.completed[i] != stage.id or not world.guide.satisfied(stage): return false
 	world.guide.completed = data.completed.duplicate()
 	if world.guide.enabled and not world.guide.current().is_empty() and world.guide.satisfied(world.guide.current()): return false
@@ -114,6 +116,7 @@ static func decode(data) -> Dictionary:
 	world.ticks = int(data.ticks)
 	world.metrics.start_tick = world.ticks
 	world.next_id = int(data.next_id)
+	if data.has("early") and not world.early.restore(world, data.early): return {"error": "Invalid early settlement progression."}
 	# Older v2 saves had no guide. Preserve their unrestricted progression and layout.
 	if data.has("onboarding") and not _restore_guide(world, data.onboarding): return {"error": "Invalid learning progress."}
 	if data.has("settlements") and not SettlementSave.restore(world, data.settlements): return {"error": "Invalid settlement economy."}
@@ -174,7 +177,7 @@ static func decode(data) -> Dictionary:
 		if entity.kind != "underground_belt" and entity.underground_exit: return {"error": "Invalid tunnel state."}
 		if not Catalog.Combat.TURRETS.has(entity.kind) and entity.attack_cooldown != 0: return {"error": "Invalid turret timer."}
 		if not entity.recipe.is_empty() and not world.unlocked(Catalog.RECIPES[entity.recipe]): return {"error": "Recipe is not researched."}
-		var duration: int = int(Catalog.RECIPES[entity.recipe].ticks) if not entity.recipe.is_empty() else (30 if entity.kind == "lab" else 15)
+		var duration: int = int(Catalog.RECIPES[entity.recipe].ticks) if not entity.recipe.is_empty() else (30 if entity.kind == "lab" else int(Catalog.BUILDINGS[entity.kind].get("work_ticks", 15)))
 		var fuel_limit: int = (288 if world.settlements.sites.workshop.repaired else Catalog.FUEL_TICKS) + world.settlements.district_level() * 12
 		if not _integer(record.get("progress"), 0, duration - 1) or not _integer(record.get("burn_ticks"), 0, fuel_limit) or not _integer(record.get("cooldown"), 0, 2): return {"error": "Invalid machine timers."}
 		if not record.get("carried") is String or (record.carried != "" and (entity.kind != "inserter" or not Catalog.ITEMS.has(record.carried))): return {"error": "Invalid inserter hand."}
@@ -227,7 +230,23 @@ static func decode(data) -> Dictionary:
 		if not world.frontier.restore(world, data.frontier): return {"error": "Invalid frontier discoveries."}
 		world.frontier.add_missing_sites(world)
 	elif world.settlements.enabled: world.frontier.install(world)
-	if world.settlements.age == 1 and (not world.frontier.claimed("orchard") or not world.frontier.claimed("quarry")): return {"error": "Invalid town age discoveries."}
+	if not world.early.enabled and world.settlements.age == 1 and (not world.frontier.claimed("orchard") or not world.frontier.claimed("quarry")): return {"error": "Invalid town age discoveries."}
+	if world.early.enabled:
+		if world.settlements.age != world.early.phase or not world.guide.timber_opening: return {"error": "Town age and opening disagree."}
+		if world.early.phase == 2 and not world.frontier.claimed("quarry"): return {"error": "The crossing lacks its mason pattern."}
+		if world.early.sawn > int(world.production.get("plank", 0)) or world.early.charcoal > int(world.production.get("coal", 0)) or world.early.delivered > int(world.production.get("timber", 0)): return {"error": "Opening counters exceed actual production."}
+		if world.early.active():
+			if not world.researched.is_empty(): return {"error": "Research predates the crossing."}
+			for site in world.settlements.sites.values():
+				if site.repaired: return {"error": "Industrial restoration predates the crossing."}
+		for entity in world.entities.values():
+			if not world.early.available(entity.kind): return {"error": "Building predates its civic age."}
+			if entity.kind == "watermill" and not world.early.near_water(entity.cell): return {"error": "Watermill is not beside its watercourse."}
+	elif world.guide.timber_opening: return {"error": "Missing timber opening."}
+	for entity in world.entities.values():
+		if entity.kind in world.early.Definitions.BUILDINGS and not world.early.enabled: return {"error": "Primitive building lacks its world extension."}
+	for job in world.craft_queue:
+		if not world.early.available(job.recipe): return {"error": "Queued recipe predates its civic age."}
 	if not character.valid_progress(world): return {"error": "Engineer upgrades lack required progression."}
 	for wave in world.settlements.relief_waves:
 		if wave > world.defense.cleared: return {"error": "Relief reward lacks a completed defense."}

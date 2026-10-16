@@ -32,7 +32,7 @@ func _init(entity_id: int = 0, type: String = "belt", position: Vector2i = Vecto
 	direction = posmod(facing, 4)
 	health = max_health()
 	inventory = Inventory.new(int(Catalog.BUILDINGS[kind].capacity))
-	output = Inventory.new(10)
+	output = Inventory.new(int(Catalog.BUILDINGS[kind].get("output_capacity", 10)))
 	var recipes: Array = Catalog.BUILDINGS[kind].get("recipes", [])
 	if not recipes.is_empty(): recipe = recipes[0]
 

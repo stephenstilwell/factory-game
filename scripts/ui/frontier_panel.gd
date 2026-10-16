@@ -15,6 +15,7 @@ var puzzle: VBoxContainer
 var cells: Dictionary = {}
 var result_label: Label
 var timer := 0.0
+var leads_hint: Label
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -45,7 +46,8 @@ func _ready() -> void:
 		var button := Style.button(list, Definitions.SITES[id].name, func(): selected = id; refresh())
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		site_buttons[id] = button
-	list.add_child(Style.label("Rumors are leads, not fast travel. Walk to the marked entrance to investigate.\n\nThe factory keeps running. Exploration is optional; beacon defenses remain your choice.", 13, Style.MUTED))
+	leads_hint = Style.label("", 13, Style.MUTED)
+	list.add_child(leads_hint)
 	var detail := VBoxContainer.new()
 	detail.custom_minimum_size.x = 610
 	detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -127,6 +129,7 @@ func _test_routes() -> void:
 
 func refresh() -> void:
 	if world == null: return
+	leads_hint.text = "Walk to the marked entrance to investigate; tracking does not teleport.\n\n" + ("Greybank supports rebuilding the crossing. Other discoveries are optional. Beacon defenses remain your choice." if world.early.enabled else "The factory keeps running. Exploration is optional; beacon defenses remain your choice.")
 	for id in site_buttons:
 		var exists: bool = world.frontier.sites.has(id)
 		var found: bool = exists and world.frontier.sites[id].discovered

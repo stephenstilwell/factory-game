@@ -6,9 +6,9 @@ const Saves = preload("res://scripts/persistence/save_service.gd")
 static func run(test: SceneTree) -> void:
 	for seed_value in [0, 1, 74103, -2000000000, 2000000000]:
 		var a := World.new(seed_value)
-		a.start()
+		a.start(false)
 		var b := World.new(seed_value)
-		b.start()
+		b.start(false)
 		test.check(a.terrain.generator_version == 2 and a.player.total() == 0, "New generation preserves an empty guided start")
 		for patch in Terrain.START_PATCHES:
 			test.check(a.terrain.tile(patch[0]).get("item") == patch[2], "Every seed guarantees each tutorial resource at its anchor")
@@ -27,9 +27,9 @@ static func run(test: SceneTree) -> void:
 		test.check(resources.size() == 4, "Every frontier region supplies all four resource types")
 		test.check(order_independent, "Positive and negative chunk generation is independent of visit order")
 	var a := World.new(123)
-	a.start()
+	a.start(false)
 	var b := World.new(456)
-	b.start()
+	b.start(false)
 	test.check(a.terrain._frontier_patches(Vector2i(3, 2)) != b.terrain._frontier_patches(Vector2i(3, 2)), "Different seeds change frontier locations and resource assignments")
 	var rich_patch: Array = a.terrain._frontier_patches(Vector2i(10, 10))[0]
 	var rich_cell: Vector2i = rich_patch[0]

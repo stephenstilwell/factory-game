@@ -14,6 +14,7 @@ const Skills = preload("res://scripts/model/skills.gd")
 const Transport = preload("res://scripts/simulation/transport.gd")
 const Metrics = preload("res://scripts/model/production_metrics.gd")
 const Plans = preload("res://scripts/simulation/construction_plans.gd")
+const Early = preload("res://scripts/model/early_progression.gd")
 const Frontier = preload("res://scripts/model/frontier.gd")
 const Guidance = preload("res://scripts/model/player_guidance.gd")
 const Story = preload("res://scripts/simulation/story_state.gd")
@@ -40,6 +41,7 @@ var combat := PlayerCombat.new()
 var navigation_revision := 0
 var defense: RefCounted
 var frontier := Frontier.new()
+var early := Early.new()
 var guidance := Guidance.new()
 var story := Story.new()
 var player_position := Vector2(18.5, 18.5)
@@ -79,7 +81,7 @@ func _init(world_seed: int = 74103) -> void:
 func _remember_message(text: String) -> void:
 	guidance.remember(text, ticks)
 
-func start() -> void:
+func start(primitive: bool = true) -> void:
 	# A new game has no possessions or construction. All content must be earned.
 	terrain = Terrain.new(terrain.seed_value)
 	terrain.generator_version = Terrain.GENERATOR_VERSION
@@ -92,6 +94,9 @@ func start() -> void:
 	for kind in by_kind: by_kind[kind].clear()
 	guide = Onboarding.new()
 	guide.enabled = true
+	guide.timber_opening = primitive
+	early = Early.new()
+	early.enabled = primitive
 	settlements = Settlements.new(true)
 	defense = Defense.new()
 	combat = PlayerCombat.new()
@@ -122,6 +127,8 @@ func start() -> void:
 	changed.emit()
 
 func content_available(id: String) -> bool:
+	if not early.available(id): return false
+	if id in early.Definitions.TIMBER_RECIPES or id in early.Definitions.STONE_RECIPES: return true
 	if id == "fuel_depot": return guide.available("chest")
 	if id in ["wall", "repair_kit"]: return settlements.enabled and settlements.sites.trading_post.repaired
 	if id in ["turret", "ammo", "service_rifle", "cannon_turret", "pulse_turret"]: return settlements.enabled and settlements.sites.workshop.repaired
@@ -180,6 +187,7 @@ func can_build(kind: String, cell: Vector2i) -> String:
 	if not content_available(kind): return "Follow the current learning objective to discover this building."
 	if player.count(kind) == 0: return "Craft more %s (C)." % Catalog.item_name(kind)
 	if Catalog.BUILDINGS[kind].solid and Rect2(Vector2(cell), Vector2.ONE).grow(0.22).has_point(player_position): return "Move away from the construction tile."
+	if kind == "watermill" and not early.near_water(cell): return "Place the sawmill beside the old watercourse south near (24, 28)."
 	if kind == "drill" and terrain.tile(cell).is_empty(): return "Drills require a resource deposit."
 	return ""
 
@@ -271,7 +279,7 @@ func collect_output(cell: Vector2i) -> void:
 	if entity.kind == "inserter":
 		if entity.carried != "": transfer_item(entity.carried, 0, {"kind": "hand", "entity_id": entity.id}, {"kind": "player"})
 		return
-	var kind := "input" if entity.kind in (["chest", "fuel_depot"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT) else "output"
+	var kind := "input" if entity.kind in (["chest", "cart_post", "fuel_depot"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT) else "output"
 	var storage = entity.inventory if kind == "input" else entity.output
 	for item in storage.contents.keys(): transfer_item(item, 0, {"kind": kind, "entity_id": entity.id}, {"kind": "player"})
 
@@ -291,7 +299,7 @@ func deposit(cell: Vector2i, item: String, amount: int = 5) -> void:
 		message.emit("This machine does not accept " + Catalog.item_name(item) + ".")
 		return
 	var limit := amount
-	if entity.kind not in (["chest"] + Catalog.TRANSPORT): limit = mini(amount, maxi(0, input_limit(entity, item) - entity.inventory.count(item)))
+	if entity.kind not in (["chest", "cart_post"] + Catalog.TRANSPORT): limit = mini(amount, maxi(0, input_limit(entity, item) - entity.inventory.count(item)))
 	var moved: int = player.move_to(entity.inventory, item, limit)
 	if entity.kind == "furnace": record("fed:" + item, moved)
 	combat.sync_carried(self)
@@ -305,7 +313,10 @@ func cancel_craft() -> void:
 func supply(cell: Vector2i) -> void:
 	var entity = at(cell)
 	if entity == null or not in_reach(cell): return
-	if entity.kind == "chest":
+	if entity.kind == "communal_hearth":
+		early.advance(self)
+		return
+	if entity.kind in ["chest", "cart_post"]:
 		var stacked := 0
 		for item in entity.inventory.contents.keys():
 			if player.count(item) > 0: stacked += transfer_item(item, 0, {"kind": "player"}, {"kind": "input", "entity_id": entity.id})
@@ -351,6 +362,7 @@ func set_recipe(cell: Vector2i, recipe_id: String) -> bool:
 	return true
 
 func input_limit(entity: RefCounted, item: String) -> int:
+	if entity.kind == "cart_post": return 100
 	if entity.kind == "fuel_depot": return 200 if item == "coal" else 0
 	if item == "coal" and Catalog.BUILDINGS[entity.kind].get("fuel", false): return 10
 	if not entity.recipe.is_empty(): return maxi(10, int(Catalog.RECIPES[entity.recipe]["in"].get(item, 0)) * 2)
@@ -396,14 +408,14 @@ func accepts(entity: RefCounted, item: String) -> bool:
 	if entity.kind == "settlement_port": return settlements.receiving_limit(entity.id, item) > 0
 	if entity.health <= 0: return false
 	if Catalog.Combat.TURRETS.has(entity.kind): return item == "ammo" and entity.inventory.count(item) < 10
-	if entity.kind in (Catalog.TRANSPORT + ["chest"]): return true
+	if entity.kind in (Catalog.TRANSPORT + ["chest", "cart_post"]): return true
 	if entity.kind == "lab": return item == "science" and not current_research().is_empty()
 	if item == "coal" and Catalog.BUILDINGS[entity.kind].get("fuel", false): return entity.inventory.count("coal") < 10
 	if not entity.recipe.is_empty(): return Catalog.RECIPES[entity.recipe]["in"].has(item) and entity.inventory.count(item) < input_limit(entity, item)
 	return false
 
 func transfer_source(entity: RefCounted):
-	return entity.inventory if entity.kind in (Catalog.TRANSPORT + ["chest", "fuel_depot"]) else entity.output
+	return entity.inventory if entity.kind in (Catalog.TRANSPORT + ["chest", "cart_post", "fuel_depot"]) else entity.output
 
 func solid(cell: Vector2i) -> bool:
 	var entity = at(cell)
@@ -464,6 +476,9 @@ func _site_in_reach(id: String) -> bool:
 	return true
 
 func supply_site(id: String) -> void:
+	if early.active():
+		message.emit("Supply your communal shelter through Town [Y] first. Rebuild the crossing before restoring the industrial landmarks.")
+		return
 	if not _site_in_reach(id): return
 	var site = settlements.sites[id]
 	var definition: Dictionary = Settlements.Definitions.SITES[id]
@@ -498,6 +513,9 @@ func talk_to_site(id: String) -> bool:
 	return true
 
 func restore_site(id: String) -> bool:
+	if early.active():
+		message.emit("Rebuild the crossing through Town [Y] before restoring this industrial landmark.")
+		return false
 	if not _site_in_reach(id): return false
 	var reason: String = settlements.restore(id)
 	if not reason.is_empty():

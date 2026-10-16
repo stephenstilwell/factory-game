@@ -28,6 +28,7 @@ static func run(test: SceneTree) -> void:
 	var bar = scene.hud.hotbar
 	bar.layout = Layout.new(path + ".ui")
 	scene._bind_world(Fixtures.demo())
+	test.check(bar.layout.settings_path == path + ".ui", "World binding preserves the injected hotbar preference file")
 	scene.paused = true
 	scene.world.player_position = Vector2(19.5, 17.5)
 	var stock: Dictionary = scene.world.player.contents.duplicate()
@@ -76,7 +77,7 @@ static func run(test: SceneTree) -> void:
 	test.check(scene.hud.workspace.visible and scene.selected_kind == "furnace", "Number keys in inventory do not select world tools")
 	scene.hud.close_workspace()
 	scene._bind_world(scene.World.new())
-	scene.world.start()
+	scene.world.start(false)
 	bar.refresh(scene.world, "")
 	test.check(not bar.assign(0, "turret") and not bar.available("turret"), "Custom shortcuts cannot bypass restoration or research")
 	for viewport_size in [Vector2i(1280, 800), Vector2i(1100, 720)]:

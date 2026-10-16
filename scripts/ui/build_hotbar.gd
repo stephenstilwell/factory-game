@@ -9,6 +9,8 @@ signal journal_requested
 signal factory_requested
 signal notice(text: String)
 var layout := Layout.new()
+var industrial_layout = layout
+var timber_layout := Layout.new("user://hotbar_timber.cfg", ["lumber_camp", "cart_post", "communal_hearth", "watermill", "charcoal_kiln"])
 var world: RefCounted
 var selection := ""
 var slots: Array = []
@@ -113,6 +115,13 @@ func attach_picker(parent: Node) -> void:
 
 func refresh(state: RefCounted, selected: String) -> void:
 	world = state
+	if world.early.active() and layout != timber_layout:
+		industrial_layout = layout
+		layout = timber_layout
+	elif not world.early.active() and layout == timber_layout:
+		layout = industrial_layout
+	elif not world.early.active():
+		industrial_layout = layout
 	selection = selected
 	var unread: int = world.story.unread(world).size()
 	journal_button.text = "Journal [J]" + (" •" if unread > 0 else "")

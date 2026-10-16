@@ -6,6 +6,17 @@ const Combat = preload("res://scripts/data/combat_catalog.gd")
 const FUEL_TICKS := 240
 const TRANSPORT := ["belt", "fast_belt", "splitter", "underground_belt"]
 const ITEMS := {
+	"timber": {"name": "Timber", "color": "ab8253"},
+	"plank": {"name": "Wood plank", "color": "d1ad72"},
+	"foraged_food": {"name": "Gathered berries", "color": "be8c83"},
+	"stone_axe": {"name": "Stone axe", "color": "9da692"},
+	"lumber_camp": {"name": "Lumber camp", "color": "b99563"},
+	"cart_post": {"name": "Handcart collection post", "color": "b49c72"},
+	"communal_hearth": {"name": "Communal shelter", "color": "d8bb8d"},
+	"watermill": {"name": "Waterwheel sawmill", "color": "8fae9e"},
+	"charcoal_kiln": {"name": "Charcoal clamp", "color": "827a60"},
+	"sawn_plank": {"name": "Water-sawn planks", "color": "d1ad72"},
+	"charcoal": {"name": "Charcoal fuel", "color": "555c4e"},
 	"fuel_depot": {"name": "Supply Hearth", "color": "d8a269"},
 	"service_rifle": {"name": "Service rifle", "color": "c9ad79"},
 	"cannon_turret": {"name": "Piercing cannon", "color": "a6b7b0"},
@@ -39,6 +50,11 @@ const ITEMS := {
 
 const BUILD_ORDER := ["belt", "drill", "furnace", "inserter", "chest", "assembler", "lab", "fast_belt"]
 const BUILDINGS := {
+	"lumber_camp": {"capacity": 0, "output_capacity": 40, "solid": true, "work_ticks": 40},
+	"cart_post": {"capacity": 100, "solid": true, "work_ticks": 40},
+	"communal_hearth": {"capacity": 0, "solid": true},
+	"watermill": {"capacity": 40, "output_capacity": 40, "solid": true, "recipes": ["sawn_plank"]},
+	"charcoal_kiln": {"capacity": 40, "output_capacity": 20, "solid": true, "recipes": ["charcoal"]},
 	"fuel_depot": {"capacity": 200, "solid": true},
 	"cannon_turret": {"capacity": 30, "solid": true, "health": 140, "technology": "metallurgy"},
 	"pulse_turret": {"capacity": 30, "solid": true, "health": 100, "technology": "routing"},
@@ -57,6 +73,15 @@ const BUILDINGS := {
 }
 
 const RECIPES := {
+	"stone_axe": {"in": {"timber": 2, "stone": 2}, "out": {"stone_axe": 1}, "ticks": 15, "hand": true},
+	"plank": {"in": {"timber": 1}, "out": {"plank": 2}, "ticks": 15, "hand": true},
+	"lumber_camp": {"in": {"timber": 6, "stone_axe": 1}, "out": {"lumber_camp": 1}, "ticks": 25, "hand": true},
+	"cart_post": {"in": {"timber": 4, "plank": 4}, "out": {"cart_post": 1}, "ticks": 20, "hand": true},
+	"communal_hearth": {"in": {"timber": 8, "plank": 4}, "out": {"communal_hearth": 1}, "ticks": 25, "hand": true},
+	"watermill": {"in": {"timber": 8, "stone": 8, "plank": 4}, "out": {"watermill": 1}, "ticks": 35, "hand": true},
+	"charcoal_kiln": {"in": {"stone": 6, "plank": 4}, "out": {"charcoal_kiln": 1}, "ticks": 25, "hand": true},
+	"sawn_plank": {"in": {"timber": 2}, "out": {"plank": 6}, "ticks": 40, "machine": "watermill"},
+	"charcoal": {"in": {"timber": 3}, "out": {"coal": 2}, "ticks": 60, "machine": "charcoal_kiln"},
 	"fuel_depot": {"in": {"iron_plate": 10, "gear": 4, "stone": 10}, "out": {"fuel_depot": 1}, "ticks": 30, "hand": true, "machine": "assembler"},
 	"service_rifle": {"in": {"iron_plate": 8, "gear": 4, "copper_plate": 4}, "out": {"service_rifle": 1}, "ticks": 35, "hand": true, "machine": "assembler", "technology": "logistics"},
 	"cannon_turret": {"in": {"iron_plate": 8, "steel": 6, "gear": 4, "copper_plate": 4}, "out": {"cannon_turret": 1}, "ticks": 50, "hand": true, "machine": "assembler", "technology": "metallurgy"},
@@ -111,11 +136,20 @@ static func describe(contents: Dictionary) -> String:
 static func category(id: String) -> String:
 	if id == "service_rifle": return "Components"
 	if BUILDINGS.has(id): return "Buildings"
-	if id in ["iron_ore", "copper_ore", "coal", "stone"]: return "Resources"
+	if id in ["timber", "foraged_food", "iron_ore", "copper_ore", "coal", "stone"]: return "Resources"
 	return "Components"
 
 static func item_description(id: String) -> String:
 	var descriptions := {
+		"timber": "Gather fallen logs with RMB, fell a tree, or let a lumber camp harvest nearby groves. Finite resources; no starting goods.",
+		"plank": "Hand-cut from timber; a waterwheel sawmill makes six planks from two timber after shelter restoration.",
+		"foraged_food": "Gather berries with RMB. Supply the communal shelter; there is no hunger or spoilage.",
+		"stone_axe": "Carry in your pack to gather fallen timber and berries twice as quickly. A lumber camp needs its own axe during construction.",
+		"lumber_camp": "Harvests one real tree within four tiles every four seconds, producing four timber. No fuel. Reclaim and move when the grove is exhausted.",
+		"cart_post": "A worker collects up to four timber from the nearest lumber camp within ten tiles every four seconds. Stores timber; after Stone age, supplies mills and charcoal clamps within five tiles. No belts or fuel needed.",
+		"communal_hearth": "A home for the first returning neighbors. Place near your work area, then use Town [Y] to deliver the shelter and crossing projects.",
+		"watermill": "Place beside the marked old watercourse south of spawn. Two timber becomes six planks every four seconds; runs without coal. Nearby collection posts supply its timber.",
+		"charcoal_kiln": "Turns three timber into two units of burner fuel every six seconds without metal or coal inputs. Charcoal uses the same fuel stock as mined coal.",
 		"fuel_depot": "Shared coal storage. Automatically delivers real coal to healthy drills and furnaces within 8 tiles. Returning beacon crews extend coverage up to 12 tiles; restored depot runners add one more. Load all carried coal with Load coal, or feed continuously by inserter.",
 		"service_rifle": "Carry in your pack. V draws/holsters it; hold left mouse or Space while drawn to fire during a wave. Uses one ammo per shot. Range 8, damage 16; armor reduces damage. Shots can miss.",
 		"cannon_turret": "Range 8, 32 armor-piercing damage. Uses 2 ammunition every 1.5 seconds. Prioritizes armored haulers. Supply by inserter or manual loading.",
@@ -127,7 +161,7 @@ static func item_description(id: String) -> String:
 		"turret": "Fires at old-network constructs within six tiles. Each shot consumes one ammunition. Load by drag, Ctrl-click, or inserter. Equip from your pack to build.",
 		"ammo": "Five rounds per batch. Gun turrets consume one per shot; automate production and delivery with an assembler and inserters.",
 		"repair_kit": "Press H over a damaged building or civic landmark to consume one kit and restore 50 health. Also available in inspection panels.",
-		"coal": "24 seconds of active burner work per coal. Load a nearby Supply Hearth to serve several drills and furnaces, or feed burners directly by inserter.",
+		"coal": "Mined coal and timber charcoal share this burner fuel stock. 24 seconds of active burner work per unit. Load a nearby Supply Hearth to serve several drills and furnaces, or feed burners directly by inserter.",
 		"stone": "Mine by hand to craft your first furnace. Also used in civic repairs.",
 		"iron_ore": "Smelt in a coal-fueled furnace to produce iron plates.",
 		"copper_ore": "Select Copper plate in a furnace to smelt this ore.",

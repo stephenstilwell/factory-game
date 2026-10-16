@@ -12,6 +12,7 @@ static func step(world: RefCounted) -> void:
 	Transport.step(world)
 	world.metrics.prune(world.ticks)
 	Supply.step(world)
+	world.early.step(world)
 	_machines(world)
 	_inserters(world)
 	world.combat.step(world)
@@ -23,11 +24,14 @@ static func step(world: RefCounted) -> void:
 	if world.ticks % 5 == 0: world.changed.emit()
 
 static func _machines(world: RefCounted) -> void:
-	for kind in ["drill", "furnace", "assembler", "lab"]:
+	for kind in ["drill", "furnace", "assembler", "lab", "watermill", "charcoal_kiln"]:
 		for id in world.by_kind[kind]:
 			var entity = world.entities[id]
 			if entity.health <= 0:
 				entity.status = "Disabled — repair with H"
+				continue
+			if kind == "watermill" and not world.early.near_water(entity.cell):
+				entity.status = "Needs the old watercourse"
 				continue
 			if kind == "lab":
 				_lab(world, entity)
@@ -73,6 +77,8 @@ static func _machines(world: RefCounted) -> void:
 				world.skills.commission(world, "line:" + entity.recipe, "fabrication")
 				entity.output.exchange({}, recipe["out"])
 				entity.progress = 0
+				if kind == "watermill": world.early.sawn += int(recipe["out"].get("plank", 0))
+				if kind == "charcoal_kiln": world.early.charcoal += int(recipe["out"].get("coal", 0))
 				for item in recipe["out"]:
 					_record(world, item, int(recipe["out"][item]))
 					world.record(("smelted:" if kind == "furnace" else "assembled:") + item, int(recipe["out"][item]))
@@ -169,11 +175,31 @@ static func _player(world: RefCounted) -> void:
 	if not world.mining or not world.in_reach(world.mining_cell) or world.at(world.mining_cell) != null or world.settlements.at(world.mining_cell) != null:
 		world.mining_progress = 0
 		return
-	if world.terrain.tile(world.mining_cell).is_empty():
+	var forage: Dictionary = world.early.resource_at(world, world.mining_cell)
+	if not forage.is_empty():
+		if world.player.total() >= world.player.capacity:
+			world.mining_progress = 0
+			return
+		world.mining_progress += world.skills.work_units("mining")
+		if world.mining_progress >= (300 if world.player.count("stone_axe") > 0 else 600):
+			world.early.gather(world, world.mining_cell)
+			world.mining_progress = 0
+		return
+	var deposit: Dictionary = world.terrain.tile(world.mining_cell)
+	if world.early.active() and not deposit.is_empty() and deposit.item != "stone":
+		world.mining_progress = 0
+		return
+	if deposit.is_empty():
 		if world.frontier.tree_at(world, world.mining_cell):
-			world.mining_progress += 100
+			if world.early.enabled and not world.player.can_exchange({}, {"timber": 4}):
+				world.mining_progress = 0
+				return
+			world.mining_progress += world.skills.work_units("mining") if world.early.enabled else 100
 			if world.mining_progress >= 600:
-				world.frontier.clear_tree(world, world.mining_cell)
+				if world.frontier.clear_tree(world, world.mining_cell) and world.early.enabled:
+					world.player.add("timber", 4)
+					world.early.produced(world, "timber", 4)
+					world.award_skill("mining", 6)
 				world.mining_progress = 0
 		else: world.mining_progress = 0
 		return

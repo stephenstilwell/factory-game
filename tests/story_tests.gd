@@ -5,7 +5,7 @@ const Fixtures = preload("res://tests/fixtures.gd")
 
 static func run(test: SceneTree) -> void:
 	var world := World.new()
-	world.start()
+	world.start(false)
 	test.check(world.story.seen.is_empty() and world.entities.is_empty() and world.player.total() == 0, "Story starts with a promise, never free machines or materials")
 	test.check(world.story.goal(world).contains("Mira") and world.story.conversation(world, "trading_post") == "mira_before", "Opening story explains why the market matters")
 	var requests: Array = []

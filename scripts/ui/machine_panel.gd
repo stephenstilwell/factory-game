@@ -98,7 +98,7 @@ func _drop(data: Dictionary, target: Dictionary) -> void:
 
 func _click_item(grid: VBoxContainer, item: String, gesture: String) -> void:
 	var amount := 1 if gesture == "one" else (0 if gesture == "all" else quantity)
-	if grid == output_grid or (grid == input_grid and entity.kind in (["chest", "fuel_depot"] + Catalog.TRANSPORT)):
+	if grid == output_grid or (grid == input_grid and entity.kind in (["chest", "cart_post", "fuel_depot"] + Catalog.TRANSPORT)):
 		transfer_requested.emit(item, amount, grid.descriptor, {"kind": "player"}, world.get_instance_id())
 	elif grid.buttons[item].amount > 0:
 		transfer_requested.emit(item, amount, grid.descriptor, {"kind": "player"}, world.get_instance_id())
@@ -136,9 +136,9 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	if entity.kind == "drill":
 		var deposit: Dictionary = world.terrain.tile(entity.cell)
 		status_label.text += "\n%d units remaining under this drill" % int(deposit.get("amount", 0)) if not deposit.is_empty() else "\nPress M to survey another deposit, then hold right mouse to reclaim and relocate this drill."
-	supply_button.text = "Stack matching" if entity.kind == "chest" else "Load ingredients"
+	supply_button.text = "Stack matching" if entity.kind in ["chest", "cart_post"] else "Load ingredients"
 	supply_button.disabled = not reachable or entity.kind == "inserter"
-	collect_button.text = "Take all [X]" if entity.kind in (["chest", "fuel_depot"] + Catalog.TRANSPORT) else ("Recover hand [X]" if entity.kind == "inserter" else "Collect output [X]")
+	collect_button.text = "Take all [X]" if entity.kind in (["chest", "cart_post", "fuel_depot"] + Catalog.TRANSPORT) else ("Recover hand [X]" if entity.kind == "inserter" else "Collect output [X]")
 	collect_button.disabled = not reachable
 	if Catalog.Combat.TURRETS.has(entity.kind): collect_button.text = "Unload ammo [X]"
 	if entity.kind == "wall": collect_button.visible = false
@@ -153,6 +153,9 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	if not ids.is_empty(): recipe_picker.select(ids.find(entity.recipe))
 	progress.visible = entity.recipe != ""
 	if entity.recipe != "": progress.value = 100.0 * entity.progress / int(Catalog.RECIPES[entity.recipe].ticks)
+	elif Catalog.BUILDINGS[entity.kind].has("work_ticks"):
+		progress.show()
+		progress.value = 100.0 * entity.progress / int(Catalog.BUILDINGS[entity.kind].work_ticks)
 	var input: Dictionary = entity.inventory.contents.duplicate()
 	var expected: Array = []
 	if Catalog.Combat.TURRETS.has(entity.kind): expected = ["ammo"]
@@ -165,7 +168,7 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	if fuel_box.visible: input.erase("coal")
 	input_box.visible = entity.kind not in ["inserter", "wall"]
 	output_box.visible = entity.kind not in (["chest", "fuel_depot", "wall"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT)
-	input_grid.grid.columns = 6 if entity.kind == "chest" else 3
+	input_grid.grid.columns = 6 if entity.kind in ["chest", "cart_post"] else 3
 	var descriptor := {"kind": "input", "entity_id": entity.id}
 	for grid in [input_grid, fuel_grid, output_grid]:
 		grid.world_token = world.get_instance_id()
@@ -189,10 +192,19 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 		output = {entity.carried: 1} if entity.carried != "" else {}
 	output_grid.refresh(output, output_expected)
 	summary.text = "Click a filled tile to take items; click an empty ingredient to load it. Drag pack items into INPUT or FUEL. Output collection leaves fuel and ingredients in place."
-	if entity.kind == "chest": summary.text = "Drop pack items into storage, or Shift-click them in your pack to transfer all. Ctrl-click stacks only item types already stored here; it never dumps unrelated supplies."
+	if entity.kind in ["chest", "cart_post"]: summary.text = "Drop pack items into storage, or Shift-click them in your pack to transfer all. Ctrl-click stacks only item types already stored here; it never dumps unrelated supplies."
 	if Catalog.Combat.TURRETS.has(entity.kind): summary.text = "Load ammunition into INPUT manually or by inserter. Guns stop scouts, cannons counter armor, and pulses slow groups. Walls shape routes; scouts can go around isolated barriers. Select a turret to see its range."
 	if entity.kind == "fuel_depot":
 		summary.text = "Covers %d tiles. Delivers one real coal per nearby burner each tick, keeping a small 3-coal reserve. Load once here or automate an inserter supply. No coal is created. Returning crews and restored depot runners expand coverage." % world.supply_radius()
 		status_label.text += "\n%d / 200 shared coal • Coverage %d tiles" % [entity.inventory.count("coal"), world.supply_radius()]
 		supply_button.text = "Load all coal"
+	if entity.kind in world.early.Definitions.BUILDINGS:
+		summary.text = Catalog.item_description(entity.kind)
+	if entity.kind == "communal_hearth":
+		supply_button.text = "Deliver town project [Y]"
+		supply_button.disabled = not world.early.project_reason(world).is_empty()
+		input_box.hide()
+		output_box.hide()
+	if entity.kind == "lumber_camp": input_box.hide()
+	if entity.kind == "charcoal_kiln": output_title.text = "CHARCOAL FUEL • shared coal stock"
 	if entity.kind == "wall": summary.text = "Blocks the marked approach until its health reaches zero. Disabled walls stay in place as passable ruins; repair them with kits [H]. Damaged structures must be repaired before reclamation."

@@ -50,6 +50,7 @@ func blocks(cell: Vector2i) -> bool:
 
 func tree_at(world: RefCounted, cell: Vector2i) -> bool:
 	if not enabled or cleared.has(cell) or not tree_candidate(cell, world.terrain.seed_value): return false
+	if world.early.enabled and world.early.water_at(cell): return false
 	world.terrain.tile(cell) # Ensure the original deposit mask is cached, including exhausted ore.
 	if world.at(cell) != null or world.settlements.at(cell) != null or world.terrain.chunks[world.terrain.chunk_at(cell)].has(cell): return false
 	for id in sites:
@@ -118,6 +119,7 @@ func observe(world: RefCounted) -> void:
 
 func interaction_reason(world: RefCounted, id: String) -> String:
 	if not enabled or not sites.has(id): return "This landmark is unavailable."
+	if world.early.active() and id in ["camp", "depot"]: return "Recover industrial salvage after rebuilding the crossing [Y]."
 	if not world.in_reach(port(id)): return "Walk within reach of the marked entrance."
 	if world.defense.phase in ["warning", "active"]: return "Finish the beacon defense before investigating."
 	return ""
