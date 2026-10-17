@@ -13,11 +13,14 @@ static func step(world: RefCounted) -> void:
 	world.metrics.prune(world.ticks)
 	Supply.step(world)
 	world.early.step(world)
+	world.power.step(world)
 	_machines(world)
 	_inserters(world)
 	world.combat.step(world)
 	world.defense.step(world)
 	world.settlements.step(world)
+	world.quarry_project.step(world)
+	world.orchard_project.step(world)
 	_player(world)
 	world.guidance.observe(world)
 	if world.ticks % 5 == 0: world.frontier.observe(world)
@@ -29,6 +32,9 @@ static func _machines(world: RefCounted) -> void:
 			var entity = world.entities[id]
 			if entity.health <= 0:
 				entity.status = "Disabled — repair with H"
+				continue
+			if entity.electric_mode and world.power.wants_work(world, entity) and not world.power.granted.has(entity.id):
+				entity.status = world.power.reason(world, entity)
 				continue
 			if kind == "watermill" and not world.early.near_water(entity.cell):
 				entity.status = "Needs the old watercourse"
@@ -50,9 +56,9 @@ static func _machines(world: RefCounted) -> void:
 					continue
 				if not _fuel(world, entity): continue
 				entity.status = "Mining " + Catalog.item_name(deposit.item)
-				entity.progress += 1
+				entity.progress += 2 if entity.electric_mode else 1
 				if entity.progress >= 15:
-					entity.progress = 0
+					entity.progress -= 15
 					var item: String = world.terrain.mine(entity.cell)
 					entity.output.add(item)
 					_record(world, item, 1)
@@ -68,15 +74,16 @@ static func _machines(world: RefCounted) -> void:
 				entity.status = "Output full"
 				continue
 			if kind == "furnace" and not _fuel(world, entity): continue
+			if kind == "assembler" and entity.electric_mode and not world.power.consume(world, entity): continue
 			entity.status = "Working"
-			entity.progress += 1
+			entity.progress += 2 if entity.electric_mode else 1
 			if entity.progress >= int(recipe.ticks):
 				entity.inventory.exchange(recipe["in"], {})
 				world.metrics.consume(world.ticks, recipe["in"])
 				world.award_automation("line:" + entity.recipe, "fabrication", 120)
 				world.skills.commission(world, "line:" + entity.recipe, "fabrication")
 				entity.output.exchange({}, recipe["out"])
-				entity.progress = 0
+				entity.progress -= int(recipe.ticks)
 				if kind == "watermill": world.early.sawn += int(recipe["out"].get("plank", 0))
 				if kind == "charcoal_kiln": world.early.charcoal += int(recipe["out"].get("coal", 0))
 				for item in recipe["out"]:
@@ -84,6 +91,7 @@ static func _machines(world: RefCounted) -> void:
 					world.record(("smelted:" if kind == "furnace" else "assembled:") + item, int(recipe["out"][item]))
 
 static func _fuel(world: RefCounted, entity: RefCounted) -> bool:
+	if entity.electric_mode: return world.power.consume(world, entity)
 	if entity.burn_ticks <= 0:
 		if entity.inventory.remove("coal") == 0:
 			entity.status = "No fuel - insert coal"
@@ -113,7 +121,7 @@ static func _inserters(world: RefCounted) -> void:
 				entity.status = "Returning"
 			else: entity.status = "Drop target blocked"
 			continue
-		var source = world.at(entity.cell - direction)
+		var source = world.logistics_source(entity.cell - direction)
 		if source == null:
 			entity.status = "No pickup source"
 			continue
@@ -136,10 +144,11 @@ static func _lab(world: RefCounted, entity: RefCounted) -> void:
 	if entity.inventory.count("science") == 0:
 		entity.status = "Needs engineering dossiers"
 		return
+	if entity.electric_mode and not world.power.consume(world, entity): return
 	entity.status = "Researching " + Catalog.technology(id).name
-	entity.progress += 1
+	entity.progress += 2 if entity.electric_mode else 1
 	if entity.progress < 30: return
-	entity.progress = 0
+	entity.progress -= 30
 	entity.inventory.remove("science")
 	world.metrics.record(world.ticks, "used", "science", 1)
 	world.research_progress += 1
@@ -191,12 +200,12 @@ static func _player(world: RefCounted) -> void:
 		return
 	if deposit.is_empty():
 		if world.frontier.tree_at(world, world.mining_cell):
-			if world.early.enabled and not world.player.can_exchange({}, {"timber": 4}):
+			if not world.player.can_exchange({}, {"timber": 4}):
 				world.mining_progress = 0
 				return
-			world.mining_progress += world.skills.work_units("mining") if world.early.enabled else 100
+			world.mining_progress += world.skills.work_units("mining")
 			if world.mining_progress >= 600:
-				if world.frontier.clear_tree(world, world.mining_cell) and world.early.enabled:
+				if world.frontier.clear_tree(world, world.mining_cell):
 					world.player.add("timber", 4)
 					world.early.produced(world, "timber", 4)
 					world.award_skill("mining", 6)

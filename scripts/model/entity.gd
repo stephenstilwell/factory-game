@@ -10,6 +10,8 @@ var direction := 0
 var inventory: RefCounted
 var output: RefCounted
 var recipe := ""
+var electric_mode := false
+var energy := 0
 var progress := 0
 var burn_ticks := 0
 var cooldown := 0
@@ -39,5 +41,5 @@ func _init(entity_id: int = 0, type: String = "belt", position: Vector2i = Vecto
 func serialize() -> Dictionary:
 	return {"id": id, "kind": kind, "x": cell.x, "y": cell.y, "direction": direction,
 		"inventory": inventory.contents.duplicate(), "output": output.contents.duplicate(),
-		"recipe": recipe, "progress": progress, "burn_ticks": burn_ticks,
+		"electric_mode": electric_mode, "energy": energy, "recipe": recipe, "progress": progress, "burn_ticks": burn_ticks,
 		"cooldown": cooldown, "carried": carried, "health": health, "attack_cooldown": attack_cooldown, "supply_cursor": supply_cursor, "routing_cursor": routing_cursor, "merge_cursor": merge_cursor, "underground_exit": underground_exit}

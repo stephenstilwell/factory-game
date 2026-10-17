@@ -8,6 +8,13 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 	if entity.kind in ["lumber_camp", "cart_post", "communal_hearth", "watermill", "charcoal_kiln"]:
 		EarlyArt.machine(canvas, entity, center, time)
 		return
+	if entity.kind == "power_pole":
+		Art.shadow(canvas, center + Vector2(0, 14), Vector2(9, 5))
+		canvas.draw_line(center + Vector2(0, 18), center - Vector2(0, 25), Art.INK, 8, true)
+		canvas.draw_line(center + Vector2(0, 16), center - Vector2(0, 25), Art.COPPER, 5, true)
+		canvas.draw_line(center + Vector2(-15, -17), center + Vector2(15, -17), Art.STEEL, 5, true)
+		for x in [-12, 12]: canvas.draw_circle(center + Vector2(x, -19), 3.5, Art.CREAM)
+		return
 	var kind: String = entity.kind
 	var healthy: bool = entity.health > 0
 	var working: bool = healthy and (entity.status == "Working" or entity.status.begins_with("Mining"))
@@ -54,6 +61,11 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 	Art.box(canvas, Rect2(center + Vector2(-20, -14), Vector2(40, 32)), Color("626e63"), 5)
 	for x in [-16, 16]: Art.bolt(canvas, center + Vector2(x, 12))
 	match kind:
+		"generator":
+			Art.box(canvas, Rect2(center + Vector2(-16, -22), Vector2(13, 29)), Art.COPPER, 3)
+			canvas.draw_circle(center + Vector2(8, -1), 12, Art.INK)
+			canvas.draw_arc(center + Vector2(8, -1), 9, (time * 2 if entity.status.begins_with("Generating") else 0.0), (time * 2 if entity.status.begins_with("Generating") else 0.0) + PI * 1.5, 14, Art.AMBER, 3, true)
+			canvas.draw_line(center + Vector2(-11, -22), center + Vector2(-11, -32), Art.STEEL, 7, true)
 		"furnace": _furnace(canvas, center, time, entity.id, working)
 		"drill": _drill(canvas, center, time, direction, working)
 		"turret", "cannon_turret", "pulse_turret":

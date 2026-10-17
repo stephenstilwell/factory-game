@@ -14,6 +14,10 @@ var ports: Dictionary = {}
 var credits := 0
 var total_earned := 0
 var relief_waves: Array = []
+var garden_beds := 0
+var produce_sales := 0
+var road_deliveries := 0
+var maintenance_kits := 0
 var supply_orders := 0
 var age := 0
 var stone_shipments := 0 # Reconcile only market premiums actually earned after advancement.
@@ -118,10 +122,11 @@ func at(cell: Vector2i):
 func receiver(cell: Vector2i):
 	return sites.get(ports.get(cell, ""))
 
-func receiving_limit(site_id: String, item: String) -> int:
+func receiving_limit(site_id: String, item: String, world: RefCounted = null) -> int:
 	if not enabled or not sites.has(site_id): return 0
 	var site = sites[site_id]
 	var definition: Dictionary = Definitions.SITES[site_id]
+	if site_id == "trading_post" and site.repaired and item == "foraged_food": return world.orchard_project.market_limit(world) if world != null else 0
 	var wanted: Dictionary = definition.repair
 	if site.repaired and site.health == 0: return 0
 	if site_id == "town_hall" and district_level() >= 3: return 0
@@ -249,4 +254,4 @@ func install_legacy(world: RefCounted) -> bool:
 func serialize() -> Dictionary:
 	var records: Array = []
 	for id in Definitions.SITES: records.append(sites[id].serialize())
-	return {"version": 2, "enabled": enabled, "credits": credits, "total_earned": total_earned, "relief_waves": relief_waves.duplicate(), "supply_orders": supply_orders, "age": age, "stone_shipments": stone_shipments, "sites": records}
+	return {"version": 2, "enabled": enabled, "credits": credits, "total_earned": total_earned, "relief_waves": relief_waves.duplicate(), "garden_beds": garden_beds, "produce_sales": produce_sales, "road_deliveries": road_deliveries, "maintenance_kits": maintenance_kits, "supply_orders": supply_orders, "age": age, "stone_shipments": stone_shipments, "sites": records}

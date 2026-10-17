@@ -136,6 +136,14 @@ func _draw() -> void:
 	if copy_rect.has_area(): draw_rect(Rect2(Vector2(copy_rect.position) * TILE, Vector2(copy_rect.size) * TILE), Color(0.4, 0.8, 1.0, 0.6), false, 3)
 	LandscapeView.draw(self, world.settlements, visible_cells)
 	EarlyView.landscape(self, world, visible_cells)
+	var road: PackedVector2Array = world.quarry_project.road(world)
+	if road.size() == 2:
+		draw_line(road[0] * TILE, road[1] * TILE, Color("514f43"), 36)
+		draw_line(road[0] * TILE, road[1] * TILE, Color("a49b7d"), 28)
+	world.power.rebuild(world)
+	for link in world.power.links:
+		if visible_cells.has_point(link[0]) or visible_cells.has_point(link[1]):
+			draw_line(Vector2(link[0]) * TILE + Vector2(24, 10), Vector2(link[1]) * TILE + Vector2(24, 10), Color("bfa36d"), 1.5, true)
 	_draw_tunnel_link()
 	if pointer_in_world and not ghost_kind.is_empty(): _build_grid()
 	DefenseView.draw_route(self, world, visible_cells, selected_site)
@@ -184,7 +192,7 @@ func _draw() -> void:
 		FrontierView.garden(self, world, 0.0 if reduced_motion or not ambient_enabled else animation_time, visible_cells)
 		if ambient_enabled and not reduced_motion: FrontierView.wildlife(self, world, visible_cells, animation_time)
 		var tracked: String = world.frontier.target
-		if world.frontier.sites.has(tracked):
+		if world.navigation.target().is_empty() and world.frontier.sites.has(tracked):
 			var destination := (Vector2(world.frontier.port(tracked)) + Vector2.ONE * 0.5) * TILE
 			var toward := destination - engineer
 			var pointer := engineer + toward.normalized() * minf(96, toward.length())
@@ -197,11 +205,16 @@ func _draw() -> void:
 	DefenseView.draw_player(self, world, pointer_in_world, reduced_motion, engineer)
 	if world.at(selected) != null and world.at(selected).kind == "fuel_depot":
 		draw_arc((Vector2(selected) + Vector2.ONE * 0.5) * TILE, world.supply_radius() * TILE, 0, TAU, 96, Color(0.95, 0.65, 0.35, 0.4), 2)
+	var pole_cell := hover if pointer_in_world and ghost_kind == "power_pole" else selected
+	if (pointer_in_world and ghost_kind == "power_pole") or (world.at(selected) != null and world.at(selected).kind == "power_pole"):
+		var pole_center := (Vector2(pole_cell) + Vector2.ONE * 0.5) * TILE
+		draw_arc(pole_center, world.power.SERVICE_RADIUS * TILE, 0, TAU, 64, Color(0.5, 0.9, 0.8, 0.65), 2)
+		draw_arc(pole_center, world.power.LINK_RADIUS * TILE, 0, TAU, 64, Color(0.9, 0.75, 0.45, 0.4), 1)
 	if Catalog.Combat.TURRETS.has(world.at(selected).kind if world.at(selected) != null else ""):
 		var turret = world.at(selected)
 		draw_arc((Vector2(selected) + Vector2.ONE * 0.5) * TILE, float(Catalog.Combat.TURRETS[turret.kind].range) * TILE, 0, TAU, 96, Color(0.5, 0.85, 0.75, 0.35), 2)
 	effects.draw(self)
-	if not resource_target.is_empty():
+	if world.navigation.target().is_empty() and not resource_target.is_empty():
 		var target := Vector2(resource_target.cell) * TILE + Vector2.ONE * 24
 		var toward := target - engineer
 		var position := engineer + toward.normalized() * minf(85, toward.length())
@@ -210,6 +223,17 @@ func _draw() -> void:
 			var direction := toward.normalized()
 			draw_colored_polygon(PackedVector2Array([position + direction * 12, position - direction * 9 + direction.orthogonal() * 8, position - direction * 9 - direction.orthogonal() * 8]), TEAL)
 		draw_string(ThemeDB.fallback_font, engineer + Vector2(-85, -44), "%s: %d tiles" % [Catalog.item_name(resource_target.item), ceili(toward.length() / TILE)], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, TEAL)
+	var pin: Dictionary = world.navigation.target()
+	if not pin.is_empty():
+		var destination := (Vector2(pin.cell) + Vector2.ONE * 0.5) * TILE
+		var toward := destination - engineer
+		var axis := toward.normalized()
+		var pointer := engineer + axis * minf(96, toward.length())
+		var tint := Color("d2b6ec")
+		draw_arc(destination, 29, 0, TAU, 32, tint, 2)
+		if toward.length() > 60:
+			draw_colored_polygon(PackedVector2Array([pointer + axis * 10, pointer - axis * 7 + axis.orthogonal() * 7, pointer - axis * 7 - axis.orthogonal() * 7]), tint)
+		draw_string(ThemeDB.fallback_font, engineer + Vector2(-100, -64), "%s / %d tiles [M]" % [pin.title, ceili(toward.length() / TILE)], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, tint)
 	var objective: Dictionary = world.early.objective(world) if world.early.active() else world.guide.target(world)
 	if not objective.has("cell"): objective = {}
 	if objective.is_empty() and not world.early.active(): objective = world.settlements.objective_target()
@@ -278,6 +302,8 @@ func _machine(entity: RefCounted) -> void:
 				firing = true
 	var machine_time := 0.0 if reduced_motion and entity.kind in world.early.Definitions.BUILDINGS else animation_time
 	MachineArt.draw(self, entity, center, machine_time, aim, firing, interpolation)
+	if entity.electric_mode:
+		draw_polyline(PackedVector2Array([center + Vector2(14, -18), center + Vector2(8, -8), center + Vector2(15, -8), center + Vector2(10, 1)]), Color("8ae4d1"), 2.5, true)
 	if entity.kind in Catalog.TRANSPORT and entity.inventory.total() > 0:
 		var item_position := center
 		var next = world.at(entity.cell + World.DIRS[entity.direction])

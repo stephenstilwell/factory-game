@@ -136,7 +136,8 @@ func refresh(state: RefCounted, selected: String) -> void:
 		var is_available := available(id)
 		slots[i].refresh(id, world.player.count(id), is_available, not id.is_empty() and id == selection)
 		var title := Catalog.item_name(id) if is_available else ("Empty slot" if id.is_empty() else "Undiscovered building")
-		slots[i].tooltip_text = "%s [%d]\n%s\n\nClick / number: select • Right-click: assign\nMiddle-click: clear • Drag slots: swap\nDrag a building from your pack to assign." % [title, (i + 1) % 10, ("%d in pack" % world.player.count(id)) if is_available else "Assign a building as you discover it."]
+		var description := Catalog.item_description(id) + "\n\n" if is_available else ""
+		slots[i].tooltip_text = "%s [%d]\n%s%s\n\nClick / number: select • Right-click: assign\nMiddle-click: clear • Drag slots: swap\nDrag a building from your pack to assign." % [title, (i + 1) % 10, description, ("%d in pack" % world.player.count(id)) if is_available else "Assign a building as you discover it."]
 	describe(hovered_slot)
 	if picker != null and picker.visible: refresh_choices()
 

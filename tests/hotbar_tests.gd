@@ -33,6 +33,7 @@ static func run(test: SceneTree) -> void:
 	scene.world.player_position = Vector2(19.5, 17.5)
 	var stock: Dictionary = scene.world.player.contents.duplicate()
 	bar.assign(0, "furnace")
+	test.check(bar.slots[0].tooltip_text.contains("Smelts iron and copper ore") and bar.slots[0].tooltip_text.contains("in pack"), "Hotbar hover explains building purpose alongside stock and controls")
 	var key := InputEventKey.new()
 	key.keycode = KEY_1
 	key.pressed = true

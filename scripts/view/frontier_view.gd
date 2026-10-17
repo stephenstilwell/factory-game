@@ -63,7 +63,18 @@ static func landmark(canvas: CanvasItem, world: RefCounted, id: String, time: fl
 			for x in range(12, 230, 20):
 				canvas.draw_line(p + Vector2(x, 175), p + Vector2(x, 145), Art.STONE.darkened(0.2), 3)
 			canvas.draw_line(p + Vector2(10, 154), p + Vector2(232, 154), Art.COPPER.darkened(0.2), 3)
-			Art.box(canvas, Rect2(p + Vector2(82, 119), Vector2(57, 23)), Color("b59461"), 4)
+			for bed in range(world.orchard_project.beds):
+				var at := p + Vector2(12 + bed * 74, 106)
+				Art.box(canvas, Rect2(at, Vector2(64, 26)), Color("a5865b"), 3)
+				Art.box(canvas, Rect2(at + Vector2(4, 4), Vector2(56, 17)), Color("67503e"), 2)
+				for sprout in range(4):
+					var plant := at + Vector2(11 + sprout * 14, 9)
+					canvas.draw_line(plant + Vector2(0, 10), plant, Color("99b478"), 2)
+					canvas.draw_circle(plant, 3, Color("cba09c") if world.orchard_project.output.total() > 0 else Color("b9cb91"))
+			if world.orchard_project.beds == 0: Art.box(canvas, Rect2(p + Vector2(82, 119), Vector2(57, 23)), Color("b59461"), 4)
+			for crate in range(mini(6, world.orchard_project.output.total() / 4)):
+				Art.box(canvas, Rect2(p + Vector2(12 + crate * 27, 150), Vector2(22, 16)), Color("b59461"), 2)
+				canvas.draw_circle(p + Vector2(22 + crate * 27, 151), 4, Color("cf9e91"))
 			canvas.draw_circle(p + Vector2(172, 132), 8, Art.STEEL)
 			canvas.draw_line(p + Vector2(177, 129), p + Vector2(191, 121), Art.STEEL, 5)
 		"depot":

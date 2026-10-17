@@ -14,7 +14,7 @@ const SITES := {
 		"repair": {"iron_plate": 20, "gear": 5, "copper_plate": 10}, "credits": 60, "requires": "trading_post",
 		"description": "Fund a construction crew and reopen the region's maintenance workshop.",
 		"keeper": "Oren, the engineer", "greeting": "The workshop is back. We've tuned every burner in the region to make its coal last longer.",
-		"contract": "workshop_parts", "effect": {"burner_ticks": 48}, "reward": "GLOBAL: each new coal burns for 20% more active work in drills and furnaces.",
+		"contract": "workshop_parts", "effect": {"burner_ticks": 48}, "reward": "GLOBAL: each new coal burns for 20% more active work in drills and furnaces. Hire Oren\u0027s maintenance crew here between defenses: your repair kits plus 2 credits per kit.",
 	},
 	"town_hall": {
 		"name": "Oldbridge Town Hall", "contract": "housing", "origin": Vector2i(42, 12), "size": Vector2i(3, 3), "port": Vector2i(0, 1),

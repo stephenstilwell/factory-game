@@ -6,9 +6,11 @@ const Combat = preload("res://scripts/data/combat_catalog.gd")
 const FUEL_TICKS := 240
 const TRANSPORT := ["belt", "fast_belt", "splitter", "underground_belt"]
 const ITEMS := {
+	"generator": {"name": "Charcoal dynamo", "color": "d2aa68"},
+	"power_pole": {"name": "District power pole", "color": "91c8be"},
 	"timber": {"name": "Timber", "color": "ab8253"},
 	"plank": {"name": "Wood plank", "color": "d1ad72"},
-	"foraged_food": {"name": "Gathered berries", "color": "be8c83"},
+	"foraged_food": {"name": "Fresh produce", "color": "be8c83"},
 	"stone_axe": {"name": "Stone axe", "color": "9da692"},
 	"lumber_camp": {"name": "Lumber camp", "color": "b99563"},
 	"cart_post": {"name": "Handcart collection post", "color": "b49c72"},
@@ -50,6 +52,8 @@ const ITEMS := {
 
 const BUILD_ORDER := ["belt", "drill", "furnace", "inserter", "chest", "assembler", "lab", "fast_belt"]
 const BUILDINGS := {
+	"generator": {"capacity": 50, "output_capacity": 0, "solid": true, "fuel": true, "technology": "metallurgy"},
+	"power_pole": {"capacity": 0, "output_capacity": 0, "solid": true, "technology": "metallurgy"},
 	"lumber_camp": {"capacity": 0, "output_capacity": 40, "solid": true, "work_ticks": 40},
 	"cart_post": {"capacity": 100, "solid": true, "work_ticks": 40},
 	"communal_hearth": {"capacity": 0, "solid": true},
@@ -68,11 +72,13 @@ const BUILDINGS := {
 	"furnace": {"capacity": 30, "solid": true, "fuel": true, "recipes": ["iron_plate", "copper_plate", "steel"]},
 	"inserter": {"capacity": 1, "solid": false},
 	"chest": {"capacity": 200, "solid": true},
-	"assembler": {"capacity": 40, "solid": true, "recipes": ["gear", "fuel_depot", "wire", "science", "ammo", "repair_kit", "belt", "inserter", "chest", "drill", "furnace", "assembler", "lab", "fast_belt", "wall", "turret", "splitter", "underground_belt", "construction_kit", "service_rifle", "cannon_turret", "pulse_turret"]},
+	"assembler": {"capacity": 40, "solid": true, "recipes": ["gear", "fuel_depot", "wire", "science", "ammo", "repair_kit", "belt", "inserter", "chest", "drill", "furnace", "assembler", "lab", "fast_belt", "wall", "turret", "splitter", "underground_belt", "construction_kit", "service_rifle", "cannon_turret", "pulse_turret", "generator", "power_pole"]},
 	"lab": {"capacity": 40, "solid": true},
 }
 
 const RECIPES := {
+	"generator": {"in": {"steel": 6, "gear": 6, "wire": 8, "stone": 10}, "out": {"generator": 1}, "ticks": 60, "hand": true, "machine": "assembler", "technology": "metallurgy"},
+	"power_pole": {"in": {"plank": 2, "wire": 2}, "out": {"power_pole": 2}, "ticks": 15, "hand": true, "machine": "assembler", "technology": "metallurgy"},
 	"stone_axe": {"in": {"timber": 2, "stone": 2}, "out": {"stone_axe": 1}, "ticks": 15, "hand": true},
 	"plank": {"in": {"timber": 1}, "out": {"plank": 2}, "ticks": 15, "hand": true},
 	"lumber_camp": {"in": {"timber": 6, "stone_axe": 1}, "out": {"lumber_camp": 1}, "ticks": 25, "hand": true},
@@ -111,7 +117,7 @@ const RECIPES := {
 
 const TECHNOLOGIES := [
 	{"id": "logistics", "name": "Supply routes", "purpose": "Move supplies faster; equip returning crews.", "cost": 10, "requires": [], "unlock": "Fast conveyors; workshop rifles, gun turrets, and ammunition"},
-	{"id": "metallurgy", "name": "Foundry craft", "purpose": "Make strong steel for homes and defenses.", "cost": 20, "requires": ["logistics"], "unlock": "Steel smelting and workshop piercing cannons"},
+	{"id": "metallurgy", "name": "Foundry craft", "purpose": "Make strong steel for homes and defenses.", "cost": 20, "requires": ["logistics"], "unlock": "Steel, piercing cannons, charcoal dynamos, district poles and electric machine drives"},
 	{"id": "routing", "name": "District distribution", "purpose": "Branch and cross supply routes in a growing town.", "cost": 20, "requires": ["logistics"], "unlock": "Splitters, underground conveyors, and workshop pulse turrets"},
 	{"id": "construction", "name": "Homes for Oldbridge", "purpose": "Deliver housing supplies; restore three neighborhoods.", "cost": 25, "requires": ["metallurgy"], "unlock": "Construction kits and housing supply lines"},
 ]
@@ -141,6 +147,16 @@ static func category(id: String) -> String:
 
 static func item_description(id: String) -> String:
 	var descriptions := {
+		"drill": "Automatically mines the finite deposit beneath it. Uses coal or charcoal fuel. Face its chute toward a conveyor to carry ore away; move it when the deposit runs out.",
+		"furnace": "Smelts iron and copper ore into plates for machines and town repairs. Load ore and coal/charcoal, then collect the plates or unload them by inserter. Select its recipe to change the metal.",
+		"assembler": "Automates components and building production, freeing you from hand-crafting. Choose a recipe, feed its ingredients and remove the output with inserters.",
+		"lab": "Turns engineering dossiers into the workshop project you select with T. Unlocks new production, routing and restoration options. Feed dossiers by hand or inserter.",
+		"belt": "Moves items between machines and storage. R rotates its direction. Use inserters to load and unload most machines; a drill can drop ore directly onto a conveyor.",
+		"fast_belt": "Carries items faster than a standard conveyor. Useful when a busy production line cannot move supplies or output quickly enough. R rotates its direction.",
+		"inserter": "Moves one item at a time from the tile behind it to the tile in front. Use it to feed machines from conveyors or chests and to collect their output. R rotates pickup and drop direction.",
+		"chest": "Stores supplies and finished goods in one place. Feed or empty it with inserters to buffer a production line. Manual transfers help organize your pack.",
+		"generator": "Burns real coal/charcoal on demand: 2400 energy per fuel, maximum 8 units per tick. Place a district pole within 3 tiles. Idle generators preserve fuel and stored energy. Automate coal delivery by inserter.",
+		"power_pole": "Links healthy poles within 6 tiles and serves electric drives and dynamos within 3 tiles. No wire item needed after construction. Inspect a drill, furnace, assembler or drafting bench to install a drive after Foundry craft.",
 		"timber": "Gather fallen logs with RMB, fell a tree, or let a lumber camp harvest nearby groves. Finite resources; no starting goods.",
 		"plank": "Hand-cut from timber; a waterwheel sawmill makes six planks from two timber after shelter restoration.",
 		"foraged_food": "Gather berries with RMB. Supply the communal shelter; there is no hunger or spoilage.",
@@ -151,7 +167,7 @@ static func item_description(id: String) -> String:
 		"watermill": "Place beside the marked old watercourse south of spawn. Two timber becomes six planks every four seconds; runs without coal. Nearby collection posts supply its timber.",
 		"charcoal_kiln": "Turns three timber into two units of burner fuel every six seconds without metal or coal inputs. Charcoal uses the same fuel stock as mined coal.",
 		"fuel_depot": "Shared coal storage. Automatically delivers real coal to healthy drills and furnaces within 8 tiles. Returning beacon crews extend coverage up to 12 tiles; restored depot runners add one more. Load all carried coal with Load coal, or feed continuously by inserter.",
-		"service_rifle": "Carry in your pack. V draws/holsters it; hold left mouse or Space while drawn to fire during a wave. Uses one ammo per shot. Range 8, damage 16; armor reduces damage. Shots can miss.",
+		"service_rifle": "Carry in your pack. V draws/holsters it; hold left mouse or Space while drawn to fire during a wave. Uses one ammo per shot. Range 8, damage 16; enemy armor reduces damage. Shots can miss. Engineer [P] offers a workshop protective coat to reduce incoming damage.",
 		"cannon_turret": "Range 8, 32 armor-piercing damage. Uses 2 ammunition every 1.5 seconds. Prioritizes armored haulers. Supply by inserter or manual loading.",
 		"pulse_turret": "Range 4.5, 8 armor-piercing damage in a 1.8-tile burst. Slows targets for 2.5 seconds. Uses 2 ammunition per pulse. Combine with guns and cannons.",
 		"splitter": "A one-tile junction. Alternates items between forward and RIGHT outputs, bypassing blocked branches. Feed from behind; R rotates.",

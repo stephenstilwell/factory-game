@@ -13,6 +13,7 @@ var charcoal := 0
 func active() -> bool: return enabled and phase < 2
 
 func available(id: String) -> bool:
+	if id == "plank": return true # Existing industrial worlds can support regional projects.
 	if id in Definitions.TIMBER_RECIPES: return enabled
 	if id in Definitions.STONE_RECIPES: return enabled and phase >= 1
 	return not active()

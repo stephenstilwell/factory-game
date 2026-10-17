@@ -6,6 +6,21 @@ const NPCS := {
 	"town_hall": {"name": "Ada", "role": "Warden of Oldbridge", "color": "88976a", "before": "ada_before", "after": "ada_after"},
 }
 const CHAPTERS := {
+	"orchard_market": {
+		"title": "More than machine parts", "speaker": "trading_post", "site": "trading_post",
+		"pages": ["Iona put the first crate beside my counter herself. For years we traded only things that kept broken machines alive. Today a wagon left with apples for the ridge camps. People asked when the next one was coming.", "Keep her beds supplied and we can promise them a regular delivery. Planks for the growing frames, charcoal for the warm beds, produce back to this market. The credits pay our crews, but a reliable harvest gives families another reason to stay."],
+		"goal": "Keep the Orchard-to-market route supplied. A working town feeds its neighbors as well as its factories."
+	},
+	"greybank_complete": {
+		"title": "A road that leads home", "speaker": "workshop", "site": "workshop",
+		"pages": ["The last stone is in. That bend used to swallow wagon wheels every time it rained. Now you can walk the whole Greybank route and hear your footsteps on something built to last.", "The quarry gave us walls, and the workshops sent a road back. That is how Oldbridge should grow: each district doing something the others need. The masons want their children to learn the road home before they learn the road away."],
+		"goal": "Use the restored road to connect regional production. Greybank roadbuilding is complete."
+	},
+	"district_power": {
+		"title": "A light we understand", "speaker": "workshop", "site": "workshop",
+		"pages": ["I found the dynamo plans beneath an old aether relay. No sealed crystal, no distant command to wake it: just a hot fire, a turning shaft and copper windings. Every part is something we can mend.", "Build a charcoal dynamo and run district poles from it. I can fit electric drives to your drills, furnaces, assemblers and drafting benches for two steel and four wire each. They work twice as fast, but a disconnected drive waits. Grow generation with the load; do not let one silent network become the whole town again."],
+		"goal": "Craft a dynamo and poles after Foundry craft [T]. Inspect a machine to install its electric drive."
+	},
 	"stone_homecoming": {
 		"title": "A town built to stay", "speaker": "workshop", "site": "workshop",
 		"pages": [

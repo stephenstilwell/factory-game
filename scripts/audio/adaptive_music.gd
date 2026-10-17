@@ -1,5 +1,5 @@
 extends Node
-## Two voices, infrequent context queries, boundary hysteresis and smooth crossfades.
+## Two reusable voices; context hysteresis plus independent per-context shuffle bags.
 const Catalog = preload("res://scripts/data/music_catalog.gd")
 const FADE_SECONDS := 3.0
 const HOLD_SECONDS := 20.0
@@ -9,6 +9,7 @@ var players: Array[AudioStreamPlayer] = []
 var output_enabled := DisplayServer.get_name() != "headless"
 var adaptive := true
 var current := "wilds"
+var track := ""
 var candidate := ""
 var candidate_time := 0.0
 var dwell := HOLD_SECONDS
@@ -17,8 +18,14 @@ var incoming := 0
 var outgoing := 1
 var fade := FADE_SECONDS
 var duck := 1.0
+var track_time := 0.0
+var gains := [1.0, 1.0]
+var bags: Dictionary = {}
+var last_tracks: Dictionary = {}
+var rng := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	rng.randomize() # Never change the simulation's random sequence.
 	for i in range(2):
 		var player := AudioStreamPlayer.new()
 		player.bus = "Music"
@@ -42,6 +49,7 @@ static func context(world: RefCounted) -> String:
 	if biome == 2: return "highlands"
 	return "wilds"
 
+
 func bind_world(world: RefCounted) -> void:
 	candidate = ""
 	candidate_time = 0
@@ -56,24 +64,46 @@ func set_adaptive(value: bool, world: RefCounted) -> void:
 	dwell = HOLD_SECONDS
 	request(context(world) if adaptive else "hearth")
 
+func next_track(id: String) -> String:
+	if not bags.has(id) or bags[id].is_empty():
+		var bag: Array = Catalog.PLAYLISTS[id].duplicate()
+		for i in range(bag.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var swap = bag[i]
+			bag[i] = bag[j]
+			bag[j] = swap
+		if bag.size() > 1 and bag[0] == last_tracks.get(id, ""):
+			var swap = bag[0]
+			bag[0] = bag[1]
+			bag[1] = swap
+		bags[id] = bag
+	var result: String = bags[id].pop_front()
+	last_tracks[id] = result
+	return result
+
 func _load(index: int, id: String) -> void:
-	var stream: AudioStreamWAV = Catalog.TRACKS[id].stream.duplicate()
-	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	stream.loop_begin = 0
-	stream.loop_end = roundi(stream.get_length() * stream.mix_rate)
+	track = next_track(id)
+	var entry: Dictionary = Catalog.TRACKS[track]
+	var stream: AudioStream = entry.stream.duplicate()
+	# Recordings play to their endings, then rotate; never force a full-song hard loop.
+	if stream is AudioStreamWAV: stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	elif stream is AudioStreamOggVorbis or stream is AudioStreamMP3: stream.loop = false
 	players[index].stream = stream
+	gains[index] = db_to_linear(float(entry.gain_db))
+	track_time = 0
 	if output_enabled: players[index].play()
 
-func request(id: String) -> bool:
-	if not Catalog.TRACKS.has(id) or id == current or fade < FADE_SECONDS: return false
+func request(id: String, rotate: bool = false) -> bool:
+	if not Catalog.PLAYLISTS.has(id) or (id == current and not rotate) or fade < FADE_SECONDS: return false
 	outgoing = incoming
 	incoming = 1 - incoming
 	_load(incoming, id)
 	current = id
 	fade = 0
-	dwell = 0
-	candidate = ""
-	candidate_time = 0
+	if not rotate:
+		dwell = 0
+		candidate = ""
+		candidate_time = 0
 	apply_mix()
 	track_changed.emit(id)
 	return true
@@ -81,6 +111,7 @@ func request(id: String) -> bool:
 func step(delta: float, world: RefCounted, paused: bool, suspended: bool) -> void:
 	for player in players: player.stream_paused = suspended
 	if suspended: return
+	track_time += delta
 	if fade < FADE_SECONDS:
 		fade = minf(FADE_SECONDS, fade + delta)
 		if fade >= FADE_SECONDS:
@@ -89,11 +120,18 @@ func step(delta: float, world: RefCounted, paused: bool, suspended: bool) -> voi
 	var target_duck := 0.5 if paused else 1.0
 	duck = move_toward(duck, target_duck, delta * 1.5)
 	apply_mix()
-	if paused: return # Keep the musical bed; freeze context decisions with gameplay.
+	# Follow actual audio position when a device is active, a test clock otherwise.
+	var elapsed: float = players[incoming].get_playback_position() if output_enabled else track_time
+	var duration: float = players[incoming].stream.get_length()
+	if fade >= FADE_SECONDS and elapsed >= duration - FADE_SECONDS:
+		request(current, true)
+	elif output_enabled and fade >= FADE_SECONDS and not players[incoming].playing:
+		request(current, true) # Recover if a frame skipped the end transition.
+	if paused: return
 	dwell += delta
 	poll += delta
 	if poll < 1.0: return
-	var elapsed := poll
+	var interval := poll
 	poll = 0
 	var wanted := context(world) if adaptive else "hearth"
 	if wanted == current:
@@ -103,14 +141,13 @@ func step(delta: float, world: RefCounted, paused: bool, suspended: bool) -> voi
 	if wanted != candidate:
 		candidate = wanted
 		candidate_time = 0
-	else: candidate_time += elapsed
+	else: candidate_time += interval
 	if not adaptive or wanted == "beacon" or (candidate_time >= SETTLE_SECONDS and dwell >= HOLD_SECONDS): request(wanted)
 
 func apply_mix() -> void:
 	var progress := clampf(fade / FADE_SECONDS, 0, 1)
-	# Equal-power fades avoid a volume dip; gain remains capped at -6 dB per voice.
-	players[incoming].volume_linear = sin(progress * PI / 2) * duck * 0.5
-	players[outgoing].volume_linear = cos(progress * PI / 2) * duck * 0.5
+	players[incoming].volume_linear = sin(progress * PI / 2) * duck * 0.5 * gains[incoming]
+	players[outgoing].volume_linear = cos(progress * PI / 2) * duck * 0.5 * gains[outgoing]
 
 func _exit_tree() -> void:
 	for player in players:

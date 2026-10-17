@@ -94,7 +94,9 @@ static func run(test: SceneTree) -> void:
 	tree_world.mining = true
 	tree_world.mining_cell = tree
 	test.advance(tree_world, 6)
-	test.check(not tree_world.frontier.tree_at(tree_world, tree) and tree_world.player.total() == 0 and tree_world.skills.xp.mining == 0, "Brush clearing is quick and cannot farm materials or Mining XP")
+	test.check(not tree_world.frontier.tree_at(tree_world, tree) and tree_world.player.count("timber") == 4 and tree_world.skills.xp.mining == 6, "Finite trees supply timber and Gathering XP in legacy worlds")
+	test.advance(tree_world, 6)
+	test.check(tree_world.player.count("timber") == 4 and tree_world.skills.xp.mining == 6, "Cleared trees cannot yield timber or XP twice")
 	loaded = Saves.decode(JSON.parse_string(JSON.stringify(Saves.encode(tree_world))))
 	test.check(loaded.error.is_empty() and not loaded.world.frontier.tree_at(loaded.world, tree), "Cleared scenery never regrows on reload")
 	var old := Fixtures.demo()

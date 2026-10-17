@@ -1,5 +1,10 @@
 extends SceneTree
 
+const OrchardProjectTests = preload("res://tests/orchard_project_tests.gd")
+const QuarryProjectTests = preload("res://tests/quarry_project_tests.gd")
+const TownServicesTests = preload("res://tests/town_services_tests.gd")
+const SaveRecoveryTests = preload("res://tests/save_recovery_tests.gd")
+const BacklogPolishTests = preload("res://tests/backlog_polish_tests.gd")
 const AdaptiveMusicTests = preload("res://tests/adaptive_music_tests.gd")
 const EarlyProgressionTests = preload("res://tests/early_progression_tests.gd")
 const SettlementAgeTests = preload("res://tests/settlement_age_tests.gd")
@@ -41,6 +46,21 @@ func advance(world: RefCounted, count: int) -> void:
 	for i in range(count): Simulation.step(world)
 
 func _run() -> void:
+	preload("res://tests/regional_story_tests.gd").run(self)
+	await preload("res://tests/save_slots_tests.gd").run(self)
+	preload("res://tests/armor_tests.gd").run(self)
+	preload("res://tests/map_cache_tests.gd").run(self)
+	preload("res://tests/power_tests.gd").run(self)
+	preload("res://tests/plan_history_tests.gd").run(self)
+	OrchardProjectTests.run(self)
+	await OrchardProjectTests.ui(self)
+	QuarryProjectTests.run(self)
+	await QuarryProjectTests.ui(self)
+	TownServicesTests.run(self)
+	await TownServicesTests.ui(self)
+	await SaveRecoveryTests.run(self)
+	BacklogPolishTests.run(self)
+	await BacklogPolishTests.ui(self)
 	EarlyProgressionTests.run(self)
 	SettlementAgeTests.run(self)
 	FrontierTests.run(self)

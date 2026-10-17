@@ -11,6 +11,16 @@ var reward: Label
 var state_label: Label
 var claim_button: Button
 var track_button: Button
+var orchard_box: VBoxContainer
+var orchard_text: Label
+var bed_button: Button
+var orchard_supply: Button
+var orchard_collect: Button
+var orchard_withdraw: Button
+var road_box: VBoxContainer
+var road_text: Label
+var road_deliver: Button
+var road_withdraw: Button
 var puzzle: VBoxContainer
 var cells: Dictionary = {}
 var result_label: Label
@@ -65,9 +75,28 @@ func _ready() -> void:
 	detail.add_child(actions)
 	track_button = Style.button(actions, "Track lead", func():
 		world.frontier.target = "" if world.frontier.target == selected else selected
+		if not world.frontier.target.is_empty(): world.navigation.track(0)
 		world.changed.emit()
 		refresh())
 	claim_button = Style.button(actions, "Recover discovery", func(): world.frontier.claim(world, selected); refresh())
+	orchard_box = VBoxContainer.new()
+	detail.add_child(orchard_box)
+	orchard_text = Style.label("", 15)
+	orchard_box.add_child(orchard_text)
+	bed_button = Style.button(orchard_box, "Restore growing bed", func(): world.orchard_project.restore_bed(world); refresh())
+	var orchard_actions := HBoxContainer.new()
+	orchard_box.add_child(orchard_actions)
+	orchard_supply = Style.button(orchard_actions, "Supply growing beds", func(): world.orchard_project.supply(world); refresh())
+	orchard_collect = Style.button(orchard_actions, "Collect produce", func(): world.orchard_project.collect(world); refresh())
+	orchard_withdraw = Style.button(orchard_actions, "Withdraw inputs", func(): world.orchard_project.withdraw(world); refresh())
+	road_box = VBoxContainer.new()
+	detail.add_child(road_box)
+	road_text = Style.label("", 15)
+	road_box.add_child(road_text)
+	var road_actions := HBoxContainer.new()
+	road_box.add_child(road_actions)
+	road_deliver = Style.button(road_actions, "Deliver up to one load", func(): world.quarry_project.deliver(world); refresh())
+	road_withdraw = Style.button(road_actions, "Withdraw buffer", func(): world.quarry_project.withdraw(world); refresh())
 	puzzle = VBoxContainer.new()
 	puzzle.add_theme_constant_override("separation", 6)
 	detail.add_child(puzzle)
@@ -135,7 +164,11 @@ func refresh() -> void:
 		var found: bool = exists and world.frontier.sites[id].discovered
 		site_buttons[id].disabled = not exists
 		site_buttons[id].text = Definitions.SITES[id].name + ("\nRECOVERED" if world.frontier.claimed(id) else ("\nDISCOVERED" if found else "\nRUMOR"))
+		if id == "orchard" and world.frontier.claimed(id): site_buttons[id].text += "\nGrowing beds %d / 3" % world.orchard_project.beds
+		if id == "quarry" and world.frontier.claimed(id): site_buttons[id].text += "\nRoad %d / 9 loads" % world.settlements.road_deliveries
 		Style.select(site_buttons[id], id == selected)
+	road_box.hide()
+	orchard_box.hide()
 	if selected.is_empty():
 		title.text = "No leads in this world yet."
 		puzzle.hide()
@@ -160,6 +193,38 @@ func refresh() -> void:
 	claim_button.disabled = record.claimed or not reason.is_empty() or (selected == "depot" and not world.frontier.evaluate().success)
 	claim_button.text = "Recovered" if record.claimed else ("Restore depot" if selected == "depot" else "Recover discovery")
 	claim_button.tooltip_text = reason if not reason.is_empty() else "Rewards are granted once. Salvage requires enough pack space for the whole bundle."
+	road_box.visible = selected == "quarry" and record.claimed
+	if road_box.visible:
+		description.hide()
+		reward.hide()
+		var project: RefCounted = world.quarry_project
+		var delivered: int = world.settlements.road_deliveries
+		var port: Vector2i = world.frontier.port("quarry")
+		road_text.text = "GREYBANK ROAD / %d of 9 loads / %d of 3 sections\n20 stone + 4 planks per 60-second load: +12 credits.\nEvery 3 loads: visible road, +15%% walking speed on restored sections, +300 Fabrication XP.\nBUFFER: %d stone / %d planks\n%s\nHATCH (%d, %d): inserter (%d, %d) facing EAST; pickup (%d, %d)." % [delivered, delivered / 3, project.inventory.count("stone"), project.inventory.count("plank"), "Road complete! All sections are open." if delivered == 9 else ("Load in transit: %.1fs remaining." % (project.shipment_ticks / 10.0) if project.shipment_ticks > 0 else "Waiting for a complete load."), port.x, port.y, port.x - 1, port.y, port.x - 2, port.y]
+		if not project.available(world): road_text.text += "\nRebuild the crossing and reopen healthy market/town services to dispatch."
+		var can_deliver := false
+		for item in project.GOODS:
+			if world.player.count(item) > 0 and project.receiving_limit(world, item) > 0: can_deliver = true
+		road_deliver.disabled = not can_deliver or not world.in_reach(port)
+		road_withdraw.disabled = project.inventory.total() == 0 or not world.in_reach(port) or not world.player.can_exchange({}, project.inventory.contents)
+	else:
+		reward.show()
+	orchard_box.visible = selected == "orchard" and record.claimed
+	if orchard_box.visible:
+		description.hide()
+		reward.hide()
+		var garden: RefCounted = world.orchard_project
+		var port: Vector2i = world.frontier.port("orchard")
+		var close: bool = world.in_reach(port)
+		orchard_text.text = "IONA'S GROWING BEDS / %d of 3 restored\nPer bed: 1 charcoal/coal + 1 plank -> 4 fresh produce per 45s.\nTrade at market: 4 produce -> 6 credits per 30s.\nINPUTS %d fuel / %d planks / HARVEST %d of 24\n%s\nHATCH (%d,%d): input inserter west, facing EAST.\nOutput inserter north, facing NORTH; pickup is the hatch." % [garden.beds, garden.inventory.count("coal"), garden.inventory.count("plank"), garden.output.count("foraged_food"), "Growing: %.1fs" % (garden.growth_ticks / 10.0) if garden.growth_ticks > 0 else ("Harvest storage full." if garden.output.total() == 24 else "Waiting for growing supplies."), port.x, port.y]
+		var bed_reason: String = garden.restore_bed_reason(world)
+		bed_button.text = "Restore bed %d: 10 stone + 8 planks + 15 credits (+250 Gathering XP)" % (garden.beds + 1) if garden.beds < 3 else "All three growing beds restored"
+		bed_button.disabled = not bed_reason.is_empty()
+		bed_button.tooltip_text = bed_reason
+		if not bed_reason.is_empty() and garden.beds < 3: orchard_text.text += "\n" + bed_reason
+		orchard_supply.disabled = not close or not garden.available(world) or garden.beds == 0 or not ((world.player.count("coal") > 0 and garden.receiving_limit(world, "coal") > 0) or (world.player.count("plank") > 0 and garden.receiving_limit(world, "plank") > 0))
+		orchard_collect.disabled = not close or garden.output.total() == 0 or world.player.total() >= world.player.capacity
+		orchard_withdraw.disabled = not close or garden.inventory.total() == 0 or not world.player.can_exchange({}, garden.inventory.contents)
 	puzzle.visible = selected == "depot" and record.discovered
 	if not reason.is_empty(): state_label.text += "\n" + reason
 	if not puzzle.visible: return

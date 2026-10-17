@@ -201,7 +201,7 @@ static func ui(test: SceneTree) -> void:
 	scene.hud.workspace.open_mode("town")
 	scene.hud.refresh()
 	var panel = scene.hud.town_panel
-	test.check(panel.age_box.visible and not panel.age_button.disabled and panel.age_text.text.contains("Gathered berries"), "Town explains primitive project costs and enables its real delivery action")
+	test.check(panel.age_box.visible and not panel.age_button.disabled and panel.age_text.text.contains("Fresh produce"), "Town explains primitive project costs and enables its real delivery action")
 	panel.age_button.pressed.emit()
 	scene.hud.refresh()
 	test.check(world.early.phase == 1 and world.player.total() == 0 and panel.age_text.text.contains("Water-sawn"), "Town UI spends the actual shelter supplies and reveals stone production goals")

@@ -6,6 +6,62 @@ const MAX_MODULE := 256
 var clipboard: Array = []
 var ghosts: Dictionary = {}
 
+const MAX_HISTORY := 32
+var undo_stack: Array = []
+var redo_stack: Array = []
+
+func _remember(before: Dictionary) -> void:
+	var changes: Dictionary = {}
+	for cell in before:
+		if before[cell] != ghosts.get(cell): changes[cell] = {"before": before[cell], "after": ghosts.get(cell)}
+	if changes.is_empty(): return
+	undo_stack.append(changes.duplicate(true))
+	if undo_stack.size() > MAX_HISTORY: undo_stack.pop_front()
+	redo_stack.clear()
+
+func remove(world: RefCounted, cell: Vector2i) -> void:
+	if not ghosts.has(cell): return
+	var before := {cell: ghosts[cell].duplicate(true)}
+	ghosts.erase(cell)
+	_remember(before)
+	world.changed.emit()
+
+func clear(world: RefCounted) -> void:
+	var before := ghosts.duplicate(true)
+	ghosts.clear()
+	_remember(before)
+	world.changed.emit()
+
+func forget(cell: Vector2i) -> void:
+	ghosts.erase(cell)
+	for stack in [undo_stack, redo_stack]:
+		for edit in stack: edit.erase(cell)
+		for index in range(stack.size() - 1, -1, -1):
+			if stack[index].is_empty(): stack.remove_at(index)
+
+func undo(world: RefCounted) -> bool:
+	return _history(world, undo_stack, redo_stack, "before", "after")
+
+func redo(world: RefCounted) -> bool:
+	return _history(world, redo_stack, undo_stack, "after", "before")
+
+func _history(world: RefCounted, source: Array, destination: Array, target: String, expected: String) -> bool:
+	if source.is_empty(): return false
+	var edit: Dictionary = source.pop_back()
+	var applied: Dictionary = {}
+	for cell in edit:
+		if world.at(cell) != null or world.settlements.at(cell) != null: continue
+		if ghosts.get(cell) != edit[cell][expected]: continue
+		var record = edit[cell][target]
+		if record == null: ghosts.erase(cell)
+		else: ghosts[cell] = record.duplicate(true)
+		applied[cell] = edit[cell]
+	if applied.is_empty(): return false
+	destination.append(applied)
+	world.changed.emit()
+	return true
+
+
 func capture(world: RefCounted, rect: Rect2i) -> String:
 	if rect.size.x > 64 or rect.size.y > 64: return "Select an area no larger than 64 by 64 tiles."
 	var copied: Array = []
@@ -57,7 +113,10 @@ func _place(world: RefCounted, records: Array, origin: Vector2i) -> String:
 	for cell in pending:
 		if not ghosts.has(cell): count += 1
 	if count > MAX_GHOSTS: return "Build or clear existing plans before adding more than 512 ghosts."
+	var before: Dictionary = {}
+	for cell in pending: before[cell] = ghosts.get(cell)
 	for cell in pending: ghosts[cell] = pending[cell]
+	_remember(before)
 	world.changed.emit()
 	return ""
 
@@ -98,4 +157,47 @@ func restore(data: Variant, world: RefCounted) -> bool:
 		if record.kind == "drill" and world.terrain.tile(cell).is_empty(): return false
 		restored[cell] = {"x": cell.x, "y": cell.y, "kind": record.kind, "direction": int(record.direction), "recipe": record.recipe, "underground_exit": record.underground_exit}
 	ghosts = restored
+	undo_stack.clear()
+	redo_stack.clear()
 	return true
+
+func supply_report(world: RefCounted, nearby_only: bool = true) -> Dictionary:
+	var rows: Dictionary = {}
+	var ready := 0
+	var distant := 0
+	var blocked := 0
+	var allocated: Dictionary = {}
+	for cell in ghosts:
+		var record: Dictionary = ghosts[cell]
+		var nearby: bool = world.in_reach(cell)
+		if not nearby: distant += 1
+		if nearby_only and not nearby: continue
+		var kind: String = record.kind
+		if not rows.has(kind): rows[kind] = {"needed": 0, "pack": world.player.count(kind), "queued": 0, "missing": 0, "recipe": "", "craft_batches": 0}
+		rows[kind].needed += 1
+		if nearby:
+			var reason: String = world.can_build(kind, cell, false)
+			if reason.is_empty() and int(allocated.get(kind, 0)) < world.player.count(kind):
+				ready += 1
+				allocated[kind] = int(allocated.get(kind, 0)) + 1
+			elif not reason.is_empty(): blocked += 1
+	for job in world.craft_queue:
+		for item in Catalog.RECIPES[job.recipe]["out"]:
+			if rows.has(item): rows[item].queued += int(Catalog.RECIPES[job.recipe]["out"][item])
+	for kind in rows:
+		var row: Dictionary = rows[kind]
+		row.missing = maxi(0, int(row.needed) - int(row.pack) - int(row.queued))
+		for id in Catalog.RECIPES:
+			var recipe: Dictionary = Catalog.RECIPES[id]
+			if not recipe["out"].has(kind) or not world.Crafting.available(world, id): continue
+			row.recipe = id
+			row.craft_batches = mini(ceili(float(row.missing) / int(recipe["out"][kind])), world.craft_maximum(id))
+			break
+	return {"rows": rows, "ready": ready, "distant": distant, "blocked": blocked}
+
+func craft_missing(world: RefCounted, kind: String, nearby_only: bool = true) -> bool:
+	var report := supply_report(world, nearby_only)
+	if not report.rows.has(kind): return false
+	var row: Dictionary = report.rows[kind]
+	if row.craft_batches <= 0: return false
+	return world.craft_many(row.recipe, int(row.craft_batches))

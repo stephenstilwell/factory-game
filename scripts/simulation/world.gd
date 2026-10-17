@@ -6,6 +6,7 @@ const Inventory = preload("res://scripts/model/inventory.gd")
 const Entity = preload("res://scripts/model/entity.gd")
 const Terrain = preload("res://scripts/model/terrain.gd")
 const Onboarding = preload("res://scripts/simulation/onboarding.gd")
+const TownServices = preload("res://scripts/simulation/town_services.gd")
 const Settlements = preload("res://scripts/simulation/settlements.gd")
 const Transfers = preload("res://scripts/simulation/inventory_transfers.gd")
 const Crafting = preload("res://scripts/simulation/crafting.gd")
@@ -40,6 +41,10 @@ var settlements: RefCounted
 var combat := PlayerCombat.new()
 var navigation_revision := 0
 var defense: RefCounted
+var orchard_project := preload("res://scripts/simulation/orchard_project.gd").new()
+var quarry_project := preload("res://scripts/simulation/quarry_project.gd").new()
+var navigation := preload("res://scripts/model/navigation.gd").new()
+var exploration := preload("res://scripts/model/exploration.gd").new()
 var frontier := Frontier.new()
 var early := Early.new()
 var guidance := Guidance.new()
@@ -59,6 +64,7 @@ var research_target := "logistics"
 var research_banks: Dictionary = {}
 var automation_awards: Dictionary = {}
 var metrics := Metrics.new()
+var power := preload("res://scripts/simulation/power_grid.gd").new()
 var plans := Plans.new()
 var craft_queue: Array = []
 var craft_credit := 0 # Earned work carried only between queued jobs.
@@ -101,6 +107,11 @@ func start(primitive: bool = true) -> void:
 	defense = Defense.new()
 	combat = PlayerCombat.new()
 	navigation_revision += 1
+	power = preload("res://scripts/simulation/power_grid.gd").new()
+	orchard_project = preload("res://scripts/simulation/orchard_project.gd").new()
+	quarry_project = preload("res://scripts/simulation/quarry_project.gd").new()
+	navigation = preload("res://scripts/model/navigation.gd").new()
+	exploration = preload("res://scripts/model/exploration.gd").new()
 	frontier = Frontier.new()
 	guidance = Guidance.new()
 	story = Story.new()
@@ -171,12 +182,12 @@ func award_skill(id: String, amount: int) -> void:
 		message.emit("%s level %d!%s Engineer [P] shows rewards and equipment." % [Skills.Definitions.SKILLS[id].name, reward.level, extra])
 
 func movement_speed() -> float:
-	return float(character.stat("movement_speed")) * skills.multiplier("exploration") * defense.morale_multiplier(self)
+	return float(character.stat("movement_speed")) * skills.multiplier("exploration") * defense.morale_multiplier(self) * quarry_project.movement_multiplier(self)
 
 func unlocked(definition: Dictionary) -> bool:
 	return not definition.has("technology") or definition.technology in researched
 
-func can_build(kind: String, cell: Vector2i) -> String:
+func can_build(kind: String, cell: Vector2i, require_item: bool = true) -> String:
 	if not Catalog.BUILDINGS.has(kind): return "Unknown building."
 	if not in_reach(cell): return "Out of reach. Walk closer with WASD."
 	if at(cell) != null: return "Tile is occupied."
@@ -185,7 +196,7 @@ func can_build(kind: String, cell: Vector2i) -> String:
 	if frontier.at(cell) != "": return "This land belongs to a frontier landmark."
 	if not unlocked(Catalog.BUILDINGS[kind]): return "Research " + Catalog.technology(Catalog.BUILDINGS[kind].technology).name + " first."
 	if not content_available(kind): return "Follow the current learning objective to discover this building."
-	if player.count(kind) == 0: return "Craft more %s (C)." % Catalog.item_name(kind)
+	if require_item and player.count(kind) == 0: return "Craft more %s (C)." % Catalog.item_name(kind)
 	if Catalog.BUILDINGS[kind].solid and Rect2(Vector2(cell), Vector2.ONE).grow(0.22).has_point(player_position): return "Move away from the construction tile."
 	if kind == "watermill" and not early.near_water(cell): return "Place the sawmill beside the old watercourse south near (24, 28)."
 	if kind == "drill" and terrain.tile(cell).is_empty(): return "Drills require a resource deposit."
@@ -201,7 +212,7 @@ func build(kind: String, cell: Vector2i, direction: int, exit_mode: bool = false
 	metrics.record(ticks, "used", kind, 1)
 	var entity = spawn(kind, cell, direction)
 	entity.underground_exit = exit_mode if kind == "underground_belt" else false
-	plans.ghosts.erase(cell)
+	plans.forget(cell)
 	record("placed:" + kind)
 	feedback_requested.emit("build", cell)
 	changed.emit()
@@ -222,6 +233,8 @@ func register(entity: RefCounted) -> void:
 func _reclaim_returns(entity: RefCounted) -> Dictionary:
 	var returns: Dictionary = entity.inventory.contents.duplicate()
 	for item in entity.output.contents: returns[item] = int(returns.get(item, 0)) + entity.output.count(item)
+	if entity.electric_mode:
+		for item in power.COST: returns[item] = int(returns.get(item, 0)) + int(power.COST[item])
 	returns[entity.kind] = int(returns.get(entity.kind, 0)) + 1
 	if not entity.carried.is_empty(): returns[entity.carried] = int(returns.get(entity.carried, 0)) + 1
 	return returns
@@ -279,7 +292,7 @@ func collect_output(cell: Vector2i) -> void:
 	if entity.kind == "inserter":
 		if entity.carried != "": transfer_item(entity.carried, 0, {"kind": "hand", "entity_id": entity.id}, {"kind": "player"})
 		return
-	var kind := "input" if entity.kind in (["chest", "cart_post", "fuel_depot"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT) else "output"
+	var kind := "input" if entity.kind in (["chest", "cart_post", "fuel_depot", "generator"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT) else "output"
 	var storage = entity.inventory if kind == "input" else entity.output
 	for item in storage.contents.keys(): transfer_item(item, 0, {"kind": kind, "entity_id": entity.id}, {"kind": "player"})
 
@@ -323,7 +336,7 @@ func supply(cell: Vector2i) -> void:
 		message.emit("Stacked %d matching items. Drag an item into the chest to store a new type." % stacked)
 		changed.emit()
 		return
-	if entity.kind == "fuel_depot":
+	if entity.kind in ["fuel_depot", "generator"]:
 		transfer_item("coal", 0, {"kind": "player"}, {"kind": "input", "entity_id": entity.id})
 		return
 	var accepted := 0
@@ -363,8 +376,9 @@ func set_recipe(cell: Vector2i, recipe_id: String) -> bool:
 
 func input_limit(entity: RefCounted, item: String) -> int:
 	if entity.kind == "cart_post": return 100
+	if entity.kind == "generator": return 50 if item == "coal" else 0
 	if entity.kind == "fuel_depot": return 200 if item == "coal" else 0
-	if item == "coal" and Catalog.BUILDINGS[entity.kind].get("fuel", false): return 10
+	if item == "coal" and not entity.electric_mode and Catalog.BUILDINGS[entity.kind].get("fuel", false): return 10
 	if not entity.recipe.is_empty(): return maxi(10, int(Catalog.RECIPES[entity.recipe]["in"].get(item, 0)) * 2)
 	return 10
 
@@ -404,18 +418,22 @@ func award_automation(key: String, skill: String, xp_amount: int) -> void:
 	message.emit("Automation milestone! +%d %s XP. Your factory is doing the work." % [xp_amount, Skills.Definitions.SKILLS[skill].name])
 
 func accepts(entity: RefCounted, item: String) -> bool:
+	if entity.kind == "orchard_port": return orchard_project.receiving_limit(self, item) > 0
+	if entity.kind == "regional_port": return quarry_project.receiving_limit(self, item) > 0
+	if entity.kind == "generator": return entity.health > 0 and item == "coal" and entity.inventory.count("coal") < 50
 	if entity.kind == "fuel_depot": return entity.health > 0 and item == "coal" and entity.inventory.count("coal") < 200
-	if entity.kind == "settlement_port": return settlements.receiving_limit(entity.id, item) > 0
+	if entity.kind == "settlement_port": return settlements.receiving_limit(entity.id, item, self) > 0
 	if entity.health <= 0: return false
 	if Catalog.Combat.TURRETS.has(entity.kind): return item == "ammo" and entity.inventory.count(item) < 10
 	if entity.kind in (Catalog.TRANSPORT + ["chest", "cart_post"]): return true
 	if entity.kind == "lab": return item == "science" and not current_research().is_empty()
-	if item == "coal" and Catalog.BUILDINGS[entity.kind].get("fuel", false): return entity.inventory.count("coal") < 10
+	if item == "coal" and not entity.electric_mode and Catalog.BUILDINGS[entity.kind].get("fuel", false): return entity.inventory.count("coal") < 10
 	if not entity.recipe.is_empty(): return Catalog.RECIPES[entity.recipe]["in"].has(item) and entity.inventory.count(item) < input_limit(entity, item)
 	return false
 
 func transfer_source(entity: RefCounted):
-	return entity.inventory if entity.kind in (Catalog.TRANSPORT + ["chest", "cart_post", "fuel_depot"]) else entity.output
+	if entity.kind == "orchard_port": return entity.output
+	return entity.inventory if entity.kind in (Catalog.TRANSPORT + ["chest", "cart_post", "fuel_depot", "generator"]) else entity.output
 
 func solid(cell: Vector2i) -> bool:
 	var entity = at(cell)
@@ -460,7 +478,15 @@ func repair_at(cell: Vector2i) -> bool:
 
 func logistics_receiver(cell: Vector2i):
 	var entity = at(cell)
-	return entity if entity != null else settlements.receiver(cell)
+	if entity != null: return entity
+	if frontier.sites.has("quarry") and cell == frontier.port("quarry"): return quarry_project
+	if frontier.sites.has("orchard") and cell == frontier.port("orchard"): return orchard_project
+	return settlements.receiver(cell)
+
+func logistics_source(cell: Vector2i):
+	var entity = at(cell)
+	if entity != null: return entity
+	return orchard_project if frontier.sites.has("orchard") and cell == frontier.port("orchard") else null
 
 func burner_fuel_duration() -> int:
 	return Catalog.FUEL_TICKS + settlements.effect("burner_ticks")
@@ -522,6 +548,8 @@ func restore_site(id: String) -> bool:
 		message.emit(reason)
 		return false
 	message.emit("Restored: " + Settlements.Definitions.SITES[id].name + ". " + Settlements.Definitions.SITES[id].reward)
+	if id == "trading_post" and frontier.claimed("orchard"): message.emit("Iona can restore growing beds at the Lost Orchard. Discoveries [L] shows costs, supplies and produce trading.")
+	if id == "trading_post" and frontier.claimed("quarry"): message.emit("Greybank roadbuilders need stone and planks. Discoveries [L] shows shipments, rewards and the quarry hatch.")
 	feedback_requested.emit("success", settlements.sites[id].port())
 	changed.emit()
 	request_story(Story.Definitions.NPCS[id].after)
@@ -536,6 +564,7 @@ func withdraw_site(id: String) -> void:
 	changed.emit()
 
 func move_player() -> void:
+	exploration.reveal(player_position)
 	previous_position = player_position
 	var movement := move_direction.limit_length(1.0) * movement_speed() * TICK_SECONDS
 	for i in range(4):

@@ -51,6 +51,8 @@ try {
     if (Select-String -LiteralPath $runtimeLog -Pattern 'SCRIPT ERROR:|ERROR:|Parse Error:' -Quiet) { throw 'Exported runtime reported errors' }
 } finally { Pop-Location }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs/PLAYER-README.txt') -Destination (Join-Path $packageDirectory 'README.txt')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'MUSIC-CREDITS.txt') -Destination (Join-Path $packageDirectory 'MUSIC-CREDITS.txt')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets/audio/licensed/CC0-1.0.txt') -Destination (Join-Path $packageDirectory 'CC0-1.0.txt')
 $commit = (& git -C $projectRoot rev-parse HEAD | Out-String).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Could not resolve source commit' }
 @{ version = $Version; godot = $actualVersion; commit = $commit; platform = 'windows-x86_64' } |

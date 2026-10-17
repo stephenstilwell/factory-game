@@ -29,7 +29,18 @@ static func restore(world: RefCounted, data) -> bool:
 	if not _int(data.get("supply_orders", 0), 0, 100000000): return false
 	region.supply_orders = int(data.get("supply_orders", 0))
 	if region.supply_orders > 0 and not region.enabled: return false
-	var spent := region.supply_orders * region.SUPPLY_COST
+	if not _int(data.get("maintenance_kits", 0), 0, 100000000): return false
+	region.maintenance_kits = int(data.get("maintenance_kits", 0))
+	if not _int(data.get("road_deliveries", 0), 0, 9): return false
+	region.road_deliveries = int(data.get("road_deliveries", 0))
+	if region.road_deliveries > 0 and not region.enabled: return false
+	earned += region.road_deliveries * world.quarry_project.REWARD
+	if not _int(data.get("garden_beds", 0), 0, 3) or not _int(data.get("produce_sales", 0), 0, 100000000): return false
+	region.garden_beds = int(data.get("garden_beds", 0))
+	region.produce_sales = int(data.get("produce_sales", 0))
+	if region.garden_beds > 0 and not region.enabled: return false
+	earned += region.produce_sales * world.orchard_project.SALE_REWARD
+	var spent: int = region.garden_beds * world.orchard_project.BED_CREDITS + region.supply_orders * region.SUPPLY_COST + region.maintenance_kits * world.TownServices.CREDIT_PER_KIT
 	for record in data.sites:
 		if not record is Dictionary or not Definitions.SITES.has(record.get("id")) or seen.has(record.id): return false
 		seen[record.id] = true
@@ -61,11 +72,12 @@ static func restore(world: RefCounted, data) -> bool:
 		elif site.shipment_ticks != 0 or site.shipments != 0: return false
 		if not record.get("inventory") is Dictionary: return false
 		for item in record.inventory:
-			if not Catalog.ITEMS.has(item) or not allowed.has(item) or not _int(record.inventory[item], 1, int(allowed[item]) * multiplier): return false
+			var limit: int = 16 if record.id == "trading_post" and site.repaired and region.garden_beds > 0 and item == "foraged_food" else int(allowed.get(item, 0)) * multiplier
+			if not Catalog.ITEMS.has(item) or not _int(record.inventory[item], 1, limit): return false
 			site.inventory.contents[item] = int(record.inventory[item])
 		if site.inventory.total() > site.inventory.capacity: return false
 		if not region.enabled and (site.repaired or site.inventory.total() > 0 or site.shipment_ticks > 0 or site.shipments > 0): return false
-	if region.supply_orders > 0 and (not region.sites.trading_post.repaired or not region.sites.workshop.repaired): return false
+	if (region.supply_orders > 0 or region.maintenance_kits > 0) and (not region.enabled or not region.sites.trading_post.repaired or not region.sites.workshop.repaired): return false
 	if region.stone_shipments > region.sites.trading_post.shipments: return false
 	if region.age == 0 and region.stone_shipments != 0: return false
 	if region.age > 0 and not region.enabled: return false

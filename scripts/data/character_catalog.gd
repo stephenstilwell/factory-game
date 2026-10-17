@@ -1,7 +1,8 @@
 extends RefCounted
 ## Permanent manufactured improvements, separate from factory recipe research.
-const BASE_STATS := {"movement_speed": 4.0, "mining_ticks": 8, "interaction_reach": 6.0, "inventory_capacity": 10000, "repair_power": 50, "survey_bonus": 0}
+const BASE_STATS := {"movement_speed": 4.0, "mining_ticks": 8, "interaction_reach": 6.0, "inventory_capacity": 10000, "repair_power": 50, "survey_bonus": 0, "damage_reduction": 0}
 const UPGRADES := {
+	"armor": {"name": "Warden protective coat", "description": "Reduce damage to the engineer by 15%, then 30%. Does not protect buildings or replace defenses. Always takes at least one damage per hit.", "stat": "damage_reduction", "values": [15, 30], "costs": [{"iron_plate": 20, "wire": 10}, {"steel": 20, "gear": 10}]},
 	"repair": {"name": "Warden repair rig", "description": "Restore more structure health per repair kit. Useful on the hall, walls, and factory buildings.", "stat": "repair_power", "values": [65, 80, 100], "costs": [{"steel": 10, "gear": 8, "wire": 10}, {"steel": 20, "gear": 15, "construction_kit": 4}, {"steel": 35, "gear": 25, "construction_kit": 8}]},
 	"scanner": {"name": "Frontier survey instruments", "description": "Search farther for finite resource patches. Adds to Exploration survey bonuses.", "stat": "survey_bonus", "values": [1, 2], "costs": [{"steel": 12, "wire": 20, "gear": 10}, {"steel": 30, "wire": 40, "construction_kit": 6}]},
 	"boots": {"name": "Surveyor boots", "description": "Cover more ground while surveying and running supply routes.", "stat": "movement_speed", "values": [4.6, 5.2, 5.8, 6.2], "costs": [{"iron_plate": 10, "gear": 3, "copper_plate": 5}, {"iron_plate": 25, "gear": 10, "wire": 10}, {"steel": 15, "gear": 20, "wire": 20}, {"steel": 40, "gear": 30, "construction_kit": 8}]},
@@ -16,6 +17,10 @@ static func gate(world: RefCounted, rank: int, id: String = "") -> String:
 	if rank >= 3:
 		if "metallurgy" not in world.researched: return "Research Foundry craft."
 		if not world.settlements.enabled or not world.settlements.sites.workshop.repaired: return "Restore the engineers' workshop."
+	if id == "armor":
+		if "logistics" not in world.researched: return "Research Supply routes."
+		if not world.settlements.enabled or not world.settlements.sites.workshop.repaired: return "Restore the engineers' workshop."
+		if rank >= 2 and "metallurgy" not in world.researched: return "Research Foundry craft."
 	if id in ["repair", "scanner"]:
 		if not world.settlements.enabled or not world.settlements.sites.town_hall.repaired: return "Rebuild Oldbridge Town Hall."
 		if id == "repair" and rank >= 2 and world.settlements.district_level() < 1: return "Restore the first neighborhood."
@@ -28,6 +33,7 @@ static func gate(world: RefCounted, rank: int, id: String = "") -> String:
 
 static func format_stat(stat: String, value) -> String:
 	match stat:
+		"damage_reduction": return "%d%% less personal damage" % int(value)
 		"movement_speed": return "%.1f tiles/sec" % float(value)
 		"mining_ticks": return "%.2f items/sec (%.1fs/item)" % [10.0 / float(value), float(value) / 10.0]
 		"interaction_reach": return "%.0f tiles" % float(value)

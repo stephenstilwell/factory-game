@@ -1,0 +1,31 @@
+﻿extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
+static func run(test: SceneTree) -> void:
+	var world := Fixtures.demo()
+	var plans: RefCounted = world.plans
+	var cell := Vector2i(10, 10)
+	var stock: Dictionary = world.player.contents.duplicate(true)
+	plans.place_single(world, "belt", cell, 0)
+	test.check(plans.undo(world) and not plans.ghosts.has(cell), "Undo removes a placed ghost")
+	test.check(plans.redo(world) and plans.ghosts[cell].direction == 0, "Redo restores exact planned configuration")
+	plans.place_single(world, "belt", cell, 1)
+	plans.undo(world)
+	test.check(plans.ghosts[cell].direction == 0, "Undo replacement restores prior ghost direction")
+	plans.remove(world, cell)
+	test.check(plans.redo_stack.is_empty() and plans.undo(world) and plans.ghosts.has(cell), "Removal is reversible and branches discard redo")
+	plans.place_single(world, "belt", cell + Vector2i.RIGHT, 2)
+	plans.clear(world)
+	test.check(plans.ghosts.is_empty() and plans.undo(world) and plans.ghosts.size() == 2, "Clear is one reversible batch")
+	test.check(world.player.contents == stock, "Ghost history never changes physical stock")
+	world.player_position = Vector2(cell) + Vector2.ONE * 0.5
+	world.previous_position = world.player_position
+	test.check(world.build("belt", cell, 0), "A planned cell can be built with real inventory")
+	var after_build: int = world.player.count("belt")
+	for i in range(35): plans.undo(world)
+	for i in range(35): plans.redo(world)
+	test.check(not plans.ghosts.has(cell) and world.at(cell) != null and world.player.count("belt") == after_build, "History cannot resurrect built ghosts or refund real machines")
+	plans.clear(world)
+	for i in range(40): plans.place_single(world, "belt", Vector2i(100 + i, 100), 0)
+	test.check(plans.undo_stack.size() == plans.MAX_HISTORY, "Ghost history stays bounded to 32 edits")
+	var saved: Array = plans.serialize()
+	test.check(plans.restore(saved, world) and plans.undo_stack.is_empty() and plans.redo_stack.is_empty(), "Saved plans reload without stale edit history")

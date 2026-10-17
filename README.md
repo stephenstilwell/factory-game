@@ -1,6 +1,6 @@
 # Ironworks / Frontier
 
-A Godot 4 factory-game foundation. Open `project.godot` and press **F5**. No external assets or dependencies are required.
+A Godot 4 factory-game foundation. Open `project.godot` and press **F5**. All required assets are bundled locally, including CC0 music; see [music credits](MUSIC-CREDITS.txt).
 
 The first art pass uses a **warm industrial frontier** style: mossy terrain, illustrated machinery, copper and patina roofs, warm restored windows, and a working engineer silhouette. Mining/repair effects, machine motion, and a stateful beacon reinforce actions. The placement grid appears while building. See [art direction](docs/art-direction.md) for visual rules and review captures.
 
@@ -8,7 +8,7 @@ The game starts in **borderless fullscreen**. Press **F11** or use the top-bar d
 
 Your first regional goal is to **reopen Oldbridge's ruined trading post**, supply its neighbors, and fund the engineers' workshop. Press **Y** for town projects, or click a landmark in the world. See [docs/settlements.md](docs/settlements.md) for repair costs, contracts, delivery automation, and the first global bonus.
 
-Press **T** for Technology and **F** for production and construction plans. Choose workshop projects that explain their purpose, cost, prerequisites, and unlocks. Assemblers can manufacture every placeable building. After Supply routes, choose routing tools or steel production; Homes for Oldbridge turns steel into housing supplies for a growing Oldbridge. See [factory expansion](docs/factory-expansion.md).
+Press **T** for Technology and **F** for production and construction plans. Foundry craft now unlocks charcoal dynamos, district poles and optional electric drives for double-speed machines; see [electricity](docs/electricity.md). In Plans, use **Ctrl+Z / Ctrl+Y** to undo or redo ghost edits, including clearing plans. **Esc → Save as / factory slots** offers four named factories and optional separate autosave recovery; see [save slots](docs/save-slots.md). Choose workshop projects that explain their purpose, cost, prerequisites, and unlocks. Assemblers can manufacture every placeable building. After Supply routes, choose routing tools or steel production; Homes for Oldbridge turns steel into housing supplies for a growing Oldbridge. See [factory expansion](docs/factory-expansion.md).
 
 The engineer can join voluntary defenses with a **service rifle [V]**. Hold **left mouse / Space** to fire while drawn; shared ammunition comes from your pack. Three types of old-network maintenance constructs use multiple approaches. Gun turrets, piercing cannons, pulse turrets, and walls provide complementary defenses. See [combat and beacon defense](docs/defense.md) for a prepared playtest and controls.
 
@@ -17,6 +17,14 @@ See [the Oldbridge pacing pass](docs/oldbridge-pacing.md) for shared fuel servic
 The world now has seeded groves, birds and butterflies, and four recoverable landmarks. Open **Discoveries [L]** or **Journal [J]** to follow survey notes, recover orchard cuttings for a visible town garden, and solve the old depot’s loaned-conveyor puzzle. Rewards improve surveys and civic fuel service. See [the living frontier](docs/living-frontier.md).
 
 New games now earn **Timber & Hearth → Stone & Water → Iron & Industry** through actual primitive production: gather timber, establish worker logistics, shelter the first neighbors, then use water power and charcoal to rebuild the crossing. Metal mining and machines arrive afterward. See [the timber opening](docs/timber-opening.md). Existing saves keep their original factory progression.
+
+The restored **Engineers' Workshop** offers a maintenance crew: visit its hatch in **Town [Y]** to repair damaged structures within 28 tiles using your repair kits plus 2 credits per kit. Orders show their exact cost and work only between defenses. See [town services](docs/town-services.md).
+
+After recovering **Greybank Quarry**, rebuilding the crossing and reopening the market, use **Discoveries [L] → Greybank** to supply its stone road. Nine loads of stone and planks earn credits and restore a visible route with +15% travel speed on its completed sections. Manual delivery and inserter automation both work. See [Greybank road](docs/greybank-road.md).
+
+The reclaimed **Lost Orchard** also offers growing beds through **Discoveries [L]** after industry and market restoration. Supply planks and fuel, collect fresh produce, and sell it at the market for recurring credits. Both ends support inserters. See [Orchard gardens](docs/orchard-gardens.md).
+
+The **Load** button opens a save preview and recovery screen. Choose the current save or its previous-save backup, then confirm. Invalid files are marked, and loading leaves both files unchanged until you save. See [save recovery](docs/save-recovery.md).
 
 ## Play
 
@@ -33,7 +41,7 @@ Drafting benches consume engineering dossiers for four workshop projects: Supply
 
 Press **P / Engineer tab** for permanent personal upgrades: movement speed, hand-mining speed, interaction reach, and carrying capacity. Invest factory materials after the first working drill, then unlock advanced tiers through research and workshop restoration. See [character progression](docs/character-progression.md) for stats and the planned connection to future combat.
 
-Engineer **[P]** previews exact skill rewards, tracks a personal goal, and highlights affordable equipment. Seventeen equipment tiers include settlement-gated repair rigs, survey instruments, and final expedition tools. Journal **[J]** keeps unread conversations and recent activity. See [engineer progression and guidance](docs/engineer-progression.md).
+Engineer **[P]** previews exact skill rewards, tracks a personal goal, and highlights affordable equipment. Nineteen equipment tiers include settlement-gated repair rigs, survey instruments, and final expedition tools. Journal **[J]** keeps unread conversations and recent activity. See [engineer progression and guidance](docs/engineer-progression.md).
 
 The Engineer's **Skills** tab tracks Gathering, Fabrication, and Exploration from **1 to 99**. Earn XP through successful hand mining, completed hand crafts, and discovering new areas and resource patches. Milestones grant modest speed and survey bonuses; equipment upgrades remain in their own tab. Progress and discovery history persist in saves. See [skills](docs/skills.md) for rewards and milestone rules.
 
@@ -41,7 +49,7 @@ After the workshop, rebuild **Oldbridge Town Hall** and prepare its eastern defe
 
 Construction consumes physical building items; craft them with **C**. Select a recipe to see ingredient counts and missing materials, then choose **Craft 1**, **Craft 5**, or **Max**. Queued crafting reserves materials immediately; click a queue job to cancel and refund it. **I** opens the searchable pack. Drag items to machine or town slots using the selected 1/5/All quantity; right-click moves one and Shift-click moves all that fits. See [the inventory guide](docs/inventory-ui.md). The demonstration factory exists only in test fixtures.
 
-Nearby starting deposits: iron around **(14, 16)**, copper **(28, 23)**, coal **(9, 23)**, stone **(26, 9)**. Deposits are finite, with four times the previous stock. Loading an older save scales its remaining stock once; exhausted tiles stay empty. New games use a random seed, varied patch shapes, and larger, richer frontier deposits. Press **M / Survey** to find remaining resources and track one with a compass marker. Older saves keep their original terrain. See [world generation](docs/world-generation.md) for distribution, reproducible seeds, and save compatibility.
+Nearby starting deposits: iron around **(14, 16)**, copper **(28, 23)**, coal **(9, 23)**, stone **(26, 9)**. Deposits are finite, with four times the previous stock. Loading an older save scales its remaining stock once; exhausted tiles stay empty. New games use a random seed, varied patch shapes, and larger, richer frontier deposits. Press **M / Map** for the settlement chart and Resource survey tab. Right-click explored land to save a named pin with a purple compass. Survey results still support resource tracking. Older saves keep their original terrain. See [world generation](docs/world-generation.md) for distribution, reproducible seeds, and save compatibility.
 
 | Action | Control |
 | --- | --- |

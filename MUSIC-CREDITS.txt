@@ -1,0 +1,82 @@
+IRONWORKS — THIRD-PARTY MUSIC
+All recordings below are offered under CC0 1.0 Universal by their source pages.
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Legal text: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Sources and license status checked: 2026-10-16.
+CC0 permits copying, adapting and distributing these recordings, including commercially.
+Credits are retained as a courtesy. No composer endorsement is implied.
+Recordings retain their original titles. Playback gain adjustment and crossfades are
+applied in-game; the downloaded audio files have not been edited.
+
+The Old Tower Inn
+Artist: RandomMind
+Use: hearth
+Source: https://opengameart.org/content/medieval-the-old-tower-inn
+File: assets/audio/licensed/tower_inn.mp3
+License: CC0 1.0 Universal
+
+King's Feast
+Artist: RandomMind
+Use: hearth
+Source: https://opengameart.org/content/medieval-kings-feast
+File: assets/audio/licensed/kings_feast.mp3
+License: CC0 1.0 Universal
+
+Market Day
+Artist: RandomMind
+Use: farmlands
+Source: https://opengameart.org/content/medieval-market-day
+File: assets/audio/licensed/market_day.mp3
+License: CC0 1.0 Universal
+
+The Field Of Dreams
+Artist: pauliuw
+Use: farmlands
+Source: https://opengameart.org/content/the-field-of-dreams
+File: assets/audio/licensed/field_of_dreams.mp3
+License: CC0 1.0 Universal
+
+Beautiful Forest [Orchestra]
+Artist: nene
+Use: wilds
+Source: https://opengameart.org/content/beautiful-forest-orchestra
+File: assets/audio/licensed/beautiful_forest.ogg
+License: CC0 1.0 Universal
+
+Iremos Forest Theme Loop
+Artist: beardalaxy
+Use: wilds
+Source: https://opengameart.org/content/iremos-forest-theme-loop
+File: assets/audio/licensed/iremos_forest.ogg
+License: CC0 1.0 Universal
+
+Rising Moon
+Artist: RandomMind
+Use: highlands
+Source: https://opengameart.org/content/fantasy-rising-moon
+File: assets/audio/licensed/rising_moon.mp3
+License: CC0 1.0 Universal
+
+Cave Theme
+Artist: Brandon75689 (Brandon Morris / HaelDB)
+Use: highlands
+Source: https://opengameart.org/content/cave-theme
+File: assets/audio/licensed/cave_theme.ogg
+License: CC0 1.0 Universal
+
+Hope (Orchestral battle music)
+Artist: MintoDog
+Use: beacon
+Source: https://opengameart.org/content/hopeorchestral-battle-music
+File: assets/audio/licensed/hope.ogg
+License: CC0 1.0 Universal
+
+Battle Theme
+Artist: Wolfgang_ (Theodore Kerr)
+Use: beacon
+Source: https://opengameart.org/content/battle-theme-0
+File: assets/audio/licensed/battle.mp3
+License: CC0 1.0 Universal
+
+Original synthesized sound effects and the earlier prototype score were created for Ironworks.
+The earlier generated score is retained in the source tree but is not in the active playlists.

@@ -15,7 +15,7 @@ static func step(world: RefCounted) -> void:
 			for y in range(-radius, radius + 1):
 				if x * x + y * y > radius * radius: continue
 				var target = world.at(hearth.cell + Vector2i(x, y))
-				if target != null and target.kind in ["drill", "furnace"] and target.health > 0 and target.inventory.count("coal") < 3 and target.inventory.total() < target.inventory.capacity:
+				if target != null and target.kind in ["drill", "furnace"] and not target.electric_mode and target.health > 0 and target.inventory.count("coal") < 3 and target.inventory.total() < target.inventory.capacity:
 					targets.append(target.id)
 		targets.sort()
 		var ordered: Array = targets.filter(func(target_id): return target_id > hearth.supply_cursor)

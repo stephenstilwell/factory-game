@@ -17,12 +17,15 @@ signal journal_requested
 signal factory_requested
 signal upgrade_requested(id: String, rank: int)
 signal age_requested
+signal produce_requested
+signal maintenance_requested
 signal supplies_order_requested
 signal beacon_requested
 signal beacon_cancel_requested
 signal structure_repair_requested
 signal building_pickup_requested
 signal underground_mode_requested(enabled: bool)
+signal save_as_requested
 signal save_requested
 signal load_requested
 signal pause_requested
@@ -108,7 +111,7 @@ func _ready() -> void:
 	engineer_button = Style.button(row, "Engineer [P]", toggle_character)
 	Style.button(row, "Craft [C]", toggle_crafting)
 	Style.button(row, "Town [Y]", toggle_town)
-	Style.button(row, "Survey [M]", toggle_survey)
+	Style.button(row, "Map [M]", toggle_survey)
 	pause_button = Style.button(row, "Pause", func(): pause_requested.emit())
 	pause_button.tooltip_text = "Pause key: pause or resume. Escape opens the pause menu."
 	Style.button(row, "Save", func(): save_requested.emit())
@@ -193,6 +196,8 @@ func _ready() -> void:
 	root.add_child(workspace)
 	workspace.close_requested.connect(close_workspace)
 	workspace.upgrade_requested.connect(func(id, rank): upgrade_requested.emit(id, rank))
+	workspace.produce_requested.connect(func(): produce_requested.emit())
+	workspace.maintenance_requested.connect(func(): maintenance_requested.emit())
 	workspace.supplies_order_requested.connect(func(): supplies_order_requested.emit())
 	workspace.beacon_requested.connect(func(): beacon_requested.emit())
 	workspace.beacon_cancel_requested.connect(func(): beacon_cancel_requested.emit())
@@ -241,13 +246,14 @@ func _ready() -> void:
 	menu.add_theme_constant_override("separation", 12)
 	scroll.add_child(menu)
 	menu.add_child(Style.label("PAUSED", 26, Style.ACCENT))
-	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nT — Technology / workshop projects\nY — Settlement projects\nL — Discoveries and expedition leads\nF — Production rates and construction plans\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nV — Draw / holster rifle • LMB / Space — Fire\nPause key — Pause or resume • F11 — Fullscreen", 16)
+	var controls_help := Style.label("WASD — Move\nE — Inventory & crafting / close interface\nLeft click — Build / open machine\nHold right mouse — Mine / reclaim building\nQ — Clear build cursor / pick hovered building\nR / Shift+R — Rotate clockwise / counterclockwise\nCtrl+left click — Quick-load hovered machine\nShift+click item — Transfer all that fits\nEscape — Close interface / clear cursor / pause menu\nH — Repair hovered structure with a kit\nP — Engineer upgrades\nT — Technology / workshop projects\nY — Settlement projects\nL — Discoveries and expedition leads\nF — Production rates and construction plans\nM — Map, saved pins and resource survey\nCtrl+C / Ctrl+V — Copy area / stamp ghosts\nShift+build — Place a ghost • B — Build nearby ghosts\nG — Underground entrance / exit\nV — Draw / holster rifle • LMB / Space — Fire\nPause key — Pause or resume • F11 — Fullscreen", 16)
 	controls_help.hide()
 	Style.button(menu, "Controls and shortcuts", func(): controls_help.visible = not controls_help.visible)
 	menu.add_child(controls_help)
 	Style.button(menu, "Resume [Esc]", func(): menu_close_requested.emit())
 	Style.button(menu, "Save game", func(): save_requested.emit())
-	Style.button(menu, "Load game", func(): load_requested.emit())
+	Style.button(menu, "Save as / factory slots", func(): save_as_requested.emit())
+	Style.button(menu, "Load / recovery", func(): load_requested.emit())
 	pause_menu.hide()
 	survey = Survey.new()
 	root.add_child(survey)

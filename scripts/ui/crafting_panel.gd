@@ -56,7 +56,7 @@ func _ready() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(body)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size.x = 600
+	scroll.custom_minimum_size.x = 666
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	body.add_child(scroll)
 	var recipes := VBoxContainer.new()
@@ -64,7 +64,7 @@ func _ready() -> void:
 	scroll.add_child(recipes)
 	recipes.add_child(Style.label("RECIPES  •  count = craftable batches", 13, Style.MUTED))
 	var grid := GridContainer.new()
-	grid.columns = 7
+	grid.columns = 8
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 6)
 	recipes.add_child(grid)

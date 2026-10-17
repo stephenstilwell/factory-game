@@ -10,6 +10,8 @@ func conversation(world: RefCounted, site_id: String) -> String:
 	if not world.settlements.enabled or not Definitions.NPCS.has(site_id): return ""
 	if world.early.active() and site_id == "trading_post": return "arrival"
 	var site = world.settlements.sites[site_id]
+	for chapter in ["orchard_market", "greybank_complete", "district_power"]:
+		if Definitions.CHAPTERS[chapter].site == site_id and not seen.has(chapter) and available(world, chapter): return chapter
 	if site_id == "workshop" and site.repaired and world.settlements.age >= 1: return "stone_homecoming"
 	if site_id == "town_hall" and site.repaired:
 		if site.health == 0: return "ada_recovery"
@@ -21,6 +23,9 @@ func available(world: RefCounted, chapter: String) -> bool:
 	if chapter == "arrival": return true
 	if not world.settlements.enabled: return false
 	var data: Dictionary = Definitions.CHAPTERS[chapter]
+	if chapter == "orchard_market": return world.settlements.sites.trading_post.repaired and world.settlements.produce_sales > 0
+	if chapter == "greybank_complete": return world.settlements.sites.workshop.repaired and world.settlements.road_deliveries == 9
+	if chapter == "district_power": return world.settlements.sites.workshop.repaired and "metallurgy" in world.researched
 	if chapter == "stone_homecoming": return world.settlements.age >= 1 and world.settlements.sites.workshop.repaired
 	if chapter == "first_homecoming": return world.settlements.sites.town_hall.repaired and world.defense.cleared > 0
 	if chapter == "ada_recovery": return world.settlements.sites.town_hall.repaired
@@ -63,6 +68,8 @@ func unread(world: RefCounted) -> Array:
 		for site_id in Definitions.NPCS:
 			var chapter := conversation(world, site_id)
 			if not chapter.is_empty() and not seen.has(chapter) and chapter not in result: result.append(chapter)
+	for chapter in ["orchard_market", "greybank_complete", "district_power"]:
+		if not seen.has(chapter) and available(world, chapter) and chapter not in result: result.append(chapter)
 	return result
 
 func journal_entries() -> Array:

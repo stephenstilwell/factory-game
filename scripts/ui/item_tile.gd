@@ -43,7 +43,7 @@ func _ready() -> void:
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	count_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(count_label)
-	var short_names := {"science": "Dossier", "underground_belt": "Underpass"}
+	var short_names := {"science": "Dossier", "underground_belt": "Underpass", "generator": "Dynamo", "power_pole": "Power pole"}
 	name_label = Style.label(short_names.get(item_id, Catalog.item_name(item_id)) if compact else Catalog.item_name(item_id), 12)
 	name_label.max_lines_visible = 2
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

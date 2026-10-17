@@ -6,7 +6,7 @@ static func run(test: SceneTree) -> void:
 	var audio := Director.new()
 	audio.settings_path = "user://factory_audio_test_%d.cfg" % Time.get_ticks_usec()
 	test.root.add_child(audio)
-	test.check(audio.music.players.size() == 2 and audio.music.players[0].stream.loop_mode == AudioStreamWAV.LOOP_FORWARD and is_equal_approx(audio.music.players[0].stream.get_length(), 48.0), "Adaptive music starts with a valid 48-second loop and two bounded voices")
+	test.check(audio.music.players.size() == 2 and audio.music.players[0].stream.get_length() > 20.0, "Adaptive music starts with a playable recording and two bounded voices")
 	test.check(audio.voices.size() == 10 and AudioServer.get_bus_index("Music") >= 0 and AudioServer.get_bus_index("SFX") >= 0, "Music and effects have separate buses and a bounded voice pool")
 	for cue in Director.CUES:
 		test.check(Director.CUES[cue].get_length() > 0, "Audio palette contains playable " + cue)

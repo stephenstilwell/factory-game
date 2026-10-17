@@ -13,20 +13,35 @@ static func run(test: SceneTree) -> void:
 	test.root.add_child(audio)
 	audio.set_process(false)
 	var score: Node = audio.music
-	test.check(Score.Catalog.TRACKS.size() == 5, "Five original musical moods are available")
+	test.check(Score.Catalog.PLAYLISTS.size() == 5 and Score.Catalog.TRACKS.size() == 10, "Five contexts have ten licensed recordings")
 	var resources: Array = []
 	for id in Score.Catalog.TRACKS:
-		var stream: AudioStreamWAV = Score.Catalog.TRACKS[id].stream
-		test.check(is_equal_approx(stream.get_length(), 48.0) and stream.mix_rate == 22050 and stream not in resources, "Each mood has its own rendered 48-second score: " + id)
+		var stream: AudioStream = Score.Catalog.TRACKS[id].stream
+		test.check(stream.get_length() > 20.0 and stream not in resources and not Score.Catalog.TRACKS[id].artist.is_empty(), "Each recording has unique audio and a credited composer: " + id)
 		resources.append(stream)
-		var raw := FileAccess.get_file_as_bytes(stream.resource_path)
+		var playback := stream.instantiate_playback()
+		playback.start(stream.get_length() * 0.5)
+		var samples := playback.mix_audio(1.0, 4096)
 		var energy := 0.0
-		var peak := 0
-		for frame in range(44, raw.size() - 1, 128):
-			var value := absi(raw.decode_s16(frame))
-			peak = maxi(peak, value)
-			energy += value * value
-		test.check(peak > 1000 and peak < 23000 and energy > 0 and absi(raw.decode_s16(44) - raw.decode_s16(raw.size() - 2)) < 3000, "Rendered score is audible, unclipped and continuous at the loop seam: " + id)
+		for frame in samples: energy += frame.length_squared()
+		playback.stop()
+		test.check(energy > 0.0001, "Compressed recording decodes audible samples: " + id)
+	var levels: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/audio/licensed/levels.json"))
+	var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/audio/licensed/manifest.json"))
+	for entry in manifest.tracks:
+		var hash := HashingContext.new()
+		hash.start(HashingContext.HASH_SHA256)
+		hash.update(FileAccess.get_file_as_bytes("res://" + entry.path))
+		test.check(hash.finish().hex_encode() == entry.sha256 and entry.license == "CC0-1.0", "Downloaded asset matches licensed source manifest: " + entry.id)
+		var adjustment: float = Score.Catalog.TRACKS[entry.id].gain_db
+		test.check(absf(float(levels[entry.id].rms_db) + adjustment + 23.0) < 0.2 and float(levels[entry.id].peak_db) + adjustment < -2.8, "Recording gain matches measured average level with peak headroom: " + entry.id)
+	for context_id in Score.Catalog.PLAYLISTS:
+		var heard: Array = []
+		for i in range(6): heard.append(score.next_track(context_id))
+		var repeats := false
+		for i in range(1, heard.size()):
+			if heard[i] == heard[i - 1]: repeats = true
+		test.check(not repeats and heard[0] != heard[1], "Context playlist avoids repeats across shuffle bag boundaries: " + context_id)
 	var world := World.new()
 	world.start()
 	test.check(Score.context(world) == "wilds", "Empty timber worlds begin with the exploration theme")
@@ -47,11 +62,11 @@ static func run(test: SceneTree) -> void:
 	audio.bind_world(world)
 	test.check(score.current == "farmlands" and score.fade == 0, "World binding crossfades directly into its current context")
 	score.step(1.5, world, false, false)
-	var a: float = score.players[0].volume_linear
-	var b: float = score.players[1].volume_linear
+	var a: float = score.players[0].volume_linear / score.gains[0]
+	var b: float = score.players[1].volume_linear / score.gains[1]
 	test.check(is_equal_approx(a, b) and is_equal_approx(a * a + b * b, 0.25), "Crossfades use bounded equal-power gain")
 	score.step(1.5, world, false, false)
-	test.check(score.players[score.outgoing].stream == null and score.players[score.incoming].stream.loop_mode == AudioStreamWAV.LOOP_FORWARD, "A completed fade releases the old stream and loops the new one")
+	test.check(score.players[score.outgoing].stream == null and not score.players[score.incoming].stream.loop, "A completed fade releases the old stream and plays the new recording without a forced loop")
 	for i in range(3):
 		world.player_position = Vector2(world.frontier.sites.quarry.origin)
 		advance(score, world, 3)
@@ -83,6 +98,15 @@ static func run(test: SceneTree) -> void:
 	score.set_adaptive(true, world)
 	advance(score, world, 4)
 	test.check(score.current == "beacon", "Re-enabling adaptation recognizes an ongoing defense")
+	advance(score, world, 3)
+	var previous_track: String = score.track
+	score.track_time = score.players[score.incoming].stream.get_length() - Score.FADE_SECONDS
+	score.step(0.1, world, true, false)
+	test.check(score.track != previous_track and score.current == "beacon" and score.fade == 0, "A completed song rotates within its context even while paused")
+	var frozen_track: String = score.track
+	var frozen_time: float = score.track_time
+	score.step(100, world, false, true)
+	test.check(score.track == frozen_track and score.track_time == frozen_time, "Focus loss freezes playlist advancement")
 	world.defense.phase = "idle"
 	var data: Dictionary = Saves.encode(world)
 	advance(score, world, 60)

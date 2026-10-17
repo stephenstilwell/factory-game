@@ -21,7 +21,7 @@ static func encode(world: RefCounted) -> Dictionary:
 		depletion.append([cell.x, cell.y, world.terrain.depleted[cell]])
 	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "resource_scale": world.terrain.stock_scale, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
-		"entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(), "frontier": world.frontier.serialize(), "early": world.early.serialize(),
+		"orchard_project": world.orchard_project.serialize(), "quarry_project": world.quarry_project.serialize(), "navigation": world.navigation.serialize(), "exploration": world.exploration.serialize(), "entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(), "frontier": world.frontier.serialize(), "early": world.early.serialize(),
 		"researched": world.researched.duplicate(), "research_progress": world.research_progress, "research_target": world.current_research(), "research_banks": world.research_banks.duplicate(), "automation_awards": world.automation_awards.duplicate(), "plans": world.plans.serialize(),
 		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "craft_credit": world.craft_credit, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
 
@@ -36,8 +36,13 @@ static func save_world(world: RefCounted, path: String = PATH) -> String:
 	if write_error != OK: return "Save write failed: " + error_string(write_error)
 	# Keep the previous successful save as a backup before replacing the slot.
 	if FileAccess.file_exists(path):
-		var backup_error := DirAccess.copy_absolute(path, path + ".bak")
-		if backup_error != OK: return "Could not back up previous save."
+		var previous := load_world(path)
+		# Never rotate a damaged primary over a usable backup.
+		var destination := path + ".bak"
+		if not previous.get("error", "").is_empty():
+			destination = path + ".damaged.%d.%d" % [int(Time.get_unix_time_from_system()), Time.get_ticks_usec()]
+		var backup_error := DirAccess.copy_absolute(path, destination)
+		if backup_error != OK: return "Could not preserve the previous save. Current files were left unchanged."
 	var result := DirAccess.rename_absolute(temporary, path)
 	return "" if result == OK else "Could not commit save: " + error_string(result)
 
@@ -45,9 +50,12 @@ static func load_world(path: String = PATH) -> Dictionary:
 	var source := path
 	if path == PATH and not FileAccess.file_exists(path) and FileAccess.file_exists(LEGACY_PATH): source = LEGACY_PATH
 	if not FileAccess.file_exists(source): return {"error": "No saved factory yet."}
-	if FileAccess.get_file_as_bytes(source).size() > 16000000: return {"error": "Save exceeds size limit."}
-	var data = JSON.parse_string(FileAccess.get_file_as_string(source))
-	return decode(data)
+	var file := FileAccess.open(source, FileAccess.READ)
+	if file == null: return {"error": "Could not read save: " + error_string(FileAccess.get_open_error())}
+	if file.get_length() > 16000000: return {"error": "Save exceeds size limit."}
+	var document := JSON.new()
+	if document.parse(file.get_as_text()) != OK: return {"error": "Save is not valid JSON."}
+	return decode(document.data)
 
 static func _integer(value, minimum: int = 0, maximum: int = 2000000000) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) and float(value) == floor(float(value)) and value >= minimum and value <= maximum
@@ -113,6 +121,8 @@ static func decode(data) -> Dictionary:
 	world.player.contents = _counts(data.player)
 	world.player_position = Vector2(float(position[0]), float(position[1]))
 	world.previous_position = world.player_position
+	if not world.exploration.restore(data.get("exploration", [])): return {"error": "Invalid exploration chart."}
+	if not world.navigation.restore(data.get("navigation", {})): return {"error": "Invalid map pins."}
 	world.ticks = int(data.ticks)
 	world.metrics.start_tick = world.ticks
 	world.next_id = int(data.next_id)
@@ -147,6 +157,7 @@ static func decode(data) -> Dictionary:
 	for site_id in world.settlements.sites:
 		for threshold in world.skills.Definitions.DELIVERY_MILESTONES: allowed_awards.append("delivery:%s:%d" % [site_id, threshold])
 	for threshold in [3, 6, 9]: allowed_awards.append("delivery:town_hall:%d" % threshold)
+	for threshold in [3, 6, 9]: allowed_awards.append("greybank:road:%d" % threshold)
 	for key in awards:
 		if key not in allowed_awards or not awards[key] is bool or awards[key] != true: return {"error": "Invalid automation milestone."}
 	world.automation_awards = awards.duplicate()
@@ -163,6 +174,13 @@ static func decode(data) -> Dictionary:
 		var recipes: Array = Catalog.BUILDINGS[entity.kind].get("recipes", [])
 		if (recipes.is_empty() and record.get("recipe") != "") or (not recipes.is_empty() and record.get("recipe") not in recipes): return {"error": "Invalid machine recipe."}
 		entity.recipe = record.recipe
+		if not record.get("electric_mode", false) is bool or not _integer(record.get("energy", 0), 0, world.power.FUEL_ENERGY): return {"error": "Invalid electrical state."}
+		entity.electric_mode = record.get("electric_mode", false)
+		entity.energy = int(record.get("energy", 0))
+		if entity.electric_mode and (not world.power.LOAD.has(entity.kind) or "metallurgy" not in world.researched): return {"error": "Invalid electric drive."}
+		if entity.kind == "power_pole" and ("metallurgy" not in world.researched or not record.inventory.is_empty() or not record.output.is_empty()): return {"error": "Invalid district pole."}
+		if entity.kind != "generator" and entity.energy != 0: return {"error": "Energy stored outside a generator."}
+		if entity.kind == "generator" and ("metallurgy" not in world.researched or record.inventory.keys().any(func(item): return item != "coal") or not record.output.is_empty()): return {"error": "Invalid dynamo state."}
 		if not _integer(record.get("health", entity.max_health()), 0, entity.max_health()) or not _integer(record.get("attack_cooldown", 0), 0, int(Catalog.Combat.TURRETS.get(entity.kind, {"cooldown": 0}).cooldown)): return {"error": "Invalid structure health or combat timer."}
 		entity.health = int(record.get("health", entity.max_health()))
 		entity.attack_cooldown = int(record.get("attack_cooldown", 0))
@@ -253,6 +271,8 @@ static func decode(data) -> Dictionary:
 	if data.has("story") and not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
 	if data.has("guidance") and not world.guidance.restore(data.guidance, world.ticks): return {"error": "Invalid player goals or notices."}
 	if data.has("plans") and not world.plans.restore(data.plans, world): return {"error": "Invalid construction plans."}
+	if not world.orchard_project.restore(world, data.get("orchard_project", {})): return {"error": "Invalid orchard gardens."}
+	if not world.quarry_project.restore(world, data.get("quarry_project", {})): return {"error": "Invalid Greybank road project."}
 	return {"world": world, "error": "", "frontier_added": not data.has("frontier") and world.frontier.enabled}
 
 static func _legacy(data: Dictionary) -> Dictionary:
@@ -280,3 +300,20 @@ static func _legacy(data: Dictionary) -> Dictionary:
 	if not world.settlements.install_legacy(world): return {"error": "No vacant land for settlement projects."}
 	world.frontier.install(world)
 	return {"world": world, "error": "", "legacy": true}
+
+static func describe(path: String, allow_legacy: bool = false) -> Dictionary:
+	var source := path
+	if allow_legacy and path == PATH and not FileAccess.file_exists(path) and FileAccess.file_exists(LEGACY_PATH): source = LEGACY_PATH
+	var info := {"path": source, "exists": FileAccess.file_exists(source), "valid": false, "summary": "No saved game yet."}
+	if not info.exists: return info
+	var result := load_world(source)
+	if not result.get("error", "").is_empty():
+		info.summary = "Cannot load: " + result.error
+		return info
+	var world: RefCounted = result.world
+	var seconds := int(world.ticks * World.TICK_SECONDS)
+	var date := Time.get_datetime_string_from_unix_time(FileAccess.get_modified_time(source)).replace("T", " ")
+	var chapter: String = world.early.Definitions.NAMES[world.early.phase] if world.early.enabled else "Industrial factory"
+	info.valid = true
+	info.summary = "%s UTC\n%s / World time %dh %02dm\n%d buildings / Seed %d" % [date, chapter, seconds / 3600, (seconds / 60) % 60, world.entities.size(), world.terrain.seed_value]
+	return info

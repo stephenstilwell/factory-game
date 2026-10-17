@@ -52,6 +52,14 @@ func refresh(id: String, amount: int, available: bool, selected: bool) -> void:
 	add_theme_stylebox_override("normal", Style.panel(background, border))
 	add_theme_stylebox_override("hover", Style.panel(background.lightened(0.15), Style.ACCENT))
 
+func _make_custom_tooltip(for_text: String) -> Object:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", Style.panel(Color("172729"), Style.ACCENT))
+	var tooltip_label := Style.label(for_text, 14)
+	tooltip_label.custom_minimum_size.x = 390
+	panel.add_child(tooltip_label)
+	return panel
+
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_RIGHT:

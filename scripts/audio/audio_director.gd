@@ -199,9 +199,29 @@ func create_controls(parent: Node) -> void:
 	music_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(music_caption)
 	_refresh_music_caption()
+	var next := Button.new()
+	next.text = "Next music track"
+	parent.add_child(next)
+	next.pressed.connect(func(): music.request(music.current, true))
+	var credits := Button.new()
+	credits.text = "Music credits"
+	parent.add_child(credits)
+	credits.pressed.connect(_show_music_credits)
+
+func _show_music_credits() -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Music credits / CC0 1.0"
+	var text := RichTextLabel.new()
+	text.custom_minimum_size = Vector2(650, 340)
+	text.text = Score.Catalog.credits_text()
+	dialog.add_child(text)
+	add_child(dialog)
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	dialog.popup_centered()
 
 func _refresh_music_caption() -> void:
-	if music_caption != null: music_caption.text = "Now playing: " + Score.Catalog.TRACKS[music.current].title
+	if music_caption != null: music_caption.text = "Now playing: " + Score.Catalog.TRACKS[music.track].title + " — " + Score.Catalog.TRACKS[music.track].artist
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:

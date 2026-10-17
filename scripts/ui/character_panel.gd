@@ -131,6 +131,7 @@ func refresh(state: RefCounted) -> void:
 	var status: Dictionary = world.guidance.equipment_status(world)
 	section_buttons.equipment.text = "Equipment • %d READY" % status.ready if status.ready > 0 else ("Equipment • NEW" if status.new > 0 else "Equipment upgrades")
 	stats.text = "Move %.2f tiles/s • Mine %.2f items/s • Reach %.0f • Pack %d • Repair %d HP/kit • Survey %d regions" % [world.movement_speed(), 10.0 * world.skills.multiplier("mining") / float(world.mining_duration()), world.interaction_reach(), world.player.capacity, character.stat("repair_power"), world.survey_radius()]
+	stats.text += " / Armor %d%%" % int(character.stat("damage_reduction"))
 	for id in skill_rows:
 		var row: Dictionary = skill_rows[id]
 		var level: int = world.skills.level(id)

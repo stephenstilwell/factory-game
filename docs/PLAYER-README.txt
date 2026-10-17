@@ -69,14 +69,29 @@ adds two credits to each real supplied market shipment after restoration.
 Three skills have 1-99 progression; equipment upgrades are separate.
 Combat waves begin only when you choose to light the Hall beacon. A rifle,
 gun turrets, piercing cannons, pulse turrets and walls use manufactured ammo.
-There is no hunger, multiplayer, electricity grid or offline town income.
+Foundry craft unlocks charcoal dynamos, district power poles and optional
+machine electric drives. Inspect a machine to install a drive for 2 steel
+and 4 wire; powered drives work twice as fast. F shows network supply and
+demand. Pole links reach six tiles and serve machines within three tiles.
+There is no hunger, multiplayer or offline town income.
 Aether and magical restoration remain future chapters.
 
 PRESENTATION
 Esc opens saved options for reduced motion, ambient effects and sound.
-Five original music tracks follow wilderness, home, farmland, highlands and
-beacon defense. Transitions are gradual. Disable the adaptive-music toggle
+Ten bundled CC0 music recordings follow wilderness, home, farmland,
+highlands and beacon defense, with two distinct tracks per context. Transitions are gradual. Disable the adaptive-music toggle
 for a fixed calm theme, or use the Music slider to adjust/mute either mode.
+
+REGIONAL RESTORATION AND SAVES
+Discoveries [L] offers Greybank road deliveries and Lost Orchard growing
+beds once their prerequisites are met. Orchard produce earns real market
+income; automation works at both outposts. M remembers explored ore and
+supports named pins. Hover hotbar machines for their purpose and use hints.
+Engineer [P] includes two protective coat tiers. Ctrl+Z/Ctrl+Y undo/redo
+ghost plan edits, without changing constructed machines or physical stock.
+Esc -> Save as / factory slots offers four named factories. Optional
+five-minute autosaves use separate recovery files. Load / recovery previews
+manual saves, backups and autosaves before loading them.
 
 EARLY BUILD NOTES
 Balance, visuals and systems will change. The executable is not code-signed.

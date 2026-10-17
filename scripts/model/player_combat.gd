@@ -60,8 +60,9 @@ func shoot(world: RefCounted) -> bool:
 	return true
 
 func damage(world: RefCounted, amount: int) -> void:
-	if invulnerable > 0: return
-	health = maxi(0, health - amount)
+	if invulnerable > 0 or amount <= 0: return
+	var received := maxi(1, roundi(amount * (100 - int(world.character.stat("damage_reduction"))) / 100.0))
+	health = maxi(0, health - received)
 	regen_delay = 50
 	invulnerable = 5
 	world.feedback_requested.emit("damage", Vector2i(world.player_position.floor()))

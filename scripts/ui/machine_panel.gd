@@ -25,6 +25,7 @@ var collect_button: Button
 var repair_button: Button
 var reclaim_button: Button
 var underground_button: Button
+var electric_button: Button
 var input_box: VBoxContainer
 var output_box: VBoxContainer
 var fuel_box: VBoxContainer
@@ -48,6 +49,7 @@ func _ready() -> void:
 	repair_button = Style.button(actions, "Repair [H]", func(): repair_requested.emit())
 	reclaim_button = Style.button(self, "Pick up building", func(): reclaim_requested.emit())
 	underground_button = Style.button(self, "", func(): underground_mode_requested.emit(not entity.underground_exit))
+	electric_button = Style.button(self, "Install electric drive: 2 steel + 4 wire / double speed", func(): world.power.retrofit(world, entity); refresh(world, entity, quantity))
 	recipe_picker = OptionButton.new()
 	recipe_picker.item_selected.connect(func(index): recipe_requested.emit(recipe_ids[index]))
 	add_child(recipe_picker)
@@ -112,18 +114,24 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	if entity == null or title == null: return
 	title.text = Catalog.item_name(entity.kind)
 	var reachable: bool = world.in_reach(entity.cell)
+	electric_button.visible = world.power.LOAD.has(entity.kind) and not entity.electric_mode
+	electric_button.disabled = not world.power.retrofit_reason(world, entity).is_empty()
+	electric_button.tooltip_text = world.power.retrofit_reason(world, entity)
 	underground_button.visible = entity.kind == "underground_belt"
 	underground_button.disabled = not reachable
 	underground_button.text = ("Exit → set as entrance" if entity.underground_exit else "Entrance → set as exit") + " [G]"
 	status_label.text = entity.status + ("  •  Out of reach" if not reachable else "")
 	status_label.text += " • Health %d/%d" % [entity.health, entity.max_health()]
+	if entity.electric_mode: status_label.text += "\nELECTRIC DRIVE / 2x speed / %d energy per work tick / %s" % [world.power.LOAD[entity.kind], world.power.reason(world, entity)]
+	if entity.kind == "generator": status_label.text += "\nStored energy %d / 2400; output up to 8 per tick. Pole within 3 tiles." % entity.energy
+	if entity.kind == "power_pole": status_label.text += "\nLinks poles within 6 tiles; serves drives and dynamos within 3 tiles."
 	if not entity.recipe.is_empty():
 		var recipe: Dictionary = Catalog.RECIPES[entity.recipe]
 		var missing := PackedStringArray()
 		for item in recipe["in"]:
 			if entity.inventory.count(item) < int(recipe["in"][item]): missing.append("%s %d/%d" % [Catalog.item_name(item), entity.inventory.count(item), recipe["in"][item]])
 		if not missing.is_empty(): status_label.text += "\nNeeds: " + ", ".join(missing)
-		status_label.text += "\nRated output: %.1f batches / min" % (600.0 / float(recipe.ticks))
+		status_label.text += "\nRated output: %.1f batches / min" % (600.0 * (2 if entity.electric_mode else 1) / float(recipe.ticks))
 	repair_button.text = "Repair [H] (+%d)" % int(world.character.stat("repair_power"))
 	repair_button.visible = entity.health < entity.max_health()
 	repair_button.disabled = not reachable or world.player.count("repair_kit") == 0
@@ -137,11 +145,11 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 		var deposit: Dictionary = world.terrain.tile(entity.cell)
 		status_label.text += "\n%d units remaining under this drill" % int(deposit.get("amount", 0)) if not deposit.is_empty() else "\nPress M to survey another deposit, then hold right mouse to reclaim and relocate this drill."
 	supply_button.text = "Stack matching" if entity.kind in ["chest", "cart_post"] else "Load ingredients"
-	supply_button.disabled = not reachable or entity.kind == "inserter"
+	supply_button.disabled = not reachable or entity.kind in ["inserter", "power_pole", "wall"]
 	collect_button.text = "Take all [X]" if entity.kind in (["chest", "cart_post", "fuel_depot"] + Catalog.TRANSPORT) else ("Recover hand [X]" if entity.kind == "inserter" else "Collect output [X]")
 	collect_button.disabled = not reachable
 	if Catalog.Combat.TURRETS.has(entity.kind): collect_button.text = "Unload ammo [X]"
-	if entity.kind == "wall": collect_button.visible = false
+	if entity.kind in ["wall", "power_pole"]: collect_button.visible = false
 	else: collect_button.visible = true
 	var ids: Array = Catalog.BUILDINGS[entity.kind].get("recipes", []).filter(func(id): return world.unlocked(Catalog.RECIPES[id]) and world.content_available(id))
 	if ids != recipe_ids:
@@ -159,15 +167,17 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 	var input: Dictionary = entity.inventory.contents.duplicate()
 	var expected: Array = []
 	if Catalog.Combat.TURRETS.has(entity.kind): expected = ["ammo"]
-	if entity.kind == "fuel_depot": expected = ["coal"]
+	if entity.kind in ["fuel_depot", "generator"]: expected = ["coal"]
 	var output_expected: Array = []
 	if entity.recipe != "":
 		expected = Catalog.RECIPES[entity.recipe]["in"].keys()
 		output_expected = Catalog.RECIPES[entity.recipe]["out"].keys()
-	fuel_box.visible = Catalog.BUILDINGS[entity.kind].get("fuel", false)
-	if fuel_box.visible: input.erase("coal")
-	input_box.visible = entity.kind not in ["inserter", "wall"]
-	output_box.visible = entity.kind not in (["chest", "fuel_depot", "wall"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT)
+	fuel_box.visible = Catalog.BUILDINGS[entity.kind].get("fuel", false) and (not entity.electric_mode or entity.inventory.count("coal") > 0 or entity.burn_ticks > 0)
+	if fuel_box.visible:
+		input.erase("coal")
+		if entity.kind == "generator": expected = []
+	input_box.visible = entity.kind not in ["inserter", "power_pole", "wall"]
+	output_box.visible = entity.kind not in (["chest", "fuel_depot", "generator", "power_pole", "wall"] + Catalog.Combat.TURRETS.keys() + Catalog.TRANSPORT)
 	input_grid.grid.columns = 6 if entity.kind in ["chest", "cart_post"] else 3
 	var descriptor := {"kind": "input", "entity_id": entity.id}
 	for grid in [input_grid, fuel_grid, output_grid]:
@@ -198,6 +208,11 @@ func refresh(state: RefCounted, machine, amount: int) -> void:
 		summary.text = "Covers %d tiles. Delivers one real coal per nearby burner each tick, keeping a small 3-coal reserve. Load once here or automate an inserter supply. No coal is created. Returning crews and restored depot runners expand coverage." % world.supply_radius()
 		status_label.text += "\n%d / 200 shared coal • Coverage %d tiles" % [entity.inventory.count("coal"), world.supply_radius()]
 		supply_button.text = "Load all coal"
+	if entity.kind == "generator":
+		fuel_label.text = "FUEL / %d coal / %d stored energy" % [entity.inventory.count("coal"), entity.energy]
+		supply_button.text = "Load all coal"
+	if entity.kind in ["generator", "power_pole"]: summary.text = Catalog.item_description(entity.kind)
+	if entity.electric_mode: summary.text += "\nElectric drive installed. Stored burner fuel remains withdrawable; power loss pauses work. Pickup also returns 2 steel + 4 wire."
 	if entity.kind in world.early.Definitions.BUILDINGS:
 		summary.text = Catalog.item_description(entity.kind)
 	if entity.kind == "communal_hearth":

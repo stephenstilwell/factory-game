@@ -11,6 +11,10 @@ const InterfacePolish = preload("res://scripts/ui/interface_polish.gd")
 const AudioDirector = preload("res://scripts/audio/audio_director.gd")
 const TILE := 48
 
+const SaveSlots = preload("res://scripts/persistence/save_slots.gd")
+var autosave_toggle: CheckButton
+var last_autosave := 0
+var save_dialog: ConfirmationDialog
 var presentation: Node
 var audio: Node
 var world: RefCounted
@@ -46,6 +50,17 @@ func _ready() -> void:
 	add_child(audio)
 	hud = HUD.new()
 	add_child(hud)
+	save_dialog = preload("res://scripts/ui/save_recovery_dialog.gd").new()
+	add_child(save_dialog)
+	save_dialog.load_selected.connect(_load_from_path)
+	save_dialog.save_selected.connect(_save_to_slot)
+	autosave_toggle = CheckButton.new()
+	autosave_toggle.text = "Autosave every 5 simulated minutes (separate recovery file)"
+	autosave_toggle.tooltip_text = "Off by default. Autosaves never replace your manual save or its backup. Paused time does not count."
+	hud.pause_content.add_child(autosave_toggle)
+	autosave_toggle.toggled.connect(func(enabled):
+		var error := SaveSlots.set_autosave(save_path, enabled)
+		if error != OK: hud.show_notice("Could not save autosave preference: " + error_string(error)))
 	var sound_controls := VBoxContainer.new()
 	hud.pause_content.add_child(sound_controls)
 	hud.pause_content.move_child(sound_controls, 1)
@@ -54,13 +69,15 @@ func _ready() -> void:
 	add_child(presentation)
 	presentation.configure(hud, view)
 	audio.watch_ui(hud)
+	hud.produce_requested.connect(func(): world.orchard_project.deliver_market(world))
+	hud.maintenance_requested.connect(func(): world.TownServices.dispatch(world))
 	hud.supplies_order_requested.connect(func(): world.settlements.order_supplies(world))
 	hud.factory_requested.connect(func(): _open_factory("research"))
 	hud.factory_panel.research_requested.connect(func(id): world.select_research(id); hud.refresh())
 	hud.factory_panel.copy_requested.connect(_start_copy)
 	hud.factory_panel.paste_requested.connect(_start_paste)
 	hud.factory_panel.build_requested.connect(_build_plans)
-	hud.factory_panel.clear_requested.connect(func(): world.plans.ghosts.clear(); world.changed.emit())
+	hud.factory_panel.clear_requested.connect(func(): world.plans.clear(world))
 	hud.underground_mode_requested.connect(func(enabled): world.set_underground_exit(selected_cell, enabled))
 	hud.weapon_requested.connect(_toggle_weapon)
 	hud.build_selected.connect(_select)
@@ -70,11 +87,13 @@ func _ready() -> void:
 	hud.structure_repair_requested.connect(_repair_selected)
 	hud.building_pickup_requested.connect(_pickup_selected)
 	hud.save_requested.connect(_save)
+	hud.save_as_requested.connect(_save_as)
 	hud.load_requested.connect(_load_save)
 	hud.pause_requested.connect(_toggle_pause)
 	hud.menu_close_requested.connect(_close_menu)
 	hud.survey_target_selected.connect(func(data):
 		view.resource_target = data
+		if not data.is_empty(): world.navigation.track(0)
 		if not data.is_empty(): hud.show_notice("Tracking %s at (%d, %d). Follow the teal compass; M changes the survey marker." % [Catalog.item_name(data.item), data.cell.x, data.cell.y]))
 	hud.fullscreen_requested.connect(_toggle_fullscreen)
 	_update_display_button()
@@ -109,6 +128,8 @@ func _ready() -> void:
 	if not world.story.seen.has("arrival"): _open_story("arrival")
 
 func _bind_world(state: RefCounted) -> void:
+	last_autosave = state.ticks
+	if autosave_toggle != null: autosave_toggle.set_pressed_no_signal(SaveSlots.autosave_enabled(save_path))
 	if hud.story_panel.visible:
 		hud.story_panel.dismiss_silently()
 		if paused != story_was_paused: _toggle_pause()
@@ -171,6 +192,10 @@ func _process(delta: float) -> void:
 		while accumulator >= World.TICK_SECONDS and not paused:
 			accumulator -= World.TICK_SECONDS
 			Simulation.step(world)
+	if not paused and world.ticks - last_autosave >= SaveSlots.INTERVAL and autosave_toggle.button_pressed:
+		last_autosave = world.ticks
+		var auto_error := SaveService.save_world(world, save_path + ".auto.json")
+		hud.show_notice("Autosaved to separate recovery file." if auto_error.is_empty() else auto_error)
 	view.interpolation = 1.0 if paused else accumulator / World.TICK_SECONDS
 	var rendered_position: Vector2 = world.previous_position.lerp(world.player_position, view.interpolation) * TILE
 	camera.position = camera.position.lerp(rendered_position, 1.0 - exp(-delta * 12))
@@ -257,6 +282,14 @@ func _update_display_button() -> void:
 	hud.fullscreen_button.text = "Window [F11]" if fullscreen else "Fullscreen [F11]"
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.ctrl_pressed and event.keycode in [KEY_Z, KEY_Y]:
+		if not hud.workspace.visible and not hud.pause_menu.visible and not hud.survey.visible and not hud.frontier_panel.visible and not hud.story_panel.visible and not hud.hotbar.picker.visible and (not hud.factory_panel.visible or hud.factory_panel.tab == "plans"):
+			var redo: bool = event.keycode == KEY_Y or event.shift_pressed
+			var applied: bool = world.plans.redo(world) if redo else world.plans.undo(world)
+			hud.show_notice(("Plan edit redone." if redo else "Plan edit undone.") if applied else "No plan edit to restore.")
+			hud.factory_panel.refresh()
+			get_viewport().set_input_as_handled()
+			return
 	if hud.frontier_panel.visible:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_L: hud.frontier_panel.hide()
 		return
@@ -377,8 +410,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					return
 				painting = false
 				if world.plans.ghosts.has(_mouse_cell()):
-					world.plans.ghosts.erase(_mouse_cell())
-					world.changed.emit()
+					world.plans.remove(world, _mouse_cell())
 				else: mining_held = true
 				reclaim_progress = 0.0
 			MOUSE_BUTTON_WHEEL_UP: camera.zoom = Vector2.ONE * minf(1.7, camera.zoom.x + 0.1)
@@ -541,18 +573,39 @@ func _story_finished(chapter: String) -> void:
 	if paused != story_was_paused: _toggle_pause()
 	hud.refresh()
 
+func _save_as() -> void:
+	if not hud.pause_menu.visible: _open_menu()
+	save_dialog.open(save_path, true)
+
+func _save_to_slot(path: String, title: String) -> void:
+	var error := SaveService.save_world(world, path)
+	if not error.is_empty():
+		hud.show_notice(error)
+		return
+	save_path = path
+	var name_error := SaveSlots.rename(path, SaveSlots.index_for(path), title)
+	last_autosave = world.ticks
+	autosave_toggle.set_pressed_no_signal(SaveSlots.autosave_enabled(path))
+	hud.show_notice("Factory saved to " + SaveSlots.label(path, SaveSlots.index_for(path)) + ("; could not store its name." if name_error != OK else "."))
+
 func _save() -> void:
 	var error := SaveService.save_world(world, save_path)
-	hud.show_notice("Factory saved. Previous save retained as .bak." if error.is_empty() else error)
+	hud.show_notice("Factory saved. Recovery copies are available through Load / recovery." if error.is_empty() else error)
 
 func _load_save() -> void:
-	var result := SaveService.load_world(save_path)
+	if not hud.pause_menu.visible: _open_menu()
+	save_dialog.open(save_path)
+
+func _load_from_path(source: String) -> void:
+	var result := SaveService.load_world(source)
 	if not result.get("error", "").is_empty():
 		hud.show_notice(result.error)
 		return
+	if not result.get("legacy", false): save_path = source.trim_suffix(".bak").trim_suffix(".auto.json")
 	_bind_world(result.world)
+	if hud.pause_menu.visible: _close_menu()
 	if not world.story.seen.has("arrival"): _open_story("arrival")
-	hud.show_notice("Legacy factory imported; old file preserved. Add inserters between belts and machines." if result.get("legacy", false) else "Factory restored.")
+	hud.show_notice("Recovery copy loaded. Save when ready to make this your current factory." if source.ends_with(".bak") or source.ends_with(".auto.json") else ("Legacy factory imported; old file preserved. Add inserters between belts and machines." if result.get("legacy", false) else "Factory restored."))
 	if result.get("frontier_added", false): hud.show_notice("Factory restored. New exploration leads await in Discoveries [L / J].")
 
 func _cancel_planning() -> void:
@@ -586,7 +639,11 @@ func _start_paste() -> void:
 
 func _build_plans() -> void:
 	var count: int = world.plans.build_nearby(world)
-	hud.show_notice("Built %d planned buildings. Remaining ghosts need buildings in your pack and interaction reach." % count)
+	var report: Dictionary = world.plans.supply_report(world, false)
+	var missing: Dictionary = {}
+	for kind in report.rows:
+		if report.rows[kind].missing > 0: missing[kind] = report.rows[kind].missing
+	hud.show_notice("Built %d / %d out of reach / %d blocked. Unqueued shortages: %s. F > Plans shows supplies." % [count, report.distant, report.blocked, Catalog.describe(missing)])
 	hud.refresh()
 
 func _open_factory(next_tab: String = "production") -> void:
