@@ -7,6 +7,9 @@ var sites: Dictionary = {}
 var cleared: Dictionary = {}
 var board: Dictionary = {}
 var target := ""
+const Forestry = preload("res://scripts/model/forestry.gd")
+var forestry = Forestry.new()
+var marsh = preload("res://scripts/model/marsh.gd").new()
 
 static func hash_cell(cell: Vector2i, seed_value: int, salt: int = 0) -> int:
 	var value := posmod(cell.x * 73856093 + cell.y * 19349663 + seed_value + salt * 83492791, 2147483647)
@@ -25,15 +28,26 @@ static func tree_candidate(cell: Vector2i, seed_value: int) -> bool:
 # Landmark-centered regions are derived from saved origins, never from ore generation.
 # Used when terrain chunks are drawn; no per-tile nodes or simulation actors.
 func landscape_index(cell: Vector2i) -> int:
-	for id in ["orchard", "quarry"]:
+	for id in preload("res://scripts/data/biome_catalog.gd").REGIONS:
 		if not enabled or not sites.has(id): continue
+		var definition: Dictionary = preload("res://scripts/data/biome_catalog.gd").REGIONS[id]
 		var center: Vector2i = sites[id].origin + Definitions.SITES[id].size / 2
-		var radius: int = 25 if id == "orchard" else 22
-		if cell.distance_squared_to(center) < radius * radius: return 1 if id == "orchard" else 2
+		if cell.distance_squared_to(center) < definition.radius*definition.radius: return int(definition.index)
 	return 0
+
+func landscape_weight(cell: Vector2i, id: String) -> float:
+	var regions: Dictionary = preload("res://scripts/data/biome_catalog.gd").REGIONS
+	if not enabled or not sites.has(id) or not regions.has(id): return 0.0
+	var center: Vector2i = sites[id].origin + Definitions.SITES[id].size / 2
+	var definition: Dictionary = regions[id]
+	var weight := clampf((float(definition.radius)-Vector2(cell-center).length())/float(definition.blend),0.0,1.0)
+	return weight*weight*(3.0-2.0*weight)
 
 func footprint(id: String) -> Rect2i:
 	return Rect2i(sites[id].origin, Definitions.SITES[id].size)
+
+func destination(id: String) -> Vector2i:
+	return marsh.shore(self) if id == "marsh" and marsh.sections < marsh.SECTIONS else port(id)
 
 func port(id: String) -> Vector2i:
 	return sites[id].origin + Vector2i(-1, 2)
@@ -48,9 +62,9 @@ func blocks(cell: Vector2i) -> bool:
 	var id := at(cell)
 	return not id.is_empty() and port(id) != cell
 
-func tree_at(world: RefCounted, cell: Vector2i) -> bool:
-	if not enabled or cleared.has(cell) or not tree_candidate(cell, world.terrain.seed_value): return false
-	if world.early.enabled and world.early.water_at(cell): return false
+func tree_at(world: RefCounted, cell: Vector2i, ignore_removal: bool = false) -> bool:
+	if not enabled or (not ignore_removal and (cleared.has(cell) or forestry.growing(world, cell))) or not tree_candidate(cell, world.terrain.seed_value): return false
+	if marsh.water_at(self,cell) or (world.early.enabled and world.early.water_at(cell)): return false
 	world.terrain.tile(cell) # Ensure the original deposit mask is cached, including exhausted ore.
 	if world.at(cell) != null or world.settlements.at(cell) != null or world.terrain.chunks[world.terrain.chunk_at(cell)].has(cell): return false
 	for id in sites:
@@ -61,7 +75,8 @@ func tree_at(world: RefCounted, cell: Vector2i) -> bool:
 	return true
 
 func clear_tree(world: RefCounted, cell: Vector2i, announce: bool = true) -> bool:
-	if not tree_at(world, cell) or cleared.size() >= 100000: return false
+	if (not tree_at(world, cell) and not forestry.plots.has(cell)) or cleared.size() >= 100000: return false
+	forestry.plots.erase(cell)
 	cleared[cell] = true
 	if announce:
 		world.message.emit("Grove tree cleared. Ground ready for building.")
@@ -74,9 +89,9 @@ func install(world: RefCounted) -> void:
 	sites.clear()
 	for entity in world.entities.values():
 		if tree_candidate(entity.cell, world.terrain.seed_value): cleared[entity.cell] = true
-	add_missing_sites(world)
+	_install_sites(world)
 
-func add_missing_sites(world: RefCounted) -> void:
+func _install_sites(world: RefCounted) -> void:
 	if not enabled: return
 	for id in Definitions.SITES:
 		if sites.has(id): continue
@@ -87,7 +102,7 @@ func add_missing_sites(world: RefCounted) -> void:
 			var ring := (attempt + 7) / 8
 			var axis: Vector2i = [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP, Vector2i(1, 1), Vector2i(-1, 1), Vector2i(-1, -1), Vector2i(1, -1)][posmod(attempt - 1, 8)]
 			var origin: Vector2i = definition.anchor + shift + jitter + (axis * ring * 8 if attempt > 0 else Vector2i.ZERO)
-			var rect := Rect2i(origin, definition.size).grow(2)
+			var rect := preload("res://scripts/model/marsh.gd").bounds(origin) if id == "marsh" else Rect2i(origin, definition.size).grow(2)
 			var vacant := true
 			if world.settlements.enabled:
 				var approach := Rect2i(world.settlements.sites.town_hall.origin + Vector2i(-5, -7), Vector2i(32, 17))
@@ -120,6 +135,7 @@ func observe(world: RefCounted) -> void:
 func interaction_reason(world: RefCounted, id: String) -> String:
 	if not enabled or not sites.has(id): return "This landmark is unavailable."
 	if world.early.active() and id in ["camp", "depot"]: return "Recover industrial salvage after rebuilding the crossing [Y]."
+	if id == "marsh" and marsh.sections < marsh.SECTIONS: return "Build four causeway spans from the western bank in Discoveries [L]."
 	if not world.in_reach(port(id)): return "Walk within reach of the marked entrance."
 	if world.defense.phase in ["warning", "active"]: return "Finish the beacon defense before investigating."
 	return ""
@@ -195,14 +211,14 @@ func serialize() -> Dictionary:
 	for cell in cleared: trees.append([cell.x, cell.y])
 	var belts: Array = []
 	for cell in board: belts.append([cell.x, cell.y, board[cell]])
-	return {"version": VERSION, "enabled": enabled, "sites": records, "cleared": trees, "board": belts, "target": target}
+	return {"version": VERSION, "enabled": enabled, "sites": records, "cleared": trees, "board": belts, "target": target, "forestry": forestry.serialize(), "marsh": marsh.serialize()}
 
 static func integer(value, lower: int = -1000000, upper: int = 1000000) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) and value == floor(float(value)) and value >= lower and value <= upper
 
 func restore(world: RefCounted, data) -> bool:
 	if not data is Dictionary or data.get("version") != VERSION or not data.get("enabled") is bool or not data.get("sites") is Dictionary: return false
-	if data.sites.size() > Definitions.SITES.size() or not data.get("cleared") is Array or data.cleared.size() > 100000 or not data.get("board") is Array or data.board.size() > Definitions.MAX_BELTS: return false
+	if data.sites.size() != Definitions.SITES.size() or not data.get("cleared") is Array or data.cleared.size() > 100000 or not data.get("board") is Array or data.board.size() > Definitions.MAX_BELTS: return false
 	enabled = data.enabled
 	for id in data.sites:
 		var record = data.sites[id]
@@ -232,4 +248,14 @@ func restore(world: RefCounted, data) -> bool:
 	if not enabled and (not sites.is_empty() or not cleared.is_empty() or not board.is_empty() or target != ""): return false
 	if not board.is_empty() and (not sites.has("depot") or not sites.depot.discovered): return false
 	if claimed("depot") and not evaluate().success: return false
+	if not forestry.restore(world, data.forestry): return false
+	if not marsh.restore(world, data.get("marsh")): return false
+	if sites.has("marsh"):
+		for cell_x in range(-9,15):
+			for cell_y in range(-8,14):
+				var cell: Vector2i = sites.marsh.origin+Vector2i(cell_x,cell_y)
+				if not marsh.water_at(self,cell): continue
+				world.terrain.tile(cell)
+				if world.settlements.at(cell) != null or (at(cell) != "" and at(cell) != "marsh") or (world.at(cell) != null and not marsh.boardwalk(self,cell)) or world.terrain.chunks[world.terrain.chunk_at(cell)].has(cell): return false
+		if marsh.blocked(self,Vector2i(world.player_position.floor())): return false
 	return true

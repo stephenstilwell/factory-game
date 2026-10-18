@@ -1,5 +1,5 @@
 extends RefCounted
-## Optional new-world opening. Old saves remain unrestricted unless this extension exists.
+## Shelter and crossing progression for every new world.
 const Definitions = preload("res://scripts/data/early_catalog.gd")
 const Frontier = preload("res://scripts/model/frontier.gd")
 const Catalog = preload("res://scripts/data/catalog.gd")
@@ -13,7 +13,6 @@ var charcoal := 0
 func active() -> bool: return enabled and phase < 2
 
 func available(id: String) -> bool:
-	if id == "plank": return true # Existing industrial worlds can support regional projects.
 	if id in Definitions.TIMBER_RECIPES: return enabled
 	if id in Definitions.STONE_RECIPES: return enabled and phase >= 1
 	return not active()
@@ -45,7 +44,7 @@ static func forage_kind(cell: Vector2i, seed_value: int) -> String:
 	return ("foraged_food" if index == 2 else "timber") if index >= 0 else ""
 
 func resource_at(world: RefCounted, cell: Vector2i) -> Dictionary:
-	if not enabled or water_at(cell): return {}
+	if not enabled or water_at(cell) or world.frontier.marsh.water_at(world.frontier,cell): return {}
 	var kind := forage_kind(cell, world.terrain.seed_value)
 	if kind.is_empty() or world.at(cell) != null or world.settlements.at(cell) != null or world.frontier.at(cell) != "" or not world.terrain.tile(cell).is_empty(): return {}
 	var stock := 8 if kind == "foraged_food" else 12
@@ -106,7 +105,7 @@ func advance(world: RefCounted) -> bool:
 	phase += 1
 	world.settlements.age = phase
 	world.award_skill("fabrication", 150 if phase == 1 else 250)
-	world.message.emit("Shelter supplied! The first neighbors have a home. Stone & Water unlocks the waterwheel sawmill and charcoal clamp." if phase == 1 else "The crossing is rebuilt! Iron & Industry unlocks ore mining, furnaces and mechanical logistics. Your charcoal can fuel the first furnace. Copper comes later in the factory lessons.")
+	world.message.emit("Shelter supplied! The first neighbors have a home. Stone & Water unlocks the waterwheel sawmill, charcoal clamp and automatic grove replanting. Lumber camps now regrow harvested trees. Town [Y] also offers an optional personal cottage kit to place and decorate." if phase == 1 else "The crossing is rebuilt! Iron & Industry unlocks ore mining, furnaces and mechanical logistics. Your charcoal can fuel the first furnace. Copper comes later in the factory lessons.")
 	world.feedback_requested.emit("success", hearth(world).cell)
 	world.changed.emit()
 	return true
@@ -134,6 +133,7 @@ func objective(world: RefCounted) -> Dictionary:
 
 func step(world: RefCounted) -> void:
 	if not enabled: return
+	world.frontier.forestry.step(world)
 	for id in world.by_kind.lumber_camp:
 		var camp = world.entities[id]
 		if camp.health <= 0: continue
@@ -141,20 +141,14 @@ func step(world: RefCounted) -> void:
 			camp.status = "Timber output full — add a handcart post"
 			continue
 		camp.progress += 1
-		if not camp.status.begins_with("Grove exhausted"): camp.status = "Harvesting nearby timber"
 		if camp.progress < 40: continue
 		camp.progress = 0
-		var found := false
-		for y in range(-4, 5):
-			for x in range(-4, 5):
-				var cell: Vector2i = camp.cell + Vector2i(x, y)
-				if world.frontier.clear_tree(world, cell, false):
-					camp.output.add("timber", 4)
-					produced(world, "timber", 4)
-					found = true
-					break
-			if found: break
-		if not found: camp.status = "Grove exhausted — pick up and move camp"
+		var found: bool = world.frontier.forestry.harvest_nearby(world, camp.cell)
+		if found:
+			camp.status = "Harvesting managed grove"
+			camp.output.add("timber", 4)
+			produced(world, "timber", 4)
+		if not found: camp.status = "Waiting for trees to mature" if world.frontier.forestry.coverage(world, camp.cell).growing > 0 else "No harvestable grove — supply shelter for replanting or move camp"
 	for id in world.by_kind.cart_post:
 		var post = world.entities[id]
 		if post.health <= 0: continue

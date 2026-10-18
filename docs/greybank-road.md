@@ -43,8 +43,7 @@ The project does not add enemies, force a wave, change ore generation or move ol
 
 quarry_project saves its bounded goods buffer and remaining shipment ticks. Settlements
 save road_deliveries, which reconciles credit earnings. Stage milestone acknowledgements
-must match delivered road sections, preventing reloads from granting XP twice. Older saves
-default to an unstarted road project.
+must match delivered road sections, preventing reloads from granting XP twice. The complete road-project section is required in current saves.
 
 tests/quarry_project_tests.gd checks manual delivery/withdrawal, physical commitment,
 funded timers, save continuation, exact finite rewards, local speed boundaries, completion

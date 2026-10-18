@@ -48,7 +48,7 @@ static func run(test: SceneTree) -> void:
 	old_data.erase("orchard_project")
 	old_data.settlements.erase("garden_beds")
 	old_data.settlements.erase("produce_sales")
-	test.check(Saves.decode(old_data).error.is_empty(), "Old saves load with unstarted gardens")
+	test.check(not Saves.decode(old_data).error.is_empty(), "Missing garden state is rejected")
 	var full := world()
 	full.orchard_project.restore_bed(full)
 	full.orchard_project.supply(full)
@@ -82,7 +82,7 @@ static func run(test: SceneTree) -> void:
 	test.check(automated.settlements.sites.trading_post.inventory.count("foraged_food") == 4 and shipment.inventory.total() == 0, "Inserters deliver orchard produce to the market receiver")
 	var legacy := world()
 	legacy.player.add("timber", 1)
-	test.check(not legacy.early.enabled and legacy.craft("plank") and not legacy.content_available("lumber_camp"), "Older industrial saves can make regional planks without enabling primitive buildings")
+	test.check(legacy.early.enabled and legacy.craft("plank") and legacy.content_available("lumber_camp"), "Industrial towns retain forestry and regional plank crafting")
 
 static func ui(test: SceneTree) -> void:
 	var game := world()

@@ -1,6 +1,6 @@
 # The timber opening
 
-New games start with no items, machines or metal-working knowledge. Existing saves keep their old opening; this redesign is an optional, versioned save extension enabled only for new worlds.
+Every new game starts with no items, machines or metal-working knowledge. Shelter, crossing and industrial lessons are the only progression path. Older save formats require a new world.
 
 ## The playable chain
 
@@ -46,10 +46,10 @@ The original furnace lessons resume here. Their ore-and-fuel objective accepts c
 
 ## Persistence and performance
 
-The optional `early` version-1 extension stores enabled state, chapter (0-2), finite forage depletion and productive delivery/sawing/charcoal totals. Machine progress uses the existing entity schema; primitive output capacities and work periods are catalog data. The guide's optional `timber_opening` flag selects the charcoal-compatible iron lesson without changing legacy stage IDs or counters.
+The required early section stores chapter, finite forage depletion and delivery/sawing/charcoal totals. Civic age must agree with the chapter. Industrial lessons always use charcoal-compatible goals; there is no alternate opening flag.
 
 Loaded age state must agree with the settlement age, productive prerequisites and quarry discovery. Primitive buildings and queued recipes cannot predate their chapter; a saved watermill must remain beside its watercourse. Existing currency reconciliation includes Stone/Industrial market premiums and preserves all previous credit accounting.
 
 Timber and industrial hotbars have separate preference files. Switching chapters keeps customized industrial slots intact. Ore generation and richness are unchanged. New scenery uses visible chunks, the existing tree-candidate cache and shared ellipse texture, with no permanent Node for each resource or worker. Ambient/reduced-motion settings suppress decorative worker animation.
 
-Verification includes a complete empty-pack playthrough to the first iron plates using only gathered/crafted/produced resources, seed-stable opening resources, finite depletion, ore/salvage gates, automatic worker supply, physical reclamation, exact save roundtrips, invalid metadata, legacy migration and the real Town UI. Native captures use `tests/capture_timber.gd`.
+Verification includes a complete empty-pack playthrough to the first iron plates using only gathered/crafted/produced resources, seed-stable opening resources, finite depletion, ore/salvage gates, automatic worker supply, physical reclamation, exact save roundtrips, invalid metadata, obsolete-format rejection and the real Town UI. Native captures use `tests/capture_timber.gd`.

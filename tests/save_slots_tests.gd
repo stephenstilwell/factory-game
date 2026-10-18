@@ -1,4 +1,5 @@
 ﻿extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 const Slots = preload("res://scripts/persistence/save_slots.gd")
@@ -11,7 +12,7 @@ static func run(test: SceneTree) -> void:
 	test.check(not Slots.autosave_enabled(path), "Autosave defaults off")
 	test.check(Slots.rename(base, 2, "  Orchard town  ") == OK and Slots.label(base, 2) == "Orchard town", "Factory slot names persist separately from save paths")
 	test.check(Slots.set_autosave(path, true) == OK and Slots.autosave_enabled(path) and not Slots.autosave_enabled(base), "Autosave preferences belong to individual factory slots")
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.start()
 	Saves.save_world(world, base)
 	world.ticks = 100

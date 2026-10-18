@@ -7,6 +7,7 @@ const Ages = preload("res://scripts/data/settlement_ages.gd")
 const Site = preload("res://scripts/model/settlement_site.gd")
 const Catalog = preload("res://scripts/data/catalog.gd")
 
+var homecoming := preload("res://scripts/simulation/homecoming_chapter.gd").new()
 var enabled := false
 var sites: Dictionary = {}
 var occupancy: Dictionary = {}
@@ -21,49 +22,8 @@ var maintenance_kits := 0
 var supply_orders := 0
 var age := 0
 var stone_shipments := 0 # Reconcile only market premiums actually earned after advancement.
-var pending_sites: Array = [] # Only used while migrating an older save.
 const SUPPLY_COST := 20
 const SUPPLY_BUNDLE := {"coal": 20, "ammo": 10, "repair_kit": 2}
-
-func age_reason(world: RefCounted, require_reach: bool = true) -> String:
-	if world.early.enabled: return "Use the shelter and crossing projects in Town [Y]."
-	if age > 0: return "Stone & Water is already established."
-	if not enabled or not sites.town_hall.repaired: return "Restore the market, workshop and Town Hall first."
-	if not services_online(): return "Repair the breached Hall before rebuilding."
-	if world.defense.phase in ["warning", "active"]: return "Finish the beacon defense before rebuilding."
-	if not world.frontier.claimed("orchard"): return "Recover the Lost Orchard cutting [L]."
-	if not world.frontier.claimed("quarry"): return "Recover Greybank Quarry's mason pattern [L]."
-	if require_reach and not world.in_reach(sites.town_hall.port()): return "Walk to the Town Hall delivery hatch."
-	if not world.player.has_all(Ages.STONE_GOODS): return "Bring 80 stone, 20 iron plates and 10 gears in your pack."
-	return ""
-
-func advance_age(world: RefCounted) -> bool:
-	if world.early.enabled: return world.early.advance(world)
-	var reason := age_reason(world)
-	if not reason.is_empty():
-		world.message.emit(reason)
-		return false
-	if not world.player.exchange(Ages.STONE_GOODS, {}): return false
-	age = 1
-	world.metrics.consume(world.ticks, Ages.STONE_GOODS)
-	world.award_skill("fabrication", 500)
-	world.message.emit("Oldbridge enters Stone & Water! Civic buildings gain dressed-stone foundations. Each future market shipment earns +2 credits. +500 Fabrication XP.")
-	world.feedback_requested.emit("success", sites.town_hall.port())
-	world.changed.emit()
-	return true
-
-func age_summary(world: RefCounted) -> String:
-	if world.early.enabled: return world.early.summary(world)
-	var text: String = "TOWN AGE: " + Ages.AGES[age].name + "\n" + Ages.AGES[age].description
-	if age == 0:
-		text += "\nNEXT: Stone & Water • dressed-stone civic buildings, +2 credits per future market shipment, 500 Fabrication XP."
-		text += "\n%s Hall restored   %s Orchard recovered   %s Mason pattern recovered" % ["[x]" if sites.town_hall.repaired else "[ ]", "[x]" if world.frontier.claimed("orchard") else "[ ]", "[x]" if world.frontier.claimed("quarry") else "[ ]"]
-		text += "\nProject supplies (from pack):"
-		for item in Ages.STONE_GOODS: text += "\n%s %d / %d" % [Catalog.item_name(item), world.player.count(item), Ages.STONE_GOODS[item]]
-		text += "\n" + ("Ready — visit the Hall to begin." if age_reason(world, false).is_empty() else age_reason(world, false))
-	else:
-		text += "\nACTIVE: +2 credits per market shipment while services operate. No automatic waves."
-	return text
 
 func supply_order_reason(world: RefCounted) -> String:
 	if not enabled or not sites.trading_post.repaired or sites.trading_post.health <= 0 or not services_online(): return "Restore town services first."
@@ -127,9 +87,14 @@ func receiving_limit(site_id: String, item: String, world: RefCounted = null) ->
 	var site = sites[site_id]
 	var definition: Dictionary = Definitions.SITES[site_id]
 	if site_id == "trading_post" and site.repaired and item == "foraged_food": return world.orchard_project.market_limit(world) if world != null else 0
+	if site_id == "workshop" and site.repaired and item == "ammo" and 1 in relief_waves: return maxi(0,100-site.inventory.count("ammo"))
 	var wanted: Dictionary = definition.repair
 	if site.repaired and site.health == 0: return 0
-	if site_id == "town_hall" and district_level() >= 3: return 0
+	if site_id == "town_hall" and site.repaired:
+		var wanted_chapter: Dictionary = homecoming.goods()
+		if wanted_chapter.has(item): return maxi(0,int(wanted_chapter[item])-site.inventory.count(item))
+		if item == "coal" and homecoming.stage == 3: return maxi(0,100-site.inventory.count("coal"))
+		if district_level() >= 3: return 0
 	var multiplier := 1
 	if site.repaired:
 		if not definition.has("contract"): return 0
@@ -172,6 +137,7 @@ func effect(name: String) -> int:
 
 func step(world: RefCounted) -> void:
 	if not enabled or not services_online(): return
+	homecoming.step(world)
 	for id in sites:
 		var site = sites[id]
 		var definition: Dictionary = Definitions.SITES[id]
@@ -218,40 +184,16 @@ func objective_text() -> String:
 	if not sites.workshop.repaired: return "Earn 60 trade credits and restore the engineers' workshop. [Y] Town"
 	if not sites.town_hall.repaired: return "Rebuild Oldbridge Town Hall and prepare its beacon defenses. [Y] Town"
 	if not services_online(): return "Repair the breached Town Hall with kits [H] to restore town services."
-	if age == 0: return "Timber → Stone: recover the orchard and Greybank mason pattern [L], then rebuild at the Hall [Y]."
-	if district_level() < 3: return "Restore neighborhoods %d/3: research Homes for Oldbridge [T], then automate housing deliveries [Y]." % district_level()
-	return "Oldbridge neighborhoods restored! Prepare defenses and light the beacon when ready. [Y] Town"
+	if homecoming.stage < 3: return "HOMECOMING %d/3 • %s [Y] Town" % [homecoming.stage+1,homecoming.STAGES[homecoming.stage].name]
+	if district_level() < 3: return "Homecoming complete! Grow the remaining neighborhoods (%d/3) with housing deliveries [Y]." % district_level()
+	return "Oldbridge lives again! Supply its public depot, build your town, or prepare an optional beacon defense [Y]."
 
 func objective_target() -> Dictionary:
 	if not enabled: return {}
 	var site = sites.trading_post if not sites.trading_post.repaired else (sites.workshop if not sites.workshop.repaired else sites.town_hall)
 	return {} if site.repaired else {"cell": site.port(), "label": Definitions.SITES[site.id].name}
 
-func install_legacy(world: RefCounted) -> bool:
-	# Add new ruins to old factories without overwriting existing machines or the engineer.
-	enabled = true
-	occupancy.clear()
-	ports.clear()
-	for id in sites:
-		var site = sites[id]
-		var placed := false
-		for attempt in range(128):
-			site.origin = Definitions.SITES[id].origin + Vector2i(attempt * 8, 0)
-			var rect: Rect2i = site.footprint()
-			var free := not Rect2(rect).grow(0.22).has_point(world.player_position)
-			for x in range(rect.position.x, rect.end.x):
-				for y in range(rect.position.y, rect.end.y):
-					if world.at(Vector2i(x, y)) != null or occupancy.has(Vector2i(x, y)): free = false
-			if not free: continue
-			for x in range(rect.position.x, rect.end.x):
-				for y in range(rect.position.y, rect.end.y): occupancy[Vector2i(x, y)] = id
-			ports[site.port()] = id
-			placed = true
-			break
-		if not placed: return false
-	return true
-
 func serialize() -> Dictionary:
 	var records: Array = []
 	for id in Definitions.SITES: records.append(sites[id].serialize())
-	return {"version": 2, "enabled": enabled, "credits": credits, "total_earned": total_earned, "relief_waves": relief_waves.duplicate(), "garden_beds": garden_beds, "produce_sales": produce_sales, "road_deliveries": road_deliveries, "maintenance_kits": maintenance_kits, "supply_orders": supply_orders, "age": age, "stone_shipments": stone_shipments, "sites": records}
+	return {"version": 2, "enabled": enabled, "credits": credits, "total_earned": total_earned, "relief_waves": relief_waves.duplicate(), "garden_beds": garden_beds, "produce_sales": produce_sales, "road_deliveries": road_deliveries, "maintenance_kits": maintenance_kits, "supply_orders": supply_orders, "age": age, "stone_shipments": stone_shipments, "homecoming":homecoming.serialize(), "sites": records}

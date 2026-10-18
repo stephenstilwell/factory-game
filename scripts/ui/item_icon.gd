@@ -44,6 +44,10 @@ func _draw() -> void:
 	elif item_id == "service_rifle":
 		draw_line(center + Vector2(-12, 4), center + Vector2(14, -4), color, 6, true)
 		draw_line(center + Vector2(-4, 2), center + Vector2(-2, 9), color.darkened(0.3), 4, true)
+	elif item_id == "marksman_rifle":
+		draw_line(center + Vector2(-15, 5), center + Vector2(17, -5), color, 6, true)
+		draw_line(center + Vector2(-5, 2), center + Vector2(-3, 10), color.darkened(0.3), 4, true)
+		draw_line(center + Vector2(-2, -3), center + Vector2(7, -6), Color("91c8be"), 3, true)
 	elif item_id == "ammo":
 		for x in [-7, 0, 7]:
 			draw_rect(Rect2(center + Vector2(x - 2, -7), Vector2(4, 15)), color)
@@ -55,6 +59,13 @@ func _draw() -> void:
 	elif item_id == "wall":
 		for y in [-7, 1]:
 			for x in [-10, 1]: draw_rect(Rect2(center + Vector2(x, y), Vector2(9, 6)), color)
+	elif item_id == "reinforced_wall":
+		draw_rect(Rect2(center - Vector2(12, 9), Vector2(24, 18)), color.darkened(0.4))
+		draw_rect(Rect2(center - Vector2(10, 7), Vector2(20, 14)), color)
+		draw_line(center - Vector2(10, 0), center + Vector2(10, 0), color.lightened(0.3), 2)
+		for px in [-8, 8]:
+			draw_circle(center + Vector2(px, -4), 1.5, Color("1c2c30"))
+			draw_circle(center + Vector2(px, 4), 1.5, Color("1c2c30"))
 	elif item_id == "turret":
 		draw_circle(center, 10, color.darkened(0.4))
 		draw_rect(Rect2(center - Vector2(5, 6), Vector2(10, 12)), color)

@@ -38,6 +38,7 @@ func _ready() -> void:
 	glyph.item_id = item_id
 	row.add_child(glyph)
 	count_label = Style.label("", 16)
+	Style.badge(count_label, Style.TEXT, 4)
 	count_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	count_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -58,7 +59,8 @@ func update_count(value: int, selected: bool = false) -> void:
 	glyph.modulate.a = 1.0 if value > 0 else 0.4
 	if selected_style != selected:
 		selected_style = selected
-		add_theme_stylebox_override("normal", Style.panel(Color("2d4848") if selected else Color("24373d"), Style.GOLD if selected else Color("3a5057")))
+		add_theme_stylebox_override("normal", Style.tile(selected))
+		add_theme_stylebox_override("hover", Style.tile(selected, true))
 	tooltip_text = "%s\n%d in this inventory\n%s\n\nClick to select / load / take. Right-click: 1. Shift-click: all.\nDrag transfers the selected quantity." % [Catalog.item_name(item_id), amount, Catalog.item_description(item_id)]
 
 func _gui_input(event: InputEvent) -> void:

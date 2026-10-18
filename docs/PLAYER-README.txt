@@ -9,8 +9,10 @@ Godot and the source project are not required.
 YOUR FIRST GOAL
 New games start empty in Timber & Hearth, before metal industry.
 Hold RMB on fallen logs near (23, 13). Gather a few loose stones for an axe,
-then C crafts planks, a lumber camp, a handcart post and a communal shelter.
-A camp harvests nearby finite trees; a post within ten tiles collects timber.
+then E opens crafting for planks, a lumber camp, a handcart post and a communal shelter.
+A camp harvests nearby trees repeatedly; a post within ten tiles collects timber.
+After the shelter, camps automatically replant stumps. Trees regrow over two
+minutes of simulation. Inspect camps for coverage and recovery information.
 X takes stored timber from the post. Workers need no fuel or manual hiring.
 After eight delivered timber, stand beside the shelter and open Y. Supply
 12 timber, 8 planks, 4 berries and 8 stone to welcome the first neighbors.
@@ -30,8 +32,7 @@ CONTROLS
 WASD / arrows: Walk
 Right mouse (hold): Gather, mine, fell trees, or reclaim buildings
 Left mouse: Place selected building or inspect
-E: Inventory
-C: Crafting
+E: Inventory and crafting
 Y: Town and shelter/crossing projects
 L: Discoveries and exploration leads
 J: Journal and unread conversations
@@ -45,7 +46,7 @@ Q: Clear build cursor / pick hovered building
 R / Shift+R: Rotate
 X: Collect output or stored goods
 Ctrl+left mouse: Supply machine
-M: Mineral survey (ore becomes useful after the crossing)
+M: Settlement map and resource survey
 P: Engineer upgrades and skills
 H: Repair structure
 V: Draw / holster carried rifle
@@ -58,9 +59,8 @@ Each launch starts a fresh world; Load resumes your save.
 Use Save before quitting; a backup of the previous save is retained.
 Saves live in %APPDATA%/Godot/app_userdata/FactoryGame/.
 Updating the extracted game does not delete this directory.
-Existing factories keep their original progression and layouts. Start a new
-world to experience the timber opening. Industrial and timber hotbars use
-separate preferences, preserving customized industrial shortcuts.
+This development release requires current v3 saves. Older saves are not
+converted; start a new world. Old files remain on disk.
 
 LATER PLAY
 Restore the market and workshop with your new industry, trade manufactured
@@ -78,6 +78,8 @@ Aether and magical restoration remain future chapters.
 
 PRESENTATION
 Esc opens saved options for reduced motion, ambient effects and sound.
+Detailed surface lighting adds material highlights and local light blocking;
+disable it for simpler lighting. Dense factories at 4K may remain slow.
 Ten bundled CC0 music recordings follow wilderness, home, farmland,
 highlands and beacon defense, with two distinct tracks per context. Transitions are gradual. Disable the adaptive-music toggle
 for a fixed calm theme, or use the Music slider to adjust/mute either mode.

@@ -6,8 +6,9 @@ const SaveService = preload("res://scripts/persistence/save_service.gd")
 const Fixtures = preload("res://tests/fixtures.gd")
 
 static func run(test: SceneTree) -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.settlements = Settlements.new(true)
+	world.settlements.age = world.early.phase
 	var region = world.settlements
 	var post = region.sites.trading_post
 	var workshop = region.sites.workshop
@@ -53,21 +54,21 @@ static func run(test: SceneTree) -> void:
 	test.check(region.credits == 0, "Shipment cannot pay before its complete duration")
 	test.advance(world, 1)
 	test.advance(restored, 1)
-	test.check(region.credits == 10 and region.total_earned == 10 and post.shipments == 1, "One completed shipment pays exactly once")
+	test.check(region.credits == 12 and region.total_earned == 12 and post.shipments == 1, "One completed shipment pays exactly once")
 	test.check(SaveService.encode(world) == SaveService.encode(restored), "Saved in-flight shipment continues deterministically")
 	test.advance(world, 1000)
-	test.check(region.credits == 10 and post.shipments == 1, "Idle time cannot bank free shipments or duplicate a payout")
+	test.check(region.credits == 12 and post.shipments == 1, "Idle time cannot bank free shipments or duplicate a payout")
 	world.player_position = Vector2(34.5, 20.5)
 	world.player.contents = {"iron_plate": 20, "gear": 5, "copper_plate": 10}
 	world.supply_site("workshop")
-	test.check(not world.restore_site("workshop") and workshop.inventory.total() == 35 and region.credits == 10, "Unfunded crew project preserves delivered materials and wallet")
+	test.check(not world.restore_site("workshop") and workshop.inventory.total() == 35 and region.credits == 12, "Unfunded crew project preserves delivered materials and wallet")
 	# Use real inserter delivery for the five remaining paid shipments.
 	var source = world.spawn("chest", post.port() - Vector2i(2, 0), 0)
 	var arm = world.spawn("inserter", post.port() - Vector2i(1, 0), 0)
 	source.inventory.contents = {"iron_plate": 20, "gear": 5, "coal": 3}
 	test.advance(world, 1800)
-	test.check(region.credits == 60 and post.shipments == 6 and source.inventory.count("coal") == 3 and arm.carried == "", "Inserters fulfill repeated contracts autonomously and leave rejected goods at source")
-	test.check(world.restore_site("workshop") and region.credits == 0 and workshop.inventory.total() == 0, "Earned trade credits fund the next restoration alongside physical materials")
+	test.check(region.credits == 72 and post.shipments == 6 and source.inventory.count("coal") == 3 and arm.carried == "", "Inserters fulfill repeated contracts autonomously and leave rejected goods at source")
+	test.check(world.restore_site("workshop") and region.credits == 12 and workshop.inventory.total() == 0, "Earned trade credits fund the next restoration alongside physical materials")
 	test.check(world.burner_fuel_duration() == 288 and not world.restore_site("workshop"), "Unique workshop grants its global fuel bonus once")
 	var furnace = world.spawn("furnace", Vector2i(24, 17), 0)
 	furnace.inventory.contents = {"iron_ore": 3, "coal": 1}
@@ -78,7 +79,7 @@ static func run(test: SceneTree) -> void:
 	test.advance(world, 95)
 	test.check(furnace.output.count("iron_plate") == 3 and furnace.inventory.count("coal") == 0, "Workshop coal powers all three queued plates without extra coal")
 	test.advance(world, 1000)
-	test.check(workshop.repaired and post.repaired and region.credits == 0 and world.burner_fuel_duration() == 288, "Permanent repairs and global bonus survive later supply shortages")
+	test.check(workshop.repaired and post.repaired and region.credits == 12 and world.burner_fuel_duration() == 288, "Permanent repairs and global bonus survive later supply shortages")
 	var malformed := SaveService.encode(world)
 	malformed.settlements.credits = 100
 	test.check(not SaveService.decode(malformed).has("world"), "Currency inconsistent with earned income and restoration spending is rejected")
@@ -99,10 +100,11 @@ static func run(test: SceneTree) -> void:
 	var old_data := SaveService.encode(old)
 	old_data.erase("settlements")
 	var migrated := SaveService.decode(old_data)
-	test.check(migrated.has("world") and migrated.world.at(Vector2i(30, 14)) != null and migrated.world.settlements.sites.trading_post.origin != Vector2i(30, 13), "Older factories gain ruins on vacant land without overwriting buildings or trapping the engineer")
+	test.check(not migrated.has("world"), "Incomplete or obsolete saves are rejected without migration")
 	# Repair intake and contract intake have strict, separate stock limits.
-	var repairing := World.new()
+	var repairing := Fixtures.industrial()
 	repairing.settlements = Settlements.new(true)
+	repairing.settlements.age = repairing.early.phase
 	var repair_hatch = repairing.settlements.sites.trading_post
 	var repair_source = repairing.spawn("chest", repair_hatch.port() - Vector2i(2, 0), 0)
 	repair_source.inventory.contents = {"stone": 10, "iron_plate": 20, "gear": 5}
@@ -111,8 +113,9 @@ static func run(test: SceneTree) -> void:
 	test.check(repair_source.inventory.total() == 0 and repairing.settlements.repair_reason("trading_post").is_empty() and not repair_hatch.repaired, "Inserters can complete repair material delivery while leaving restoration to the player")
 	repairing.player_position = Vector2(28.5, 15.5)
 	test.check(repairing.restore_site("trading_post"), "Automatically supplied repairs can be committed from the hatch")
-	var capped := World.new()
+	var capped := Fixtures.industrial()
 	capped.settlements = Settlements.new(true)
+	capped.settlements.age = capped.early.phase
 	var hatch = capped.settlements.sites.trading_post
 	hatch.inventory.contents = {"iron_plate": 20, "gear": 5, "stone": 10}
 	test.check(not capped.accepts(hatch, "iron_plate"), "Repair intake rejects excess materials")

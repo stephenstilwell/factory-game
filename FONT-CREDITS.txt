@@ -1,0 +1,12 @@
+OLDBRIDGE — THIRD-PARTY FONT
+
+Manrope
+Copyright 2018 The Manrope Project Authors
+Source: https://github.com/google/fonts/tree/main/ofl/manrope
+Project: https://github.com/googlefonts/manrope
+License: SIL Open Font License, Version 1.1
+The complete license is provided in OFL-Manrope.txt in release packages
+and assets/fonts/OFL-Manrope.txt in the source tree.
+
+The original variable font is bundled without modification.
+Godot selects its weight axis at runtime for body text and headings.

@@ -3,7 +3,7 @@ extends Node2D
 
 const Catalog = preload("res://scripts/data/catalog.gd")
 const World = preload("res://scripts/simulation/world.gd")
-const ChunkView = preload("res://scripts/view/terrain_chunk.gd")
+const ChunkView = preload("res://scripts/view/terrain_surface.gd")
 const SettlementView = preload("res://scripts/view/settlement_view.gd")
 const DefenseView = preload("res://scripts/view/defense_view.gd")
 const LandscapeView = preload("res://scripts/view/landscape_view.gd")
@@ -43,12 +43,17 @@ var placement: Node2D
 var plan_layer: Node2D
 var copy_rect := Rect2i()
 var reduced_motion := false
+var detailed_lighting := true
 var ambient_enabled := true
 var nature_audio: AudioStreamPlayer2D
+var lighting: Node2D
 # Immutable seed candidates only; live occupancy/removals are checked at draw time.
 var grove_candidates: Dictionary = {}
 
 func _ready() -> void:
+	lighting = preload("res://scripts/view/world_lighting.gd").new()
+	lighting.view = self
+	add_child(lighting)
 	nature_audio = NatureAudio.new()
 	add_child(nature_audio)
 	placement = PlacementPreview.new()
@@ -107,7 +112,7 @@ func _process(delta: float) -> void:
 			node.queue_free()
 			chunks.erase(coordinate)
 			continue
-		if not node.visible and chunks.size() > 64:
+		if not node.visible and chunks.size() > 32:
 			node.queue_free()
 			chunks.erase(coordinate)
 	for x in range(min_chunk.x, max_chunk.x + 1):
@@ -122,20 +127,24 @@ func _process(delta: float) -> void:
 				node.z_index = -1
 				add_child(node)
 				chunks[coordinate] = node
-			if world.terrain.dirty_chunks.has(coordinate): chunks[coordinate].queue_redraw()
+			if world.terrain.dirty_chunks.has(coordinate): chunks[coordinate].refresh()
 	world.terrain.dirty_chunks.clear()
 	# Generated chunks are reproducible; depletion lives separately and survives eviction.
 	if world.terrain.chunks.size() > 128:
 		for coordinate in world.terrain.chunks.keys():
 			if not visible_chunks.grow(2).has_point(coordinate): world.terrain.chunks.erase(coordinate)
+	lighting.sync(delta)
 	nature_audio.step(delta, self)
 	queue_redraw()
 
 func _draw() -> void:
 	if world == null: return
 	if copy_rect.has_area(): draw_rect(Rect2(Vector2(copy_rect.position) * TILE, Vector2(copy_rect.size) * TILE), Color(0.4, 0.8, 1.0, 0.6), false, 3)
+	preload("res://scripts/view/region_scenery.gd").draw(self,world,visible_cells)
 	LandscapeView.draw(self, world.settlements, visible_cells)
+	preload("res://scripts/view/marsh_view.gd").draw(self,world,visible_cells,0.0 if reduced_motion or not ambient_enabled else animation_time)
 	EarlyView.landscape(self, world, visible_cells)
+	if ambient_enabled: preload("res://scripts/view/water_surface.gd").draw(self,world,visible_cells,0.0 if reduced_motion else animation_time)
 	var road: PackedVector2Array = world.quarry_project.road(world)
 	if road.size() == 2:
 		draw_line(road[0] * TILE, road[1] * TILE, Color("514f43"), 36)
@@ -154,7 +163,7 @@ func _draw() -> void:
 			var rect: Rect2i = world.frontier.footprint(id)
 			if visible_cells.intersects(rect.grow(3)): drawables.append({"kind": "landmark", "data": id, "depth": rect.end.y * TILE - 10})
 		for cell in tree_candidates(visible_cells.grow(2)):
-			if world.frontier.tree_at(world, cell): drawables.append({"kind": "tree", "data": cell, "depth": cell.y * TILE + 35})
+			if world.frontier.tree_at(world, cell) or world.frontier.forestry.growing(world, cell): drawables.append({"kind": "tree", "data": cell, "depth": cell.y * TILE + 35})
 	if world.settlements.enabled:
 		for site in world.settlements.sites.values():
 			if visible_cells.intersects(site.footprint().grow(3)): drawables.append({"kind": "site", "data": site, "depth": (site.origin.y + 3) * TILE - 6})
@@ -170,15 +179,30 @@ func _draw() -> void:
 		if visible_cells.has_point(enemy.cell): drawables.append({"kind": "enemy", "data": enemy, "depth": enemy.cell.y * TILE + 38})
 	drawables.append({"kind": "engineer", "depth": engineer.y + 14})
 	for drawable in drawables:
-		if drawable.kind == "machine" and Catalog.BUILDINGS[drawable.data.kind].solid: _cast_shadow(drawable.data)
+		match drawable.kind:
+			"machine":
+				if Catalog.BUILDINGS[drawable.data.kind].solid: _cast_shadow(drawable.data)
+			"tree": Art.cast_shadow(self,(Vector2(drawable.data)+Vector2(0.5,0.7))*TILE,Vector2(29,14),60)
+			"site": Art.cast_shadow(self,Vector2(drawable.data.origin)*TILE+Vector2(74,116),Vector2(112,45),85)
+			"landmark":
+				var rect: Rect2i = world.frontier.footprint(drawable.data)
+				Art.cast_shadow(self,Vector2(rect.position)*TILE+Vector2(rect.size)*TILE*Vector2(0.5,0.77),Vector2(rect.size.x*34,40),60)
+			"engineer": Art.cast_shadow(self,engineer+Vector2(0,9),Vector2(13,8),26)
 	drawables.sort_custom(func(a, b): return float(a.depth) < float(b.depth))
 	for drawable in drawables:
 		match drawable.kind:
 			"site":
 				SettlementView.draw_site(self, drawable.data, selected_site, world.defense.phase, animation_time, world.settlements.age >= 1)
+				preload("res://scripts/view/homecoming_view.gd").draw(self,drawable.data,world.settlements.homecoming.stage)
+				if drawable.data.id == "workshop" and preload("res://scripts/simulation/quartermaster.gd").rescued(world):
+					var nell_cell := preload("res://scripts/simulation/quartermaster.gd").cell(world)
+					if nell_cell.x <= 1000000:
+						var at := (Vector2(nell_cell)+Vector2.ONE*0.5)*48
+						NpcArt.person(self,at,"visitor",0.0)
+						draw_string(ThemeDB.fallback_font,at+Vector2(-35,-36),"Nell • Quartermaster",HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("e5bd81"))
 				NpcArt.draw_homecoming(self, drawable.data, world.defense.cleared, world.defense.phase, animation_time)
 				if drawable.data.id == "town_hall": NpcArt.draw_neighborhoods(self, drawable.data, world.settlements.district_level(), animation_time, world.settlements.age >= 1)
-			"landmark": FrontierView.landmark(self, world, drawable.data, animation_time)
+			"landmark": FrontierView.landmark(self, world, drawable.data, 0.0 if reduced_motion or not ambient_enabled else animation_time)
 			"tree": FrontierView.tree(self, world, drawable.data, 0.0 if reduced_motion or not ambient_enabled else animation_time, world.player_position.distance_to(Vector2(drawable.data) + Vector2.ONE * 0.5) < 2.5 or (pointer_in_world and not ghost_kind.is_empty()))
 			"npc": NpcArt.draw_npc(self, world, drawable.data, animation_time, pointer_in_world and hover == world.story.npc_cell(world, drawable.data))
 			"machine": _machine(drawable.data)
@@ -193,7 +217,7 @@ func _draw() -> void:
 		if ambient_enabled and not reduced_motion: FrontierView.wildlife(self, world, visible_cells, animation_time)
 		var tracked: String = world.frontier.target
 		if world.navigation.target().is_empty() and world.frontier.sites.has(tracked):
-			var destination := (Vector2(world.frontier.port(tracked)) + Vector2.ONE * 0.5) * TILE
+			var destination := (Vector2(world.frontier.destination(tracked)) + Vector2.ONE * 0.5) * TILE
 			var toward := destination - engineer
 			var pointer := engineer + toward.normalized() * minf(96, toward.length())
 			var axis := toward.normalized()
@@ -202,7 +226,16 @@ func _draw() -> void:
 	EarlyView.settlers(self, world, visible_cells)
 	if not reduced_motion and ambient_enabled: EarlyView.workers(self, world, visible_cells, animation_time)
 	DefenseView.draw_shots(self, world, reduced_motion or not ambient_enabled)
+	DefenseView.draw_misses(self, world, reduced_motion or not ambient_enabled)
 	DefenseView.draw_player(self, world, pointer_in_world, reduced_motion, engineer)
+	var grove_cell := hover if pointer_in_world and ghost_kind == "lumber_camp" else selected
+	if (pointer_in_world and ghost_kind == "lumber_camp") or (world.at(selected) != null and world.at(selected).kind == "lumber_camp"):
+		var grove_rect := Rect2(Vector2(grove_cell - Vector2i(4, 4)) * TILE, Vector2.ONE * TILE * 9)
+		draw_rect(grove_rect, Color(0.5, 0.8, 0.55, 0.07))
+		draw_rect(grove_rect, Color(0.6, 0.85, 0.6, 0.65), false, 2)
+		var grove: Dictionary = world.frontier.forestry.coverage(world, grove_cell)
+		draw_rect(Rect2(Vector2(grove_rect.position.x + 4, grove_rect.end.y - 30), Vector2(grove_rect.size.x - 8, 26)), Color(0.08, 0.14, 0.12, 0.85))
+		draw_string(ThemeDB.fallback_font, Vector2(grove_rect.position.x + 10, grove_rect.end.y - 10), "%d mature / %d growing / %d waiting" % [grove.mature, grove.growing, grove.waiting], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("c5d9a5"))
 	if world.at(selected) != null and world.at(selected).kind == "fuel_depot":
 		draw_arc((Vector2(selected) + Vector2.ONE * 0.5) * TILE, world.supply_radius() * TILE, 0, TAU, 96, Color(0.95, 0.65, 0.35, 0.4), 2)
 	var pole_cell := hover if pointer_in_world and ghost_kind == "power_pole" else selected
@@ -264,6 +297,7 @@ func _draw() -> void:
 			draw_arc(engineer, world.interaction_reach() * TILE, 0, TAU, 96, Color(0.5, 0.8, 0.65, 0.12), 1)
 		draw_rect(rect, TEAL if valid else Color("de806a"), false, 2)
 
+
 func tree_candidates(area: Rect2i) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	var first: Vector2i = world.terrain.chunk_at(area.position)
@@ -300,7 +334,7 @@ func _machine(entity: RefCounted) -> void:
 			if Vector2(shot.from) == Vector2(entity.cell):
 				aim = (Vector2(shot.to) - Vector2(entity.cell)).normalized()
 				firing = true
-	var machine_time := 0.0 if reduced_motion and entity.kind in world.early.Definitions.BUILDINGS else animation_time
+	var machine_time := 0.0 if reduced_motion and (entity.kind in world.early.Definitions.BUILDINGS or entity.kind == "furnace") else animation_time
 	MachineArt.draw(self, entity, center, machine_time, aim, firing, interpolation)
 	if entity.electric_mode:
 		draw_polyline(PackedVector2Array([center + Vector2(14, -18), center + Vector2(8, -8), center + Vector2(15, -8), center + Vector2(10, 1)]), Color("8ae4d1"), 2.5, true)
@@ -313,7 +347,7 @@ func _machine(entity: RefCounted) -> void:
 		_item(item_position, entity.inventory.contents.keys()[0])
 	if entity.kind == "inserter" and entity.carried != "":
 		_item(center + Vector2(World.DIRS[entity.direction]) * MachineArt.hand_extension(entity, interpolation), entity.carried, 0.7)
-	if entity.kind not in (Catalog.TRANSPORT + ["inserter", "chest", "wall"]):
+	if entity.kind not in (Catalog.TRANSPORT + ["inserter", "chest", "wall", "reinforced_wall"]):
 		var working: bool = entity.status in ["Working", "Firing"] or entity.status.begins_with("Researching") or entity.status.begins_with("Mining") or entity.status.begins_with("Harvesting")
 		var indicator := Color("9dccab") if working else Color("ddae6f")
 		draw_circle(center + Vector2(17, 13), 3.5, Art.INK)
@@ -323,7 +357,7 @@ func _machine(entity: RefCounted) -> void:
 			Art.box(self, Rect2(center + Vector2(-17, 20), Vector2(34, 3)), Art.INK, 1)
 			Art.box(self, Rect2(center + Vector2(-17, 20), Vector2(34.0 * entity.progress / duration, 3)), Color("a5cdb1"), 1)
 	if entity.output.total() > 0: _item(center + Vector2(12, 14), entity.output.contents.keys()[0], 0.65)
-	if entity.health < entity.max_health() or entity.kind in (["wall"] + Catalog.Combat.TURRETS.keys()):
+	if entity.health < entity.max_health() or entity.kind in (["wall", "reinforced_wall"] + Catalog.Combat.TURRETS.keys()):
 		Art.box(self, Rect2(center + Vector2(-19, -32), Vector2(38, 4)), Art.INK, 2)
 		if entity.health > 0: Art.box(self, Rect2(center + Vector2(-19, -32), Vector2(38.0 * entity.health / entity.max_health(), 4)), Color("91bc97"), 2)
 		else:
@@ -393,9 +427,5 @@ func _on_feedback(cue: String, cell: Vector2i) -> void:
 func _cast_shadow(entity: RefCounted) -> void:
 	if entity.health <= 0: return
 	var center := (Vector2(entity.cell) + Vector2.ONE * 0.5) * TILE
-	var projection := Vector2(14, 11) if entity.kind != "wall" else Vector2(6, 5)
-	var a := center + Vector2(-16, -10)
-	var b := center + Vector2(16, -10)
-	var c := center + Vector2(16, 15)
-	var d := center + Vector2(-16, 15)
-	draw_colored_polygon(PackedVector2Array([a, b, b + projection, c + projection, d + projection, d]), Color(0.06, 0.10, 0.09, 0.14))
+	var height := 26.0 if entity.kind == "reinforced_wall" else (22.0 if entity.kind == "wall" else (60.0 if entity.kind in ["furnace","power_pole"] else 38.0))
+	Art.cast_shadow(self,center+Vector2(0,9),Vector2(31,21),height)

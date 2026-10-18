@@ -56,14 +56,26 @@ static func draw_enemy(canvas: Node2D, enemy: Dictionary, maximum: int, time: fl
 		canvas.draw_rect(Rect2(target - Vector2.ONE * 22, Vector2.ONE * 44), Color("ed9e6b"), false, 2)
 		canvas.draw_line(center, target, Color("ed9e6b"), 2, true)
 	if not reduced and int(enemy.get("hit_until", 0)) > tick:
-		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-10, -40), "-%d" % enemy.get("last_damage", 0), HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Art.CREAM)
+		var hit_type: String = enemy.get("hit_kind", "hit")
+		var dmg: int = enemy.get("last_damage", 0)
+		var text := "-%d" % dmg
+		var text_color := Art.CREAM
+		if hit_type == "resisted":
+			text = "-%d [Armor -%d]" % [dmg, enemy.get("last_absorbed", 0)]
+			text_color = Color("e5a072")
+		elif hit_type == "pierce":
+			text = "-%d PIERCE" % dmg
+			text_color = Color("8ceddd")
+		canvas.draw_string(ThemeDB.fallback_font, center + Vector2(-24, -42), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, text_color)
 
 static func draw_shots(canvas: Node2D, world: RefCounted, reduced: bool = false) -> void:
 	for shot in world.defense.shots:
 		var start := (Vector2(shot.from) + Vector2.ONE * 0.5) * TILE
 		var end := (Vector2(shot.to) + Vector2.ONE * 0.5) * TILE
-		var color := Color("89ded2") if shot.kind == "pulse_turret" else Art.AMBER
-		canvas.draw_line(start, end, color, 3.0 if shot.kind == "cannon_turret" else 1.5, true)
+		var is_heavy: bool = str(shot.get("kind", "")) in ["pulse_turret", "marksman_rifle"]
+		var color := Color("89ded2") if is_heavy else Art.AMBER
+		var line_width: float = 3.0 if shot.kind in ["cannon_turret", "marksman_rifle"] else 1.5
+		canvas.draw_line(start, end, color, line_width, true)
 		if not reduced: Art.glow(canvas, start, 13, color)
 		if shot.kind == "pulse_turret": canvas.draw_arc(end, 1.8 * TILE, 0, TAU, 48, Color(0.55, 0.9, 0.85, 0.6), 2, true)
 		if not reduced: Art.glow(canvas, end, 10, color)
@@ -74,21 +86,35 @@ static func draw_shots(canvas: Node2D, world: RefCounted, reduced: bool = false)
 			var direction := Vector2.from_angle(i * TAU / 5)
 			canvas.draw_line(at + direction * 10, at + direction * 21, Color(impact.color), 4, true)
 
+static func draw_misses(canvas: Node2D, world: RefCounted, reduced: bool = false) -> void:
+	if reduced: return
+	for miss in world.defense.misses:
+		var at: Vector2 = miss.point * TILE
+		canvas.draw_line(at - Vector2(4, 4), at + Vector2(4, 4), Color(0.75, 0.75, 0.75, 0.55), 2.0, true)
+		canvas.draw_line(at - Vector2(-4, 4), at + Vector2(-4, 4), Color(0.75, 0.75, 0.75, 0.55), 2.0, true)
+		canvas.draw_string(ThemeDB.fallback_font, at + Vector2(-14, -8), "MISS", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.8, 0.8, 0.8, 0.7))
+
 static func draw_player(canvas: Node2D, world: RefCounted, pointer: bool, _reduced: bool, at: Vector2) -> void:
 	if world.combat.health < 100:
 		Art.box(canvas, Rect2(at + Vector2(-20, -39), Vector2(40, 5)), Art.INK, 2)
 		Art.box(canvas, Rect2(at + Vector2(-20, -39), Vector2(world.combat.health * 0.4, 5)), Color("95c2a3"), 2)
 	if world.combat.invulnerable > 0: canvas.draw_arc(at, 25, 0, TAU, 32, Color("a9d9d3"), 2, true)
 	if not world.combat.armed: return
+	var weapon: Dictionary = world.combat.current_weapon(world)
+	var is_marksman: bool = world.combat.active_weapon == "marksman_rifle"
+	var barrel_length: float = 38.0 if is_marksman else 31.0
+	var barrel_color: Color = Art.STEEL if is_marksman else Art.STEEL_LIGHT
 	var direction: Vector2 = (world.combat.aim - world.player_position).normalized()
-	canvas.draw_line(at + direction * 9, at + direction * 31, Art.INK, 8, true)
-	canvas.draw_line(at + direction * 8 - Vector2(0, 3), at + direction * 30 - Vector2(0, 3), Art.STEEL_LIGHT, 5, true)
+	canvas.draw_line(at + direction * 9, at + direction * barrel_length, Art.INK, 8, true)
+	canvas.draw_line(at + direction * 8 - Vector2(0, 3), at + direction * (barrel_length - 1.0) - Vector2(0, 3), barrel_color, 5, true)
 	canvas.draw_line(at + direction * 12, at + direction * 12 + direction.orthogonal() * 7, Art.COPPER, 4, true)
+	if is_marksman:
+		canvas.draw_line(at + direction * 18 - Vector2(0, 5), at + direction * 28 - Vector2(0, 5), Color("91c8be"), 3, true)
 	if not pointer: return
 	var aim: Vector2 = world.combat.aim * TILE
 	var targeted: int = world.combat.target(world)
 	var color := Color("a2d3b1") if targeted != -1 else Art.AMBER
-	canvas.draw_arc(at, Definitions.RIFLE_RANGE * TILE, 0, TAU, 96, Color(0.6, 0.8, 0.7, 0.17), 1)
+	canvas.draw_arc(at, float(weapon.range) * TILE, 0, TAU, 96, Color(0.6, 0.8, 0.7, 0.17), 1)
 	canvas.draw_arc(aim, 12, 0, TAU, 24, color, 2, true)
 	for axis in [Vector2.RIGHT, Vector2.DOWN]:
 		canvas.draw_line(aim - axis * 18, aim - axis * 8, color, 2, true)

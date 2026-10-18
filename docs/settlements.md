@@ -10,7 +10,7 @@ The factory supplies a town that can give something back. There are three restor
 | Engineers' workshop | 3x3 ruin at (35, 18); hatch (35, 19) | 20 iron plates, 5 gears, 10 copper plates | 60 trade credits | Oren returns; all burner drills and furnaces get 20% longer active work per new coal |
 | Oldbridge Town Hall | 3x3 ruin at (42, 12); hatch (42, 13) | 40 stone, 40 iron plates, 10 gears, 10 wire | None; requires workshop | Ada returns; voluntary beacon defenses; first victory earns a 5% movement bonus |
 
-Coordinates may differ in migrated saves when the original site footprint was occupied. The town panel always reports the actual hatch location.
+The panel reports each hatch location. Saved footprints are validated; missing projects are rejected rather than placed on load.
 
 Press **T** to browse projects. Select a project to see material progress, payment, rewards, and delivery coordinates. A selected landmark has a highlighted footprint and a directional pointer. Walk within six tiles of its hatch to interact. Clicking the landmark also opens its panel.
 
@@ -58,11 +58,11 @@ This slice uses an explicit global effect. There is no regional connectivity req
 
 Settlement processing occurs after inserters and before engineer/crafting/mining in each fixed tick. A newly received complete batch can dispatch during that tick. Settlement receivers share the input interface used by inserters, without being registered as factory entities or appearing in the player's build catalog.
 
-The world-v2 save has an optional `settlements` extension with its own version (currently 1). It stores both projects, uncommitted supplies, shipment timers, completed shipment counts, current credits, and total earned. Validation checks quotas, known IDs, timer ranges, spatial collisions, repair prerequisites, and that earned income minus crew payments equals the wallet. Effects are derived from restored sites rather than serialized twice.
+Current saves require all three civic sites, inventories, health, contract timers, shipment counts and reconciled currency ledgers. Effects are derived from restored sites.
 
-When the extension is absent, ruins are added on vacant land using deterministic relocation if necessary. Existing machines and the engineer's location are preserved. A malformed present extension is rejected rather than silently reset. Contract costs/durations and project IDs are save-compatible data: changing their interpretation requires migration.
+Missing settlement data is rejected. Incompatible older worlds require a fresh start.
 
-Tests include the entire progression from an empty pack through both projects using mined/crafted materials, automated delivery, stock shortages, full buffers, blocked hands, exactly-once payments, save/load during transit, bonus application, currency reconciliation, migration around existing construction, and UI command wiring.
+Tests include the entire progression from an empty pack through both projects using mined/crafted materials, automated delivery, stock shortages, full buffers, blocked hands, exactly-once payments, save/load during transit, bonus application, currency reconciliation, incomplete-layout rejection, and UI command wiring.
 
 Town Hall requires the Engineers' Workshop to be restored first. Materials delivered early remain stored, including across saves. The project status shows this blocker beside the Restore control and offers a direct button to view the required project.
 

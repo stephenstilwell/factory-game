@@ -33,6 +33,8 @@ func purchase(world: RefCounted, id: String, expected_rank: int) -> bool:
 	levels[id] = expected_rank
 	world.player.capacity = int(stat("inventory_capacity"))
 	world.message.emit("Engineer upgrade installed: %s %d." % [definition.name, expected_rank])
+	world.equipment_upgraded.emit(id, expected_rank)
+	world.feedback_requested.emit("success", Vector2i(world.player_position.floor()))
 	world.changed.emit()
 	return true
 

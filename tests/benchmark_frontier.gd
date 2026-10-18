@@ -1,4 +1,5 @@
 extends SceneTree
+const Fixtures = preload("res://tests/fixtures.gd")
 var samples: Array[float] = []
 var scene
 func _initialize() -> void: call_deferred("run")
@@ -6,7 +7,7 @@ func run() -> void:
  scene = load("res://main.tscn").instantiate()
  root.add_child(scene)
  var world = load("res://scripts/simulation/world.gd").new(74103)
- world.start(false)
+ Fixtures.begin_lessons(world)
  scene._bind_world(world)
  scene.camera.position = world.player_position * 48
  root.size = Vector2i(1920, 1080)

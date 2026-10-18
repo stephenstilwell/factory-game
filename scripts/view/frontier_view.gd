@@ -5,22 +5,55 @@ const TILE := 48
 
 static func tree(canvas: CanvasItem, world: RefCounted, cell: Vector2i, time: float, faded: bool) -> void:
 	var p := (Vector2(cell) + Vector2.ONE * 0.5) * TILE
+	if world.frontier.forestry.growing(world, cell):
+		var stage: float = world.frontier.forestry.growth(world, cell)
+		Art.ellipse(canvas, p + Vector2(0, 5), Vector2(11, 5), Color("615844"))
+		canvas.draw_line(p, p + Vector2(0, -7 - stage * 25), Color("a18a60"), 3, true)
+		if stage > 0.15:
+			Art.ellipse(canvas, p + Vector2(-5, -8 - stage * 22), Vector2(6 + stage * 8, 4 + stage * 8), Color("83a46b"))
+			Art.ellipse(canvas, p + Vector2(5, -12 - stage * 22), Vector2(6 + stage * 8, 4 + stage * 8), Color("658b5a"))
+		return
 	var seed_value: int = Frontier.hash_cell(cell, world.terrain.seed_value)
+	var region_id: int = world.frontier.landscape_index(cell)
+	if region_id in [0,1]:
+		var frame: int = (2+seed_value%2) if region_id == 1 else seed_value%2
+		var scale := 0.86+(seed_value%15)*0.01
+		var tint := Color(1,1,1,0.42 if faded else 1.0)
+		Art.shadow(canvas,p+Vector2(0,4),Vector2(26,10))
+		preload("res://scripts/view/hero_art.gd").paint(canvas,"tree",frame,p,scale,tint)
+		return
 	var height: float = 42 + seed_value % 22
 	var palette: Array = [Color("7d9560"), Color("477661"), Color("8a9b5e")]
 	var leaf: Color = palette[Frontier.biome(cell, world.terrain.seed_value)]
 	var region: int = world.frontier.landscape_index(cell)
-	if region == 1: leaf = Color("9aab69")
-	elif region == 2: leaf = Color("668782")
+	if region == 1: leaf = leaf.lerp(Color("91a866"),world.frontier.landscape_weight(cell,"orchard"))
+	elif region == 2: leaf = leaf.lerp(Color("668782"),world.frontier.landscape_weight(cell,"quarry"))
+	if region == 3: leaf = leaf.lerp(Color("72968a"),world.frontier.landscape_weight(cell,"marsh"))
 	var sway := sin(time * 1.1 + seed_value % 17) * 1.4
 	Art.shadow(canvas, p + Vector2(0, 4), Vector2(26, 10))
 	canvas.draw_line(p + Vector2(0, 8), p + Vector2(sway, -height + 10), Color("5d5940"), 7, true)
 	canvas.draw_line(p + Vector2(1, 6), p + Vector2(sway + 1, -height + 10), Color("9b8657"), 2, true)
 	leaf.a = 0.42 if faded else 1.0
+	if region == 2 and world.frontier.landscape_weight(cell,"quarry") > 0.5:
+		for layer in range(3):
+			var top := p+Vector2(sway,-height-10+layer*15)
+			var width := 17.0+layer*6
+			canvas.draw_colored_polygon(PackedVector2Array([top,top+Vector2(-width,29),top+Vector2(width,29)]),leaf.darkened(layer*0.07))
+			canvas.draw_line(top+Vector2(-width+5,27),top+Vector2(width-5,27),Color(leaf.lightened(0.15),leaf.a),1,true)
+		return
 	for i in range(4):
 		var at := p + Vector2([-12, 13, 0, -2][i] + sway, -height + [10, 7, -8, 3][i])
 		Art.ellipse(canvas, at + Vector2(2, 5), Vector2(21 - i, 16), leaf.darkened(0.16))
 		Art.ellipse(canvas, at, Vector2(20 - i, 15), leaf.lightened(i * 0.025))
+	if region == 3:
+		for index in range(7):
+			var branch := p+Vector2(-24+index*8+sway,-height+8+(index%2)*5)
+			canvas.draw_line(branch,branch+Vector2(sway,22+index%3*5),Color(leaf.darkened(0.08),leaf.a),3,true)
+	if region == 1 and seed_value % 2 == 0:
+		for index in range(7):
+			var flower := p+Vector2(-17+(index*11)%38+sway,-height-4+(index*7)%28)
+			canvas.draw_circle(flower,3.0,Color(Color("e3b6bd"),leaf.a))
+			canvas.draw_circle(flower,0.9,Color(Color("f0dbad"),leaf.a))
 	if seed_value % 5 == 0:
 		for i in range(3):
 			var tint := Color("d9b976")
@@ -35,6 +68,8 @@ static func landmark(canvas: CanvasItem, world: RefCounted, id: String, time: fl
 	Art.shadow(canvas, p + size / 2 + Vector2(0, 30), size * Vector2(0.46, 0.18))
 	Art.box(canvas, Rect2(p - Vector2(7, 3), size + Vector2(14, 6)), Color("686b4d"), 16)
 	match id:
+		"marsh":
+			preload("res://scripts/view/marsh_view.gd").lodge(canvas,world,p,time)
 		"quarry":
 			for row in range(3):
 				var step := p + Vector2(17 + row * 15, 35 + row * 36)
@@ -92,6 +127,24 @@ static func landmark(canvas: CanvasItem, world: RefCounted, id: String, time: fl
 				Art.ellipse(canvas, runner, Vector2(7, 10), Color("90b2a0"))
 				canvas.draw_circle(runner + Vector2(0, -12), 5, Color("d1b38a"))
 				Art.box(canvas, Rect2(runner + Vector2(1, -1), Vector2(12, 10)), Art.COPPER, 2)
+	if id == "quarry":
+		var stages: int = world.settlements.road_deliveries/3
+		for index in range(stages):
+			var at := p+Vector2(25+index*62,161)
+			Art.box(canvas,Rect2(at,Vector2(42,15)),Color("a4aaa0"),2)
+			canvas.draw_line(at+Vector2(0,6),at+Vector2(42,6),Color("6e807b"),1,true)
+		if stages > 0:
+			canvas.draw_line(p+Vector2(211,30),p+Vector2(211,83),Art.COPPER,3,true)
+			canvas.draw_colored_polygon(PackedVector2Array([p+Vector2(212,31),p+Vector2(232+sin(time)*2,38),p+Vector2(212,46)]),Color("c2b17c"))
+		if stages == 3:
+			for x in [18,218]:
+				canvas.draw_circle(p+Vector2(x,134),9,Color(1,0.81,0.45,0.12))
+				Art.box(canvas,Rect2(p+Vector2(x-3,130),Vector2(6,9)),Color("ead498"),1)
+	elif id == "orchard" and world.orchard_project.beds > 0:
+		for x in [28,104,181]:
+			canvas.draw_circle(p+Vector2(x,36),4,Color("e2b7ba"))
+			canvas.draw_circle(p+Vector2(x+18,44),3,Color("eed7cc"))
+		canvas.draw_line(p+Vector2(14,154),p+Vector2(226,154),Color("b6a578"),3,true)
 	var hatch := (Vector2(world.frontier.port(id)) + Vector2.ONE * 0.5) * TILE
 	Art.box(canvas, Rect2(hatch - Vector2(17, 14), Vector2(34, 28)), Color("93b48c"), 4, Art.INK)
 	canvas.draw_string(ThemeDB.fallback_font, hatch + Vector2(-7, 6), "✓" if recovered else "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Art.CREAM)

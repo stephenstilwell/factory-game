@@ -21,6 +21,7 @@ func _get_tooltip(at_position: Vector2) -> String:
 	if world == null: return ""
 	var tile := Vector2i((center + (at_position - size * 0.5) / zoom).floor())
 	if not world.exploration.known(Vector2(tile)): return "Unexplored land"
+	if world.frontier.marsh.water_at(world.frontier,tile): return "Reedwater causeway" if world.frontier.marsh.boardwalk(world.frontier,tile) else "Reedwater water — cross at the western causeway"
 	if zoom < 2: return "Zoom in for deposit details"
 	var chunk: Dictionary = terrain_cache.request(world, world.terrain.chunk_at(tile))
 	var deposit: Dictionary = chunk.get(tile, {})
@@ -81,13 +82,14 @@ func _draw() -> void:
 		var rect := Rect2(point(origin), Vector2.ONE * 8 * zoom)
 		if not screen.intersects(rect): continue
 		var region: int = world.frontier.landscape_index(Vector2i(origin))
-		var shade: Color = [Color("455c4a"), Color("69704b"), Color("69716e")][region]
+		var shade: Color = [Color("455c4a"), Color("69704b"), Color("69716e"),Color("526f67")][region]
 		draw_rect(rect, shade)
-		if world.early.enabled:
+		if world.early.enabled or world.frontier.sites.has("marsh"):
 			for x in range(8):
 				for y in range(8):
 					var tile := Vector2i(origin) + Vector2i(x, y)
-					if world.early.water_at(tile): draw_rect(Rect2(point(Vector2(tile)), Vector2.ONE * zoom), Color("467e91"))
+					if world.frontier.marsh.water_at(world.frontier,tile): draw_rect(Rect2(point(Vector2(tile)),Vector2.ONE*zoom),Color("b69a6c") if world.frontier.marsh.boardwalk(world.frontier,tile) else Color("345d65"))
+					elif world.early.enabled and world.early.water_at(tile): draw_rect(Rect2(point(Vector2(tile)), Vector2.ONE * zoom), Color("467e91"))
 	var first: Vector2i = world.terrain.chunk_at(Vector2i((center - size * 0.5 / zoom).floor()))
 	var last: Vector2i = world.terrain.chunk_at(Vector2i((center + size * 0.5 / zoom).ceil()))
 	var visible_chunks: Array = []

@@ -1,87 +1,102 @@
 extends RefCounted
+## Shared Oldbridge interface tokens and component roles.
+const TEXT := Color("f0eee7")
+const MUTED := Color("a9b1ba")
+const ACCENT := Color("b3cdbd")
+const GOLD := Color("e5ae78")
+const ERROR := Color("ed9a8d")
+const BACKGROUND := Color("171c23")
+const SURFACE := Color("222a33")
+const BORDER := Color("3c4753")
+const FONT = preload("res://assets/fonts/Manrope.ttf")
+static var heading_font: FontVariation
+static var body_font: FontVariation
+static var tile_styles: Dictionary = {}
 
-const TEXT := Color("ece8da")
-const MUTED := Color("a7b5aa")
-const ACCENT := Color("a2cdb3")
-const GOLD := Color("e6bd7c")
-const ERROR := Color("ef9b8d")
-
-static func panel(color: Color = Color("1c2c30"), border: Color = Color("3c5356")) -> StyleBoxFlat:
+static func panel(color: Color = BACKGROUND, border: Color = BORDER) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
 	style.border_color = border
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(7)
+	style.set_corner_radius_all(4)
 	style.set_content_margin_all(12)
-	style.shadow_color = Color(0.015, 0.025, 0.028, 0.38)
-	style.shadow_size = 8
-	style.shadow_offset = Vector2(0, 4)
-	style.border_width_top = 2
+	style.shadow_color = Color(0.015, 0.02, 0.025, 0.32)
+	style.shadow_size = 6
+	style.shadow_offset = Vector2(0, 3)
+	return style
+
+static func _button_box(color: Color, border: Color) -> StyleBoxFlat:
+	var style := panel(color, border)
+	style.shadow_size = 0
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 7
+	style.content_margin_bottom = 7
 	return style
 
 static func theme() -> Theme:
 	var result := Theme.new()
+	if body_font == null:
+		body_font = FontVariation.new()
+		body_font.base_font = FONT
+		body_font.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 500.0}
+	result.default_font = body_font
 	result.default_font_size = 16
-	var frame := panel(Color("192b30"), Color("577471"))
-	frame.border_width_top = 3
-	result.set_stylebox("panel", "PanelContainer", frame)
-	result.set_stylebox("normal", "Button", panel(Color("2c4146")))
-	result.set_stylebox("hover", "Button", panel(Color("38555a"), ACCENT.darkened(0.3)))
-	result.set_stylebox("pressed", "Button", panel(Color("3c655f"), ACCENT))
-	result.set_stylebox("disabled", "Button", panel(Color("243438"), Color("304448")))
+	result.set_stylebox("panel", "PanelContainer", panel())
 	for state in ["normal", "hover", "pressed", "disabled"]:
-		var button_style: StyleBox = result.get_stylebox(state, "Button")
-		button_style.shadow_size = 2
-		button_style.shadow_offset = Vector2(0, 2)
-		button_style.content_margin_top = 7
-		button_style.content_margin_bottom = 7
-		button_style.content_margin_left = 10
-		button_style.content_margin_right = 10
-	var focus := panel(Color.TRANSPARENT, GOLD)
-	focus.set_content_margin_all(0)
-	focus.shadow_size = 0
+		var color: Color = {"normal": SURFACE, "hover": Color("33404b"), "pressed": Color("403b34"), "disabled": Color("1b2128")}[state]
+		var edge: Color = {"normal": BORDER, "hover": GOLD.darkened(0.25), "pressed": GOLD, "disabled": Color("303841")}[state]
+		result.set_stylebox(state, "Button", _button_box(color, edge))
+		result.set_stylebox(state, "OptionButton", _button_box(color, edge))
+	for type in ["Button", "OptionButton", "CheckButton", "CheckBox"]:
+		result.set_color("font_color", type, TEXT)
+		result.set_color("font_hover_color", type, Color.WHITE)
+		result.set_color("font_pressed_color", type, GOLD)
+		result.set_color("font_disabled_color", type, Color("737e89"))
+	var focus := _button_box(Color.TRANSPARENT, GOLD)
 	focus.set_border_width_all(2)
-	result.set_stylebox("focus", "Button", focus)
-	result.set_stylebox("focus", "OptionButton", focus)
-	result.set_color("font_hover_color", "Button", Color("fff3d7"))
-	result.set_color("font_pressed_color", "Button", Color("fff3d7"))
-	result.set_color("font_color", "Button", TEXT)
-	result.set_color("font_disabled_color", "Button", MUTED.darkened(0.18))
-	result.set_stylebox("normal", "LineEdit", panel(Color("152327")))
-	result.set_stylebox("focus", "LineEdit", panel(Color("152327"), ACCENT))
-	result.set_color("font_color", "Label", TEXT)
-	for state in ["normal", "hover", "pressed", "disabled"]:
-		result.set_stylebox(state, "OptionButton", result.get_stylebox(state, "Button"))
-	result.set_color("font_color", "OptionButton", TEXT)
-	result.set_color("font_placeholder_color", "LineEdit", MUTED.darkened(0.1))
+	for type in ["Button", "OptionButton", "LineEdit"]:
+		result.set_stylebox("focus", type, focus)
+	result.set_stylebox("normal", "LineEdit", _button_box(Color("11171e"), BORDER))
+	result.set_stylebox("read_only", "LineEdit", _button_box(BACKGROUND, BORDER))
 	result.set_color("font_color", "LineEdit", TEXT)
-	var track := panel(Color("172725"), Color("344b42"))
+	result.set_color("font_placeholder_color", "LineEdit", MUTED.darkened(0.12))
+	result.set_color("caret_color", "LineEdit", GOLD)
+	result.set_color("selection_color", "LineEdit", Color("4a5149"))
+	result.set_color("font_color", "Label", TEXT)
+	var track := panel(Color("10161c"), Color.TRANSPARENT)
 	track.set_content_margin_all(0)
+	track.set_border_width_all(0)
+	track.set_corner_radius_all(2)
 	track.shadow_size = 0
-	var fill := panel(Color("83ab90"), Color("a4c4a7"))
-	fill.set_content_margin_all(0)
-	fill.shadow_size = 0
+	var fill := track.duplicate()
+	fill.bg_color = ACCENT.darkened(0.2)
 	result.set_stylebox("background", "ProgressBar", track)
 	result.set_stylebox("fill", "ProgressBar", fill)
 	result.set_color("font_color", "ProgressBar", TEXT)
-	var tooltip := panel(Color("101f24"), GOLD.darkened(0.4))
-	tooltip.set_content_margin_all(12)
+	result.set_font_size("font_size", "ProgressBar", 12)
+	var tooltip := panel(Color("11171e"), GOLD.darkened(0.45))
+	tooltip.set_content_margin_all(14)
 	result.set_stylebox("panel", "TooltipPanel", tooltip)
 	result.set_color("font_color", "TooltipLabel", TEXT)
 	result.set_font_size("font_size", "TooltipLabel", 14)
-	result.set_stylebox("panel", "PopupMenu", panel(Color("17292f"), Color("6a8982")))
-	result.set_stylebox("hover", "PopupMenu", panel(Color("35574e"), ACCENT.darkened(0.3)))
+	result.set_stylebox("panel", "PopupMenu", panel(BACKGROUND))
+	result.set_stylebox("hover", "PopupMenu", _button_box(SURFACE.lightened(0.12), Color.TRANSPARENT))
 	result.set_color("font_color", "PopupMenu", TEXT)
-	result.set_color("font_hover_color", "PopupMenu", Color("fff3d7"))
+	result.set_color("font_hover_color", "PopupMenu", GOLD)
+	var separator := StyleBoxLine.new()
+	separator.color = BORDER
+	separator.thickness = 1
+	result.set_stylebox("separator", "HSeparator", separator)
 	for axis in ["VScrollBar", "HScrollBar"]:
-		var rail := panel(Color("102025"), Color("263d40"))
+		var rail := panel(Color("11171e"), Color.TRANSPARENT)
 		rail.set_content_margin_all(4)
+		rail.set_border_width_all(0)
 		rail.shadow_size = 0
 		result.set_stylebox("scroll", axis, rail)
 		for state in ["grabber", "grabber_highlight", "grabber_pressed"]:
-			var handle := panel(Color("78988c") if state == "grabber" else GOLD, Color.TRANSPARENT)
-			handle.set_content_margin_all(4)
-			handle.shadow_size = 0
+			var handle := rail.duplicate()
+			handle.bg_color = Color("63717d") if state == "grabber" else GOLD
 			result.set_stylebox(state, axis, handle)
 	return result
 
@@ -91,6 +106,12 @@ static func label(text: String, size: int = 16, color: Color = TEXT) -> Label:
 	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result.add_theme_font_size_override("font_size", size)
 	result.add_theme_color_override("font_color", color)
+	if size >= 20:
+		if heading_font == null:
+			heading_font = FontVariation.new()
+			heading_font.base_font = FONT
+			heading_font.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): 700.0}
+		result.add_theme_font_override("font", heading_font)
 	return result
 
 static func button(parent: Node, text: String, callback: Callable) -> Button:
@@ -101,12 +122,42 @@ static func button(parent: Node, text: String, callback: Callable) -> Button:
 	parent.add_child(result)
 	return result
 
+static func action(button: Button, role: String = "primary") -> void:
+	var color := GOLD if role == "primary" else ERROR
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var base := color if role == "primary" else Color("38282a")
+		if state == "hover": base = base.lightened(0.12)
+		if state == "pressed": base = base.darkened(0.12)
+		if state == "disabled": base = SURFACE
+		button.add_theme_stylebox_override(state, _button_box(base, color.darkened(0.3) if state != "disabled" else BORDER))
+	button.add_theme_color_override("font_color", BACKGROUND if role == "primary" else ERROR)
+	button.add_theme_color_override("font_hover_color", BACKGROUND if role == "primary" else TEXT)
+	button.add_theme_color_override("font_pressed_color", BACKGROUND if role == "primary" else TEXT)
+
+static func badge(label_node: Label, color: Color = ACCENT, padding: int = 8) -> void:
+	var style := _button_box(Color(color, 0.09), Color(color, 0.22))
+	style.content_margin_left = padding
+	style.content_margin_right = padding
+	style.content_margin_top = 3
+	style.content_margin_bottom = 3
+	label_node.add_theme_stylebox_override("normal", style)
+	label_node.add_theme_color_override("font_color", color)
+
+static func tile(selected: bool, hovered: bool = false) -> StyleBoxFlat:
+	var key := int(selected) * 2 + int(hovered)
+	if not tile_styles.has(key):
+		var style := _button_box(Color("363d41") if selected else (Color("303c47") if hovered else Color("202832")), GOLD if selected else (Color("697987") if hovered else BORDER))
+		style.border_width_bottom = 3 if selected else 1
+		tile_styles[key] = style
+	return tile_styles[key]
+
 static func select(button: Button, active: bool) -> void:
 	if button.has_meta("selected_style") and button.get_meta("selected_style") == active: return
 	button.set_meta("selected_style", active)
-	var normal := panel(Color("304a46") if active else Color("293d43"), GOLD if active else Color("455e62"))
-	normal.border_width_bottom = 3 if active else 1
-	normal.shadow_size = 2
+	var normal := _button_box(Color("343a3d") if active else Color("1d252d"), Color.TRANSPARENT)
+	normal.border_width_bottom = 2
+	normal.border_color = GOLD if active else BORDER
 	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("disabled", normal if active else panel(Color("203237"), Color("394e52")))
+	button.add_theme_stylebox_override("disabled", normal)
+	button.add_theme_color_override("font_color", GOLD if active else MUTED)
 	button.add_theme_color_override("font_disabled_color", TEXT if active else MUTED.darkened(0.18))

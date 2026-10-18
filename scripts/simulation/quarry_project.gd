@@ -73,10 +73,10 @@ func serialize() -> Dictionary:
 	return {"inventory": inventory.contents.duplicate(), "shipment_ticks": shipment_ticks}
 
 func restore(world: RefCounted, data: Variant) -> bool:
-	if not data is Dictionary or not data.get("inventory", {}) is Dictionary or not world.frontier.integer(data.get("shipment_ticks", 0), 0, TICKS - 1): return false
+	if not data is Dictionary or not data.get("inventory") is Dictionary or not world.frontier.integer(data.get("shipment_ticks", 0), 0, TICKS - 1): return false
 	shipment_ticks = int(data.get("shipment_ticks", 0))
 	var remaining := mini(3, TOTAL - world.settlements.road_deliveries - (1 if shipment_ticks > 0 else 0))
-	for item in data.get("inventory", {}):
+	for item in data.inventory:
 		if not GOODS.has(item) or not world.frontier.integer(data.inventory[item], 1, int(GOODS[item]) * remaining): return false
 		inventory.contents[item] = int(data.inventory[item])
 	if world.settlements.road_deliveries > 0 or shipment_ticks > 0 or inventory.total() > 0:

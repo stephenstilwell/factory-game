@@ -1,10 +1,11 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Simulation = preload("res://scripts/simulation/simulation.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 static func setup() -> RefCounted:
-	var world := World.new()
-	world.start(false)
+	var world := Fixtures.industrial()
+	Fixtures.begin_lessons(world)
 	world.guide.enabled = false
 	world.researched = ["logistics", "metallurgy"]
 	world.player_position = Vector2(10.5, 9.5)

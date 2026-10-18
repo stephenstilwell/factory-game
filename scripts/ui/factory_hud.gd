@@ -9,9 +9,13 @@ const StoryPanel = preload("res://scripts/ui/story_panel.gd")
 const Hotbar = preload("res://scripts/ui/build_hotbar.gd")
 const Workspace = preload("res://scripts/ui/inventory_workspace.gd")
 const Survey = preload("res://scripts/ui/resource_survey.gd")
+const CompletionCard = preload("res://scripts/ui/completion_card.gd")
+const Emblem = preload("res://scripts/ui/settlement_emblem.gd")
 const SkillDefinitions = preload("res://scripts/data/skill_catalog.gd")
 
-signal weapon_requested
+signal history_requested
+signal home_requested
+signal weapon_requested(weapon_id: String)
 signal build_selected(kind: String)
 signal journal_requested
 signal factory_requested
@@ -47,6 +51,10 @@ signal site_restore_requested(id: String)
 signal site_talk_requested(id: String)
 signal site_withdraw_requested(id: String)
 
+var history: ColorRect
+var history_button: Button
+var completion: PanelContainer
+var home_panel: ColorRect
 var world: RefCounted
 var top: PanelContainer
 var bottom: PanelContainer
@@ -54,6 +62,7 @@ var engineer_button: Button
 var goal_panel: PanelContainer
 var goal_button: Button
 var status: Label
+var objective_frame: PanelContainer
 var objective: Label
 var lesson_hint: Label
 var research: Label
@@ -99,37 +108,68 @@ func _ready() -> void:
 	add_child(root)
 	top = PanelContainer.new()
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	top.offset_bottom = 132
+	top.offset_left = 12
+	top.offset_right = -12
+	top.offset_top = 10
+	top.offset_bottom = 160
 	root.add_child(top)
 	var box := VBoxContainer.new()
 	top.add_child(box)
 	var row := HBoxContainer.new()
 	box.add_child(row)
-	var title := Style.label("IRONWORKS / OLDBRIDGE", 20, Style.ACCENT)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(title)
+	row.add_theme_constant_override("separation", 6)
+	row.add_child(Emblem.new())
+	var identity := VBoxContainer.new()
+	identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	identity.add_theme_constant_override("separation", 0)
+	row.add_child(identity)
+	identity.add_child(Style.label("OLDBRIDGE", 20, Style.TEXT))
+	identity.add_child(Style.label("A place worth rebuilding", 11, Style.MUTED))
 	engineer_button = Style.button(row, "Engineer [P]", toggle_character)
 	Style.button(row, "Craft [C]", toggle_crafting)
 	Style.button(row, "Town [Y]", toggle_town)
 	Style.button(row, "Map [M]", toggle_survey)
 	pause_button = Style.button(row, "Pause", func(): pause_requested.emit())
 	pause_button.tooltip_text = "Pause key: pause or resume. Escape opens the pause menu."
-	Style.button(row, "Save", func(): save_requested.emit())
-	Style.button(row, "Load", func(): load_requested.emit())
-	fullscreen_button = Style.button(row, "Window [F11]", func(): fullscreen_requested.emit())
+	fullscreen_button = Button.new()
+	fullscreen_button.text = "Toggle fullscreen [F11]"
+	fullscreen_button.pressed.connect(func(): fullscreen_requested.emit())
+	for control in row.get_children():
+		if control is Button: control.add_theme_font_size_override("font_size", 14)
 	status = Style.label("", 14, Style.MUTED)
-	box.add_child(status)
-	objective = Style.label("", 16, Style.GOLD)
-	box.add_child(objective)
-	lesson_hint = Style.label("", 14)
-	box.add_child(lesson_hint)
+	var summary := HBoxContainer.new()
+	box.add_child(summary)
+	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	summary.add_child(status)
+	objective_frame = PanelContainer.new()
+	var objective_style := Style.panel(Color("202c30"),Color("527b72"))
+	objective_style.border_width_left = 3
+	objective_style.content_margin_top = 6
+	objective_style.content_margin_bottom = 6
+	objective_frame.add_theme_stylebox_override("panel",objective_style)
+	box.add_child(objective_frame)
+	var objective_box := VBoxContainer.new()
+	objective_box.add_theme_constant_override("separation",2)
+	objective_frame.add_child(objective_box)
+	objective = Style.label("",16,Style.TEXT)
+	objective_box.add_child(objective)
+	lesson_hint = Style.label("",13,Style.MUTED)
+	objective_box.add_child(lesson_hint)
 	research = Style.label("", 14, Style.GOLD)
-	box.add_child(research)
+	research.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	research.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	summary.add_child(research)
+	for line in [status,objective,lesson_hint,research]:
+		line.max_lines_visible = 1
 	defense_status = Style.label("", 14, Style.GOLD)
 	box.add_child(defense_status)
+	box.move_child(summary,box.get_child_count()-1)
 	bottom = PanelContainer.new()
 	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	bottom.offset_top = -156
+	bottom.offset_bottom = -12
+	bottom.offset_left = 12
+	bottom.offset_right = -12
 	root.add_child(bottom)
 	var bottom_box := VBoxContainer.new()
 	bottom.add_child(bottom_box)
@@ -145,6 +185,10 @@ func _ready() -> void:
 	inventory_label = Style.label("PACK [E]", 13, Style.ACCENT)
 	inventory_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	info.add_child(inventory_label)
+	history_button = Style.button(info,"Updates",func(): history_requested.emit())
+	history_button.add_theme_font_size_override("font_size",12)
+	for state in ["normal","hover","pressed","focus"]: history_button.add_theme_stylebox_override(state,StyleBoxEmpty.new())
+	history_button.tooltip_text = "Review recent rewards and unlocks; jump to their menus."
 	hotbar = Hotbar.new()
 	bottom_box.add_child(hotbar)
 	hotbar.build_selected.connect(func(id): build_selected.emit(id))
@@ -158,8 +202,8 @@ func _ready() -> void:
 	combat_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	combat_panel.offset_left = -450
 	combat_panel.offset_right = -16
-	combat_panel.offset_top = 142
-	combat_panel.offset_bottom = 210
+	combat_panel.offset_top = 174
+	combat_panel.offset_bottom = 230
 	root.add_child(combat_panel)
 	var combat_box := VBoxContainer.new()
 	combat_panel.add_child(combat_box)
@@ -168,7 +212,7 @@ func _ready() -> void:
 	weapon_button = Style.button(combat_box, "Draw rifle [V]", func(): weapon_requested.emit())
 	weapon_button.tooltip_text = "Craft and carry a service rifle. V draws/holsters; hold LMB or Space during a wave. Uses pack ammo; misses spend rounds. Health recovers after 5 seconds without damage. Defeat retreats without losing items."
 	goal_panel = PanelContainer.new()
-	goal_panel.position = Vector2(24, 154)
+	goal_panel.position = Vector2(24, 166)
 	goal_panel.custom_minimum_size.x = 520
 	root.add_child(goal_panel)
 	var goal_row := HBoxContainer.new()
@@ -180,7 +224,7 @@ func _ready() -> void:
 	goal_button.add_theme_font_size_override("font_size", 13)
 	Style.button(goal_row, "×", func(): world.guidance.pinned = {}; refresh())
 	backdrop = ColorRect.new()
-	backdrop.color = Color(0.025, 0.045, 0.055, 0.76)
+	backdrop.color = Color(0.025, 0.032, 0.045, 0.78)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	backdrop.offset_bottom = -156
 	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -205,12 +249,13 @@ func _ready() -> void:
 	workspace.building_pickup_requested.connect(func(): building_pickup_requested.emit())
 	workspace.underground_mode_requested.connect(func(enabled): underground_mode_requested.emit(enabled))
 	workspace.context_changed.connect(_sync_context)
-	workspace.weapon_requested.connect(func(): weapon_requested.emit())
+	workspace.weapon_requested.connect(func(id = ""): weapon_requested.emit(id))
 	workspace.build_requested.connect(func(id): build_selected.emit(id))
 	workspace.transfer_requested.connect(func(item, amount, from, to, token): transfer_requested.emit(item, amount, from, to, token))
 	workspace.craft_requested.connect(func(id, count): craft_requested.emit(id, count))
 	workspace.cancel_requested.connect(func(id): job_cancel_requested.emit(id))
 	workspace.cancel_all_requested.connect(func(): cancel_all_requested.emit())
+	workspace.home_requested.connect(func(): home_requested.emit())
 	workspace.recipe_requested.connect(func(id): recipe_selected.emit(id))
 	workspace.supply_requested.connect(func(): supply_requested.emit())
 	workspace.collect_requested.connect(func(): collect_requested.emit())
@@ -238,6 +283,7 @@ func _ready() -> void:
 	center.add_child(panel)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(560, 580)
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_RESERVE
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(scroll)
 	var menu := VBoxContainer.new()
@@ -250,6 +296,7 @@ func _ready() -> void:
 	controls_help.hide()
 	Style.button(menu, "Controls and shortcuts", func(): controls_help.visible = not controls_help.visible)
 	menu.add_child(controls_help)
+	menu.add_child(fullscreen_button)
 	Style.button(menu, "Resume [Esc]", func(): menu_close_requested.emit())
 	Style.button(menu, "Save game", func(): save_requested.emit())
 	Style.button(menu, "Save as / factory slots", func(): save_as_requested.emit())
@@ -260,6 +307,8 @@ func _ready() -> void:
 	hotbar.attach_picker(root)
 	factory_panel = FactoryPanel.new()
 	root.add_child(factory_panel)
+	home_panel = preload("res://scripts/ui/home_panel.gd").new()
+	root.add_child(home_panel)
 	frontier_panel = FrontierPanel.new()
 	root.add_child(frontier_panel)
 	frontier_panel.close_requested.connect(func(): frontier_panel.hide())
@@ -269,6 +318,17 @@ func _ready() -> void:
 	survey.target_selected.connect(func(data):
 		survey_target_selected.emit(data)
 		survey.hide())
+	history = preload("res://scripts/ui/notification_history.gd").new()
+	root.add_child(history)
+	history.count_changed.connect(func(unread): history_button.text = "Updates" + (" • %d new" % unread if unread > 0 else ""))
+	# Above the hotbar, independent of workspace layout and transparent to pointer input.
+	completion = CompletionCard.new()
+	root.add_child(completion)
+	completion.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	completion.offset_left = -416
+	completion.offset_right = -24
+	completion.offset_top = -260
+	completion.offset_bottom = -176
 
 func _process(delta: float) -> void:
 	xp_time = maxf(0.0, xp_time - delta)
@@ -279,10 +339,21 @@ func _process(delta: float) -> void:
 		refresh_time = 0
 		refresh()
 
+var refresh_queued := false
+
+func request_refresh() -> void:
+	if refresh_queued or not is_inside_tree(): return
+	refresh_queued = true
+	_flush_refresh.call_deferred()
+
+func _flush_refresh() -> void:
+	refresh_queued = false
+	if is_inside_tree(): refresh()
+
 func show_notice(text: String) -> void:
 	notice = text
 	notice_time = 7
-	refresh()
+	request_refresh()
 
 func show_skill_xp(id: String, amount: int, level: int, leveled: bool) -> void:
 	xp_time = 4.0
@@ -344,13 +415,24 @@ func refresh() -> void:
 		goal_button.text = ("COMPLETE • " if personal_goal.complete else "PERSONAL GOAL • ") + personal_goal.title + " [P]\n" + personal_goal.text
 		goal_button.tooltip_text = personal_goal.text
 	combat_panel.visible = world.content_available("service_rifle") or world.combat.health < 100
+	var carried_weapon_count: int = world.combat.carried_weapons(world).size()
+	var weapon_info: Dictionary = world.combat.current_weapon(world)
 	combat_label.text = "ENGINEER %d/100 • Ammo %d%s" % [world.combat.health, world.player.count("ammo"), " • Protected" if world.combat.invulnerable > 0 else ""]
 	combat_label.add_theme_color_override("font_color", Style.ERROR if world.combat.health < 35 else Style.GOLD)
-	weapon_button.text = ("Holster rifle [V] • Hold LMB / Space to fire" if world.combat.armed else "Draw rifle [V]")
-	weapon_button.disabled = not world.combat.armed and world.player.count("service_rifle") == 0
+	if world.combat.armed:
+		weapon_button.text = "Holster %s [V]%s" % [weapon_info.name.to_lower(), " (Switch [V])" if carried_weapon_count > 1 else ""]
+	else:
+		weapon_button.text = "Draw %s [V]" % weapon_info.name.to_lower()
+	weapon_button.disabled = not world.combat.armed and carried_weapon_count == 0
+	weapon_button.tooltip_text = "%s: Range %.0f, %d dmg%s, %d ammo. %s\nPress V to draw/holster%s. Hold LMB or Space during a wave to fire." % [
+		weapon_info.name, float(weapon_info.range), int(weapon_info.damage),
+		" (piercing)" if weapon_info.piercing else "", int(weapon_info.ammo), weapon_info.role,
+		"; press V while drawn to switch weapons" if carried_weapon_count > 1 else ""
+	]
 	defense_status.visible = world.settlements.enabled and world.settlements.sites.town_hall.repaired
 	defense_status.text = "TOWN HALL %d/%d • %s [Y]" % [world.settlements.sites.town_hall.health, world.settlements.sites.town_hall.max_health(), world.defense.summary()]
-	objective.visible = world.guide.enabled
+	objective.visible = world.guide.enabled or world.settlements.enabled
+	objective.text = world.settlements.objective_text()
 	lesson_hint.visible = world.guide.enabled and not world.guide.current().is_empty()
 	if world.guide.enabled:
 		objective.text = world.guide.objective_text() if not world.guide.current().is_empty() else world.settlements.objective_text()
@@ -362,14 +444,24 @@ func refresh() -> void:
 		objective.text = opening.title
 		lesson_hint.text = opening.hint
 		lesson_hint.tooltip_text = world.early.summary(world)
-	research.visible = not world.guide.enabled or world.content_available("lab")
-	status.text = "Credits %d  |  %d machines  |  Pack %d / %d  |  WASD move • Hold RMB mine • E inventory • Esc menu" % [world.settlements.credits, world.entities.size(), world.player.total(), world.player.capacity]
+	objective_frame.visible = objective.visible
+	objective.tooltip_text = objective.text
+	if not world.early.active(): lesson_hint.tooltip_text = lesson_hint.text
+	research.visible = world.content_available("lab")
+	status.text = "%d credits  •  %d machines" % [world.settlements.credits,world.entities.size()]
+	var region: Dictionary = preload("res://scripts/data/biome_catalog.gd").by_index(world.frontier.landscape_index(Vector2i(world.player_position.floor())))
+	if not region.is_empty(): status.text = region.name + " • " + status.text
+	status.tooltip_text = "WASD move • Hold RMB mine • E inventory • C crafting • T technology • Y town • Esc menu"
 	if world.settlements.effect("burner_ticks") > 0: status.text += "  |  Coal +%d%%" % (world.settlements.effect("burner_ticks") * 100 / Catalog.FUEL_TICKS)
 	var active: String = world.current_research()
 	if not active.is_empty():
 		var tech: Dictionary = Catalog.technology(active)
-		research.text = "RESEARCH  %s  %d / %d dossiers  •  [T] Technology" % [tech.name, world.research_progress, tech.cost]
-	else: research.text = "WORKSHOP  •  [T] Choose a project  •  [F] Production / plans" if world.researched.size() < Catalog.TECHNOLOGIES.size() else "ALL PROJECTS COMPLETE  •  [F] Production and plans"
+		research.text = "%s  •  %d/%d dossiers [T]" % [tech.name, world.research_progress, tech.cost]
+	else: research.text = "Choose a technology project [T]" if world.researched.size() < Catalog.TECHNOLOGIES.size() else "All technology completed [T]"
+	research.tooltip_text = research.text
+	defense_status.max_lines_visible = 1
+	defense_status.tooltip_text = defense_status.text
+	defense_status.add_theme_color_override("font_color",Style.ERROR if world.settlements.sites.town_hall.health < world.settlements.sites.town_hall.max_health()/2 else Style.GOLD)
 	hotbar.refresh(world, selection)
 	inventory_label.text = "PACK %d  [E]" % world.player.total()
 	notice_label.text = notice if notice_time > 0 else "E inventory • Hold RMB mine • Q clear/pick • Ctrl-click load • Esc menu"
@@ -379,8 +471,9 @@ func refresh() -> void:
 		inspected = world.entities.get(workspace.entity_id) if workspace.mode == "machine" else null
 		site_id = workspace.site_id if workspace.mode == "town" else ""
 
+
 func world_has_pointer() -> bool:
-	if workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible or factory_panel.visible or frontier_panel.visible: return false
+	if history.visible or home_panel.visible or workspace.visible or pause_menu.visible or survey.visible or hotbar.picker.visible or story_panel.visible or factory_panel.visible or frontier_panel.visible: return false
 	var pointer := get_viewport().get_mouse_position()
 	if goal_panel.visible and goal_panel.get_global_rect().has_point(pointer): return false
 	if combat_panel.visible and combat_panel.get_global_rect().has_point(pointer): return false

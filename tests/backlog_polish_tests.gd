@@ -1,4 +1,5 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 const Navigation = preload("res://scripts/model/navigation.gd")
@@ -21,18 +22,18 @@ static func run(test: SceneTree) -> void:
 	test.check(navigation.add(Vector2i.ZERO) == 0 and navigation.pins.size() == 32, "Pin count is bounded")
 	navigation.remove(navigation.active)
 	test.check(navigation.target().is_empty() and navigation.pins.size() == 31, "Removing an active pin clears guidance")
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.start()
 	world.navigation.add(Vector2i(22, 12), "Camp")
 	var loaded := Saves.decode(JSON.parse_string(JSON.stringify(Saves.encode(world))))
 	test.check(loaded.error.is_empty() and loaded.world.navigation.target().title == "Camp", "Map pins persist in world saves")
 	var old := Saves.encode(world)
 	old.erase("navigation")
-	test.check(Saves.decode(old).error.is_empty(), "Older saves without map pins still load")
+	test.check(not Saves.decode(old).error.is_empty(), "Incomplete or obsolete saves are rejected without migration")
 	world.start()
 	test.check(world.navigation.pins.is_empty(), "Starting a new world clears old map pins")
 
-	var factory := World.new()
+	var factory := Fixtures.industrial()
 	factory.player_position = Vector2(18.5, 18.5)
 	factory.player.add("belt", 1)
 	factory.player.add("iron_plate", 10)
@@ -66,7 +67,7 @@ static func run(test: SceneTree) -> void:
 	test.check(Diagnostics.stalled(factory)[0].reason == "Needs repair", "Broken machines report repair needs")
 
 static func ui(test: SceneTree) -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.start()
 	var map := preload("res://scripts/ui/resource_survey.gd").new()
 	test.root.add_child(map)
@@ -88,7 +89,7 @@ static func ui(test: SceneTree) -> void:
 	map.pin_actions[2].pressed.emit()
 	test.check(world.navigation.pins.is_empty(), "Map removes saved pins")
 	map.queue_free()
-	var factory := World.new()
+	var factory := Fixtures.industrial()
 	var stalled = factory.spawn("furnace", Vector2i(19, 20), 0)
 	stalled.status = "No fuel"
 	var panel := preload("res://scripts/ui/factory_panel.gd").new()

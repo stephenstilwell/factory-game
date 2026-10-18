@@ -23,7 +23,7 @@ Movement upgrades retain collision and normalized diagonal movement. Mining upgr
 
 Consumers read derived stats rather than repeating constants. The movement system uses tiles per second, mining uses integer simulation ticks, and world commands use effective interaction reach. Each current track owns one stat. Definitions, purchasing, simulation, and UI stay separate so new tracks can be added without rewriting input handling.
 
-The optional `character` save extension stores version 1 plus purchased ranks. Effective stats and capacity are recomputed. Loading validates known IDs, integer rank bounds, progression prerequisites, and inventory size against derived capacity. Saves without this extension receive unchanged base stats. Starting a new world clears upgrades. Personal upgrades do not spend trade credits or alter settlement accounting.
+The required character section stores purchased ranks. Stats and capacity are derived; loading validates IDs, ranks, prerequisites and inventory capacity. Missing data is rejected. New worlds reset upgrades; currency accounting stays separate.
 
 ## Preparing for light combat and settlement defense
 

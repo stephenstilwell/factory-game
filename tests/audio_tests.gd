@@ -1,4 +1,5 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const Director = preload("res://scripts/audio/audio_director.gd")
 const World = preload("res://scripts/simulation/world.gd")
 
@@ -10,7 +11,7 @@ static func run(test: SceneTree) -> void:
 	test.check(audio.voices.size() == 10 and AudioServer.get_bus_index("Music") >= 0 and AudioServer.get_bus_index("SFX") >= 0, "Music and effects have separate buses and a bounded voice pool")
 	for cue in Director.CUES:
 		test.check(Director.CUES[cue].get_length() > 0, "Audio palette contains playable " + cue)
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.player_position = Vector2(5.5, 5.5)
 	world.player.add("furnace")
 	var cues: Array = []
@@ -18,7 +19,7 @@ static func run(test: SceneTree) -> void:
 	audio.bind_world(world)
 	test.check(world.build("furnace", Vector2i(6, 6), 0) and cues == ["build"], "Successful construction emits one semantic audio event")
 	test.check(not world.build("furnace", Vector2i(7, 6), 0) and cues == ["build"], "Rejected construction does not emit a success sound")
-	audio.bind_world(World.new())
+	audio.bind_world(Fixtures.industrial())
 	test.check(not world.feedback_requested.is_connected(audio._feedback) and audio.world.feedback_requested.is_connected(audio._feedback), "Loading a world disconnects old audio listeners")
 	audio.set_level("SFX", 0.0)
 	test.check(AudioServer.is_bus_mute(AudioServer.get_bus_index("SFX")) and not audio.play_cue("mine"), "Muted effects produce no new voices")

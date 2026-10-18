@@ -1,4 +1,5 @@
 extends SceneTree
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 var checks := 0
@@ -13,7 +14,7 @@ func _initialize() -> void:
 func run() -> void:
 	root.mode = Window.MODE_WINDOWED
 	root.size = Vector2i(1100, 720)
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.start()
 	world.exploration.reveal(world.player_position)
 	check(world.exploration.known(world.player_position), "Player is charted")

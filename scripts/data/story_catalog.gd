@@ -6,6 +6,8 @@ const NPCS := {
 	"town_hall": {"name": "Ada", "role": "Warden of Oldbridge", "color": "88976a", "before": "ada_before", "after": "ada_after"},
 }
 const CHAPTERS := {
+	"nell_rescued":{"title":"Nell counts every round","speaker":"workshop","site":"workshop","pages":["Nell came in with the first families. She used to organize freight at the eastern station. When the constructs broke the wagons apart, she kept the survivors together and counted what they had left.","She has set up beside my workshop hatch. Put ammunition in our reserve, then ask her to rearm local defenses before you signal again. She can carry what we have; she cannot make rounds out of promises. Belts and inserters will still need to keep the guns firing during a long defense."],"goal":"Stock up to 100 ammunition at the workshop, then use Nell’s between-defense rearm service. She is permanently rescued; later setbacks do not remove her."},
+	"homecoming_fair":{"title":"A town worth returning to","speaker":"town_hall","site":"town_hall","pages":["I thought the beacon would be the moment Oldbridge came back. But listen. The wagons from Greybank, Iona calling for someone to carry the next crate, Oren arguing about whose turn it is to check the lamps. No one is waiting for permission to live here anymore.","The old network promised to do everything for us. You built something better: districts that need one another, and people who know how to keep them working. We have stocked the public fuel depot at this hatch. Keep it supplied and the town will help your nearby burners. Tonight, let the beacon rest. This homecoming belongs to all of us."],"goal":"Homecoming chapter complete. Keep building your town; later beacon defenses remain your choice."},
 	"orchard_market": {
 		"title": "More than machine parts", "speaker": "trading_post", "site": "trading_post",
 		"pages": ["Iona put the first crate beside my counter herself. For years we traded only things that kept broken machines alive. Today a wagon left with apples for the ridge camps. People asked when the next one was coming.", "Keep her beds supplied and we can promise them a regular delivery. Planks for the growing frames, charcoal for the warm beds, produce back to this market. The credits pay our crews, but a reliable harvest gives families another reason to stay."],
@@ -83,6 +85,7 @@ const CHAPTERS := {
 		"title": "A place to come home to", "speaker": "town_hall", "site": "town_hall",
 		"pages": [
 			"Three families made it through. One of the children asked where the school was. She was already planning where she would sit, and which road her friends would take. I had forgotten what it sounded like to make plans here.",
+			"Nell, the quartermaster, came through with them. She is setting up at the workshop hatch. Stock ammunition there and she will rearm nearby defenses between arrivals, using only the rounds you provide.",
 			"The returning road crews have cleared our paths; you'll move five percent faster while the hall is operational. There are more people beyond the ridge. We can call them when we're ready. But Oren says something in the old relay answered our light. We need to understand that warning before we reconnect the chain."
 		], "goal": "Keep the eastern road safe. Find out why the beacon chain went silent."
 	},

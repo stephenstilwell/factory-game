@@ -6,6 +6,7 @@ const Combat = preload("res://scripts/data/combat_catalog.gd")
 const FUEL_TICKS := 240
 const TRANSPORT := ["belt", "fast_belt", "splitter", "underground_belt"]
 const ITEMS := {
+	"cottage": {"name": "Personal cottage", "color": "c3b28a"},
 	"generator": {"name": "Charcoal dynamo", "color": "d2aa68"},
 	"power_pole": {"name": "District power pole", "color": "91c8be"},
 	"timber": {"name": "Timber", "color": "ab8253"},
@@ -21,12 +22,14 @@ const ITEMS := {
 	"charcoal": {"name": "Charcoal fuel", "color": "555c4e"},
 	"fuel_depot": {"name": "Supply Hearth", "color": "d8a269"},
 	"service_rifle": {"name": "Service rifle", "color": "c9ad79"},
+	"marksman_rifle": {"name": "Precision rifle", "color": "9bb7c2"},
 	"cannon_turret": {"name": "Piercing cannon", "color": "a6b7b0"},
 	"pulse_turret": {"name": "Pulse turret", "color": "81c7be"},
 	"splitter": {"name": "Splitter junction", "color": "c9a46c"},
 	"underground_belt": {"name": "Underground conveyor", "color": "8bb3ab"},
 	"construction_kit": {"name": "Construction kit", "color": "b69b72"},
 	"wall": {"name": "Stone wall", "color": "b1a48a"},
+	"reinforced_wall": {"name": "Reinforced barricade", "color": "95a5ab"},
 	"turret": {"name": "Gun turret", "color": "85a6a6"},
 	"ammo": {"name": "Ammo rounds", "color": "e2b06b"},
 	"repair_kit": {"name": "Repair kit", "color": "83c6a1"},
@@ -52,6 +55,7 @@ const ITEMS := {
 
 const BUILD_ORDER := ["belt", "drill", "furnace", "inserter", "chest", "assembler", "lab", "fast_belt"]
 const BUILDINGS := {
+	"cottage": {"capacity": 0, "output_capacity": 0, "solid": true, "health": 150},
 	"generator": {"capacity": 50, "output_capacity": 0, "solid": true, "fuel": true, "technology": "metallurgy"},
 	"power_pole": {"capacity": 0, "output_capacity": 0, "solid": true, "technology": "metallurgy"},
 	"lumber_camp": {"capacity": 0, "output_capacity": 40, "solid": true, "work_ticks": 40},
@@ -65,6 +69,7 @@ const BUILDINGS := {
 	"splitter": {"capacity": 1, "solid": false, "technology": "routing"},
 	"underground_belt": {"capacity": 1, "solid": false, "technology": "routing"},
 	"wall": {"capacity": 0, "solid": true, "health": 120},
+	"reinforced_wall": {"capacity": 0, "solid": true, "health": 320, "technology": "metallurgy"},
 	"turret": {"capacity": 30, "solid": true, "health": 100, "technology": "logistics"},
 	"belt": {"capacity": 1, "solid": false},
 	"fast_belt": {"capacity": 1, "solid": false, "technology": "logistics"},
@@ -72,11 +77,12 @@ const BUILDINGS := {
 	"furnace": {"capacity": 30, "solid": true, "fuel": true, "recipes": ["iron_plate", "copper_plate", "steel"]},
 	"inserter": {"capacity": 1, "solid": false},
 	"chest": {"capacity": 200, "solid": true},
-	"assembler": {"capacity": 40, "solid": true, "recipes": ["gear", "fuel_depot", "wire", "science", "ammo", "repair_kit", "belt", "inserter", "chest", "drill", "furnace", "assembler", "lab", "fast_belt", "wall", "turret", "splitter", "underground_belt", "construction_kit", "service_rifle", "cannon_turret", "pulse_turret", "generator", "power_pole"]},
+	"assembler": {"capacity": 40, "solid": true, "recipes": ["gear", "fuel_depot", "wire", "science", "ammo", "repair_kit", "belt", "inserter", "chest", "drill", "furnace", "assembler", "lab", "fast_belt", "wall", "reinforced_wall", "turret", "splitter", "underground_belt", "construction_kit", "service_rifle", "marksman_rifle", "cannon_turret", "pulse_turret", "generator", "power_pole", "cottage"]},
 	"lab": {"capacity": 40, "solid": true},
 }
 
 const RECIPES := {
+	"cottage": {"in": {"timber": 12, "plank": 12, "stone": 8}, "out": {"cottage": 1}, "ticks": 60, "machine": "assembler"},
 	"generator": {"in": {"steel": 6, "gear": 6, "wire": 8, "stone": 10}, "out": {"generator": 1}, "ticks": 60, "hand": true, "machine": "assembler", "technology": "metallurgy"},
 	"power_pole": {"in": {"plank": 2, "wire": 2}, "out": {"power_pole": 2}, "ticks": 15, "hand": true, "machine": "assembler", "technology": "metallurgy"},
 	"stone_axe": {"in": {"timber": 2, "stone": 2}, "out": {"stone_axe": 1}, "ticks": 15, "hand": true},
@@ -90,12 +96,14 @@ const RECIPES := {
 	"charcoal": {"in": {"timber": 3}, "out": {"coal": 2}, "ticks": 60, "machine": "charcoal_kiln"},
 	"fuel_depot": {"in": {"iron_plate": 10, "gear": 4, "stone": 10}, "out": {"fuel_depot": 1}, "ticks": 30, "hand": true, "machine": "assembler"},
 	"service_rifle": {"in": {"iron_plate": 8, "gear": 4, "copper_plate": 4}, "out": {"service_rifle": 1}, "ticks": 35, "hand": true, "machine": "assembler", "technology": "logistics"},
+	"marksman_rifle": {"in": {"steel": 6, "gear": 4, "wire": 6}, "out": {"marksman_rifle": 1}, "ticks": 45, "hand": true, "machine": "assembler", "technology": "metallurgy"},
 	"cannon_turret": {"in": {"iron_plate": 8, "steel": 6, "gear": 4, "copper_plate": 4}, "out": {"cannon_turret": 1}, "ticks": 50, "hand": true, "machine": "assembler", "technology": "metallurgy"},
 	"pulse_turret": {"in": {"iron_plate": 8, "wire": 6, "gear": 4}, "out": {"pulse_turret": 1}, "ticks": 45, "hand": true, "machine": "assembler", "technology": "routing"},
 	"splitter": {"in": {"iron_plate": 4, "gear": 2}, "out": {"splitter": 1}, "ticks": 20, "hand": true, "machine": "assembler", "technology": "routing"},
 	"underground_belt": {"in": {"iron_plate": 6, "belt": 4}, "out": {"underground_belt": 2}, "ticks": 20, "hand": true, "machine": "assembler", "technology": "routing"},
 	"construction_kit": {"in": {"steel": 2, "gear": 2, "wire": 4}, "out": {"construction_kit": 1}, "ticks": 40, "machine": "assembler", "technology": "construction"},
 	"wall": {"in": {"stone": 5}, "out": {"wall": 1}, "ticks": 5, "hand": true, "machine": "assembler"},
+	"reinforced_wall": {"in": {"stone": 4, "steel": 2}, "out": {"reinforced_wall": 1}, "ticks": 10, "hand": true, "machine": "assembler", "technology": "metallurgy"},
 	"turret": {"in": {"iron_plate": 12, "gear": 5, "copper_plate": 5}, "out": {"turret": 1}, "ticks": 40, "hand": true, "machine": "assembler", "technology": "logistics"},
 	"ammo": {"in": {"iron_plate": 2}, "out": {"ammo": 5}, "ticks": 15, "machine": "assembler", "hand": true, "technology": "logistics"},
 	"repair_kit": {"in": {"iron_plate": 2, "copper_plate": 1}, "out": {"repair_kit": 1}, "ticks": 20, "machine": "assembler", "hand": true},
@@ -116,10 +124,10 @@ const RECIPES := {
 }
 
 const TECHNOLOGIES := [
-	{"id": "logistics", "name": "Supply routes", "purpose": "Move supplies faster; equip returning crews.", "cost": 10, "requires": [], "unlock": "Fast conveyors; workshop rifles, gun turrets, and ammunition"},
-	{"id": "metallurgy", "name": "Foundry craft", "purpose": "Make strong steel for homes and defenses.", "cost": 20, "requires": ["logistics"], "unlock": "Steel, piercing cannons, charcoal dynamos, district poles and electric machine drives"},
-	{"id": "routing", "name": "District distribution", "purpose": "Branch and cross supply routes in a growing town.", "cost": 20, "requires": ["logistics"], "unlock": "Splitters, underground conveyors, and workshop pulse turrets"},
-	{"id": "construction", "name": "Homes for Oldbridge", "purpose": "Deliver housing supplies; restore three neighborhoods.", "cost": 25, "requires": ["metallurgy"], "unlock": "Construction kits and housing supply lines"},
+	{"id": "logistics", "preview": "fast_belt", "name": "Supply routes", "purpose": "Move supplies faster; equip returning crews.", "cost": 10, "requires": [], "unlock": "Fast conveyors; workshop rifles, gun turrets, and ammunition"},
+	{"id": "metallurgy", "preview": "generator", "name": "Foundry craft", "purpose": "Make strong steel for homes and defenses.", "cost": 20, "requires": ["logistics"], "unlock": "Steel, piercing cannons, precision rifles, reinforced barricades, charcoal dynamos, district poles and electric machine drives"},
+	{"id": "routing", "preview": "splitter", "name": "District distribution", "purpose": "Branch and cross supply routes in a growing town.", "cost": 20, "requires": ["logistics"], "unlock": "Splitters, underground conveyors, and workshop pulse turrets"},
+	{"id": "construction", "preview": "construction_kit", "name": "Homes for Oldbridge", "purpose": "Deliver housing supplies; restore three neighborhoods.", "cost": 25, "requires": ["metallurgy"], "unlock": "Construction kits and housing supply lines"},
 ]
 
 static func technology(id: String) -> Dictionary:
@@ -140,13 +148,14 @@ static func describe(contents: Dictionary) -> String:
 	return ", ".join(parts) if not parts.is_empty() else "empty"
 
 static func category(id: String) -> String:
-	if id == "service_rifle": return "Components"
+	if id in ["service_rifle", "marksman_rifle"]: return "Components"
 	if BUILDINGS.has(id): return "Buildings"
 	if id in ["timber", "foraged_food", "iron_ore", "copper_ore", "coal", "stone"]: return "Resources"
 	return "Components"
 
 static func item_description(id: String) -> String:
 	var descriptions := {
+		"cottage": "Your optional home. Town [Y] makes a kit after shelter restoration. Place it and inspect the entrance to furnish a saved private interior. Outdoor time pauses inside. Pick up the entrance to move it without losing your room.",
 		"drill": "Automatically mines the finite deposit beneath it. Uses coal or charcoal fuel. Face its chute toward a conveyor to carry ore away; move it when the deposit runs out.",
 		"furnace": "Smelts iron and copper ore into plates for machines and town repairs. Load ore and coal/charcoal, then collect the plates or unload them by inserter. Select its recipe to change the metal.",
 		"assembler": "Automates components and building production, freeing you from hand-crafting. Choose a recipe, feed its ingredients and remove the output with inserters.",
@@ -161,22 +170,24 @@ static func item_description(id: String) -> String:
 		"plank": "Hand-cut from timber; a waterwheel sawmill makes six planks from two timber after shelter restoration.",
 		"foraged_food": "Gather berries with RMB. Supply the communal shelter; there is no hunger or spoilage.",
 		"stone_axe": "Carry in your pack to gather fallen timber and berries twice as quickly. A lumber camp needs its own axe during construction.",
-		"lumber_camp": "Harvests one real tree within four tiles every four seconds, producing four timber. No fuel. Reclaim and move when the grove is exhausted.",
+		"lumber_camp": "Produces 4 timber every 4 seconds within a 9 × 9 grove. Each tree lasts six harvests. Supply the first shelter to unlock automatic replanting: harvested trees regrow in 2 minutes. About six trees sustain one camp; overlapping camps share trees. Hand-cleared ground stays clear. No fuel.",
 		"cart_post": "A worker collects up to four timber from the nearest lumber camp within ten tiles every four seconds. Stores timber; after Stone age, supplies mills and charcoal clamps within five tiles. No belts or fuel needed.",
 		"communal_hearth": "A home for the first returning neighbors. Place near your work area, then use Town [Y] to deliver the shelter and crossing projects.",
 		"watermill": "Place beside the marked old watercourse south of spawn. Two timber becomes six planks every four seconds; runs without coal. Nearby collection posts supply its timber.",
 		"charcoal_kiln": "Turns three timber into two units of burner fuel every six seconds without metal or coal inputs. Charcoal uses the same fuel stock as mined coal.",
 		"fuel_depot": "Shared coal storage. Automatically delivers real coal to healthy drills and furnaces within 8 tiles. Returning beacon crews extend coverage up to 12 tiles; restored depot runners add one more. Load all carried coal with Load coal, or feed continuously by inserter.",
 		"service_rifle": "Carry in your pack. V draws/holsters it; hold left mouse or Space while drawn to fire during a wave. Uses one ammo per shot. Range 8, damage 16; enemy armor reduces damage. Shots can miss. Engineer [P] offers a workshop protective coat to reduce incoming damage.",
+		"marksman_rifle": "Heavy precision long-rifle. V draws/holsters it; hold left mouse or Space while drawn to fire during a wave. Uses two ammo per shot. Range 11, damage 36 armor-piercing; punches through hauler armor at range with a slower fire rate. Double-click in pack or use [V] to switch between carried rifles.",
 		"cannon_turret": "Range 8, 32 armor-piercing damage. Uses 2 ammunition every 1.5 seconds. Prioritizes armored haulers. Supply by inserter or manual loading.",
 		"pulse_turret": "Range 4.5, 8 armor-piercing damage in a 1.8-tile burst. Slows targets for 2.5 seconds. Uses 2 ammunition per pulse. Combine with guns and cannons.",
 		"splitter": "A one-tile junction. Alternates items between forward and RIGHT outputs, bypassing blocked branches. Feed from behind; R rotates.",
 		"underground_belt": "A pair crosses up to six tiles. Both ends face the flow direction. G toggles entrance/exit while building; the inspector can change existing ends.",
 		"construction_kit": "Automated steel, gear, and wire supplies for Town Hall housing deliveries. Three deliveries restore a neighborhood.",
 		"wall": "A 120-health barrier. Equip from your pack and place across the marked eastern approach. Scavengers must break it to advance. Repair with H.",
+		"reinforced_wall": "A 320-health steel-plated barrier. Absorbs heavy dismantler strikes and anchors defensive chokepoints. Costs stone and steel; repair with H.",
 		"turret": "Fires at old-network constructs within six tiles. Each shot consumes one ammunition. Load by drag, Ctrl-click, or inserter. Equip from your pack to build.",
 		"ammo": "Five rounds per batch. Gun turrets consume one per shot; automate production and delivery with an assembler and inserters.",
-		"repair_kit": "Press H over a damaged building or civic landmark to consume one kit and restore 50 health. Also available in inspection panels.",
+		"repair_kit": "Press H over a damaged building or civic landmark to consume one kit and restore structure health. Repair-rig upgrades and the restored Reedwater lodge improve each kit. Also available in inspection panels.",
 		"coal": "Mined coal and timber charcoal share this burner fuel stock. 24 seconds of active burner work per unit. Load a nearby Supply Hearth to serve several drills and furnaces, or feed burners directly by inserter.",
 		"stone": "Mine by hand to craft your first furnace. Also used in civic repairs.",
 		"iron_ore": "Smelt in a coal-fueled furnace to produce iron plates.",

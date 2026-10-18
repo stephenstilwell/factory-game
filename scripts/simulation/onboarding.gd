@@ -7,7 +7,7 @@ const STAGES := [
 	{"id": "stone", "title": "Gather stone", "goals": {"mined:stone": 5}, "target": "stone", "hint": "Walk with WASD. Hover the pale stone at (26, 9) and hold right mouse to mine 5 stone."},
 	{"id": "craft_furnace", "title": "Craft your first furnace", "goals": {"crafted:furnace": 1}, "hint": "Press C, select Stone furnace, then choose Craft 1. It costs 5 stone; wait for the queue to finish."},
 	{"id": "place_furnace", "title": "Place the furnace", "goals": {"placed:furnace": 1}, "hint": "Select the furnace on your hotbar and left-click empty ground near you. Esc clears the build tool. Click a machine to inspect it."},
-	{"id": "ingredients", "title": "Gather ore and fuel", "goals": {"mined:iron_ore": 5, "mined:coal": 2}, "target": "iron_ore", "hint": "Mine 5 iron ore near (14, 16), then 2 coal near (9, 23). Hold right mouse to mine; move within six tiles."},
+	{"id": "ingredients", "title": "Gather iron and prepare charcoal", "goals": {"mined:iron_ore": 5, "produced:coal": 2}, "target": "iron_ore", "hint": "Now you can mine iron. Gather 5 ore near (14, 16). Your charcoal clamp produces furnace fuel from timber; collect it with X. No coal mining is required."},
 	{"id": "feed_furnace", "title": "Fuel and load your furnace", "goals": {"fed:iron_ore": 5, "fed:coal": 2}, "machine": "furnace", "hint": "Walk back to your furnace. Click it, then use Load ingredients to insert ore and coal. Watch its status change to Working."},
 	{"id": "smelt", "title": "Smelt iron plates", "goals": {"smelted:iron_plate": 5}, "machine": "furnace", "hint": "The furnace burns coal to turn ore into plates. Inspect its progress and output; one coal now supports seven plates of active work."},
 	{"id": "collect_plates", "title": "Collect your first plates", "goals": {"collected:iron_plate": 5}, "machine": "furnace", "hint": "Select the furnace and press X to collect its output. Gears and the burner drill become available next."},
@@ -28,14 +28,12 @@ const REVEALS := {
 	"fast_belt": "research",
 }
 
-const CHARCOAL_STAGE := {"id": "ingredients", "title": "Gather iron and prepare charcoal", "goals": {"mined:iron_ore": 5, "produced:coal": 2}, "target": "iron_ore", "hint": "Now you can mine iron. Gather 5 ore near (14, 16). Your charcoal clamp produces furnace fuel from timber; collect it with X. No coal mining is required."}
-var timber_opening := false
 var enabled := false
 var counters: Dictionary = {}
 var completed: Array = []
 
 func stage_at(index: int) -> Dictionary:
-	return CHARCOAL_STAGE if timber_opening and index == 3 else STAGES[index]
+	return STAGES[index]
 
 func current() -> Dictionary:
 	return stage_at(completed.size()) if enabled and completed.size() < STAGES.size() else {}
@@ -89,4 +87,4 @@ func target(world: RefCounted) -> Dictionary:
 	return {}
 
 func serialize() -> Dictionary:
-	return {"enabled": enabled, "timber_opening": timber_opening, "counters": counters.duplicate(), "completed": completed.duplicate()}
+	return {"enabled": enabled, "counters": counters.duplicate(), "completed": completed.duplicate()}

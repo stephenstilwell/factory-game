@@ -50,17 +50,17 @@ Rendering visits visible cells; there is no permanent Node per plant or a simula
 
 ## World generation and saves
 
-The optional version-1 frontier extension stores enabled state, stable landmark IDs and positions, discovery/claim flags, cleared-tree coordinates, the loaned table, and the tracked lead. Scenery uses its own seed hashes; ore generator and richness versions are unchanged.
+The required frontier section stores landmark IDs/positions, discoveries, cleared ground, managed forestry, puzzle state and tracking. Scenery uses independent seeded hashes; the game has one ore generator.
 
 New landmarks are deterministic for a seed. Migration anchors them relative to the existing trading post, searches bounded vacant space, and protects occupied machines, live deposits, civic land, the player, and the Hall defense approach. Existing buildings never move. Landmarks may remain unavailable if a heavily occupied save has no safe placement in the bounded search.
 
-Older saves gain the frontier on load; the next save records its positions and state. Buildings in old saves also clear their underlying scenery candidates, so reclaiming a pre-existing machine does not reveal a newly generated tree underneath it. New games reset frontier progress.
+Current saves require all landmark and forestry state. Missing data is rejected. New games reset frontier progress; loading never inserts sites into a factory.
 
 Validation rejects unknown IDs, overlapping occupied footprints, invalid tree coordinates, duplicate conveyor cells, out-of-board positions, invalid orientations, claimed-undiscovered sites, and a recovered depot without valid cargo routes.
 
 ## Verification
 
-Tests cover deterministic placement across five seeds, empty starts, reserved footprints and accessible entrances, one-time XP and physical salvage, full-pack atomicity, actual survey/hearth effects, service suspension, puzzle budgets and completion, save continuation, invalid metadata, scenery clearing, old-factory migration, UI input isolation, tracking, and rendering state conservation.
+Tests cover deterministic placement across five seeds, empty starts, reserved footprints and accessible entrances, one-time XP and physical salvage, full-pack atomicity, actual survey/hearth effects, service suspension, puzzle budgets and completion, save continuation, invalid metadata, scenery clearing, incomplete-save rejection, UI input isolation, tracking, and rendering state conservation.
 
 Native review:
 ```powershell
@@ -68,3 +68,5 @@ godot --path . --script res://tests/capture_frontier.gd
 ```
 
 Captures in .godot/verification/frontier_*.png show the opening, all three landmarks, market garden, and empty/solved routing panels at 1280x800 and 1100x720.
+
+New regional loop: [Reedwater Marsh](reedwater-marsh.md) adds the fifth discovery, a physical causeway and a maintenance lodge. Pre-marsh saves require a new world.

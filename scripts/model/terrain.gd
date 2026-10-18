@@ -12,8 +12,7 @@ const GENERATOR_VERSION := 2
 const REGION_SIZE := 96
 const MAX_RADIUS := 16
 const RESOURCE_IDS := ["iron_ore", "copper_ore", "coal", "stone"]
-var stock_scale := 4
-var generator_version := 1
+const STOCK_SCALE := 4
 var chunks: Dictionary = {}
 var depleted: Dictionary = {}
 var dirty_chunks: Dictionary = {}
@@ -26,7 +25,7 @@ func chunk_at(cell: Vector2i) -> Vector2i:
 
 func tile(cell: Vector2i) -> Dictionary:
 	var chunk := chunk_at(cell)
-	if not chunks.has(chunk): _generate(chunk)
+	if not chunks.has(chunk): _generate_frontier(chunk)
 	var data: Dictionary = chunks[chunk].get(cell, {})
 	if data.is_empty(): return {}
 	var amount: int = int(depleted.get(cell, data.amount))
@@ -38,28 +37,6 @@ func mine(cell: Vector2i) -> String:
 	depleted[cell] = int(data.amount) - 1
 	dirty_chunks[chunk_at(cell)] = true
 	return data.item
-
-func _generate(chunk: Vector2i) -> void:
-	if generator_version == 2:
-		_generate_frontier(chunk)
-		return
-	var deposits: Dictionary = {}
-	# Neighbor patch centers allow deposits to cross chunk boundaries seamlessly.
-	var patches: Array = START_PATCHES.duplicate()
-	for cx in range(chunk.x - 1, chunk.x + 2):
-		for cy in range(chunk.y - 1, chunk.y + 2):
-			if cx >= -1 and cx <= 3 and cy >= -1 and cy <= 3: continue
-			var rng := RandomNumberGenerator.new()
-			rng.seed = seed_value + cx * 73856093 + cy * 19349663
-			if rng.randf() > 0.38: continue
-			patches.append([Vector2i(cx * 16 + rng.randi_range(2, 13), cy * 16 + rng.randi_range(2, 13)), rng.randi_range(2, 5), ["iron_ore", "copper_ore", "coal", "stone"][rng.randi_range(0, 3)]])
-	for x in range(chunk.x * 16, chunk.x * 16 + 16):
-		for y in range(chunk.y * 16, chunk.y * 16 + 16):
-			var cell := Vector2i(x, y)
-			for patch in patches:
-				if Vector2(cell - patch[0]).length() <= float(patch[1]):
-					deposits[cell] = {"item": patch[2], "amount": (120 + posmod(x * 17 + y * 31 + seed_value, 100)) * stock_scale}
-	chunks[chunk] = deposits
 
 func _rng(coordinate: Vector2i, salt: int = 0) -> RandomNumberGenerator:
 	var rng := RandomNumberGenerator.new()
@@ -117,7 +94,7 @@ func _generate_frontier(chunk: Vector2i) -> void:
 				var cell := Vector2i(x, y)
 				if not _patch_contains(cell, patch): continue
 				var variation := posmod(x * 17 + y * 31 + seed_value, 180)
-				deposits[cell] = {"item": patch[2], "amount": ((180 if starter else 450 + depth * 450) + variation) * stock_scale}
+				deposits[cell] = {"item": patch[2], "amount": ((180 if starter else 450 + depth * 450) + variation) * STOCK_SCALE}
 	chunks[chunk] = deposits
 
 func find_resource(item: String, origin: Vector2i, region_radius: int = 3) -> Dictionary:
@@ -125,7 +102,7 @@ func find_resource(item: String, origin: Vector2i, region_radius: int = 3) -> Di
 	# An explicit, bounded survey: no persistent map nodes or per-frame world scan.
 	var region := _region_at(origin)
 	var bounds := Rect2i((region - Vector2i.ONE * region_radius) * REGION_SIZE, Vector2i.ONE * REGION_SIZE * (region_radius * 2 + 1))
-	var patches := _patches_for_area((region - Vector2i.ONE * region_radius) * REGION_SIZE, (region + Vector2i.ONE * (region_radius + 1)) * REGION_SIZE - Vector2i.ONE) if generator_version == 2 else _legacy_survey_patches(origin, region_radius * REGION_SIZE)
+	var patches := _patches_for_area((region - Vector2i.ONE * region_radius) * REGION_SIZE, (region + Vector2i.ONE * (region_radius + 1)) * REGION_SIZE - Vector2i.ONE)
 	patches = patches.filter(func(patch): return patch[2] == item and bounds.has_point(patch[0]))
 	patches.sort_custom(func(a, b): return Vector2(a[0]).distance_squared_to(Vector2(origin)) < Vector2(b[0]).distance_squared_to(Vector2(origin)))
 	for patch in patches:
@@ -148,29 +125,17 @@ func find_resource(item: String, origin: Vector2i, region_radius: int = 3) -> Di
 		if remaining > 0: return {"item": item, "cell": nearest, "remaining": remaining, "distance": sqrt(distance)}
 	return {}
 
-func _legacy_survey_patches(origin: Vector2i, radius: int) -> Array:
-	var patches: Array = START_PATCHES.duplicate()
-	var first := chunk_at(origin - Vector2i.ONE * radius)
-	var last := chunk_at(origin + Vector2i.ONE * radius)
-	for cx in range(first.x, last.x + 1):
-		for cy in range(first.y, last.y + 1):
-			if cx >= -1 and cx <= 3 and cy >= -1 and cy <= 3: continue
-			var rng := _rng(Vector2i(cx, cy))
-			if rng.randf() > 0.38: continue
-			patches.append([Vector2i(cx * 16 + rng.randi_range(2, 13), cy * 16 + rng.randi_range(2, 13)), rng.randi_range(2, 5), RESOURCE_IDS[rng.randi_range(0, 3)]])
-	return patches
-
 func patch_at(cell: Vector2i) -> Dictionary:
-	var candidates := _patches_for_area(cell, cell) if generator_version == 2 else _legacy_survey_patches(cell, CHUNK_SIZE)
+	var candidates := _patches_for_area(cell, cell)
 	# Later patches take precedence, matching chunk generation.
 	candidates.reverse()
 	for patch in candidates:
-		var inside := _patch_contains(cell, patch) if generator_version == 2 else Vector2(cell - patch[0]).length() <= float(patch[1])
+		var inside := _patch_contains(cell, patch)
 		if inside: return {"center": patch[0], "item": patch[2]}
 	return {}
 
 func has_patch(center: Vector2i, item: String) -> bool:
-	var candidates := _patches_for_area(center, center) if generator_version == 2 else _legacy_survey_patches(center, CHUNK_SIZE)
+	var candidates := _patches_for_area(center, center)
 	for patch in candidates:
 		if patch[0] == center and patch[2] == item: return true
 	return false

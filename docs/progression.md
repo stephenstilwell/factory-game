@@ -1,6 +1,6 @@
 # Progression design
 
-New games now begin with [timber, worker logistics, shelter restoration, water power and charcoal](timber-opening.md) before metal. The furnace lessons below describe the industrial tutorial, reused after the crossing; existing saves retain their earlier opening.
+New games now begin with [timber, worker logistics, shelter restoration, water power and charcoal](timber-opening.md) before metal. The furnace lessons below describe the industrial tutorial, reused after the crossing.
 
 ## Direction
 
@@ -10,16 +10,16 @@ Milestones teach a specific action and reveal the next relevant recipe/tool. Res
 
 The first non-tutorial objective is now implemented: restore Oldbridge's trading post, supply manufactured goods to earn trade credits, and use those credits plus materials to restore the engineers' workshop. Its permanent global fuel-efficiency bonus makes the settlement contribute back to the factory. The town panel is available during learning; the regional objective takes the main objective line after learning is complete. See [settlements.md](settlements.md).
 
-## Industrial lessons and the legacy opening
+## Industrial lessons after the crossing
 
-New games start near stone with an empty pack, no working machines, no technologies, and no queued crafts. Abandoned civic landmarks wait to be restored. Hand mining is an innate action. A furnace costs only stone, so it can be crafted before any metal exists; the player then supplies hand-mined ore and coal to produce the first plates. No seeded inventories, hidden starter fuel, or reward items are used.
+After the timber opening and crossing, the industrial lessons introduce furnaces, drills and logistics. Players use gathered stone, mined iron and charcoal produced from timber. The opening begins with an empty pack and no working machines; supplies must be gathered, crafted or produced.
 
 The 15 current lessons introduce:
 
 1. Mine 5 stone.
 2. Craft a stone furnace.
 3. Place it.
-4. Gather 5 iron ore and 2 coal.
+4. Gather 5 iron ore and produce charcoal fuel.
 5. Load/fuel the furnace.
 6. Smelt 5 plates.
 7. Collect them; reveal gears and drills.

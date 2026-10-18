@@ -1,6 +1,8 @@
 extends VBoxContainer
 ## Presentation and intent only; repair, reach, currency, and contracts are model rules.
 
+const Style = preload("res://scripts/ui/ui_style.gd")
+const Showcase = preload("res://scripts/ui/showcase.gd")
 const Definitions = preload("res://scripts/data/settlement_catalog.gd")
 const Catalog = preload("res://scripts/data/catalog.gd")
 const Grid = preload("res://scripts/ui/inventory_grid.gd")
@@ -19,6 +21,11 @@ signal beacon_requested
 signal beacon_cancel_requested
 signal repair_requested
 
+var current_preview: Control
+var restored_preview: Control
+var restoration_reward: Label
+var reward_heading: Label
+var preview_arrow: Label
 var selected_id := ""
 var age_box: VBoxContainer
 var age_text: Label
@@ -27,6 +34,8 @@ var overview: VBoxContainer
 var detail: VBoxContainer
 var overview_text: Label
 var project_buttons: Dictionary = {}
+var project_cards: Dictionary = {}
+const Reports = preload("res://scripts/ui/project_reports.gd")
 var talk_button: Button
 var title: Label
 var state_label: Label
@@ -48,31 +57,117 @@ var beacon_button: Button
 var cancel_beacon_button: Button
 var damage_button: Button
 var supplies_title: Label
+const Quartermaster = preload("res://scripts/simulation/quartermaster.gd")
+var defense_card: PanelContainer
+var readiness: Label
+var after_action: Label
+var nell_card: PanelContainer
+var nell_text: Label
+var nell_stock: Button
+var nell_rearm: Button
+var chapter_box: PanelContainer
+var chapter_title: Label
+var chapter_text: Label
+var chapter_deliver: Button
+var chapter_finish: Button
+var chapter_lead: Button
+signal chapter_lead_requested(id: String)
+var cottage_button: Button
+var cottage_info: Label
 
 func _ready() -> void:
 	age_box = VBoxContainer.new()
 	add_child(age_box)
 	age_text = _label("", 15, Color("e4c58b"))
 	age_box.add_child(age_text)
-	age_button = _button(age_box, "Town age project", func():
-		if world != null and world.early.enabled: age_requested.emit()
-		elif selected_id != "town_hall": site_selected.emit("town_hall")
-		else: age_requested.emit())
+	age_button = _button(age_box, "Town age project", func(): age_requested.emit())
+	chapter_box = PanelContainer.new()
+	add_child(chapter_box)
+	var chapter_content := VBoxContainer.new()
+	chapter_box.add_child(chapter_content)
+	chapter_title = Style.label("",20,Style.GOLD)
+	chapter_content.add_child(chapter_title)
+	chapter_text = Style.label("",14,Style.TEXT)
+	chapter_content.add_child(chapter_text)
+	var chapter_actions := HBoxContainer.new()
+	chapter_content.add_child(chapter_actions)
+	chapter_deliver = Style.button(chapter_actions,"Deliver phase supplies",func(): world.settlements.homecoming.deliver(world); refresh(world,selected_id,quantity))
+	chapter_finish = Style.button(chapter_actions,"Commission phase",func(): world.settlements.homecoming.commission(world); refresh(world,selected_id,quantity))
+	Style.action(chapter_finish)
+	chapter_lead = Style.button(chapter_content,"",func():
+		var chapter = world.settlements.homecoming
+		chapter_lead_requested.emit("orchard" if chapter.stage == 0 else ("technology" if chapter.stage == 1 else "quarry")))
 	overview = VBoxContainer.new()
 	add_child(overview)
 	overview.add_child(_label("OLDBRIDGE RESTORATION", 18, Color("91d2b4")))
 	overview_text = _label("")
 	overview.add_child(overview_text)
 	for id in Definitions.SITES:
-		project_buttons[id] = _button(overview, Definitions.SITES[id].name, func(): site_selected.emit(id))
+		var card := PanelContainer.new()
+		overview.add_child(card)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation",12)
+		card.add_child(row)
+		var art := Showcase.new()
+		row.add_child(art)
+		art.custom_minimum_size = Vector2(76,96)
+		var content := VBoxContainer.new()
+		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(content)
+		var heading := HBoxContainer.new()
+		content.add_child(heading)
+		var name_label := Style.label(Definitions.SITES[id].name,18,Style.TEXT)
+		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		heading.add_child(name_label)
+		var badge := Style.label("",11,Style.GOLD)
+		badge.autowrap_mode = TextServer.AUTOWRAP_OFF
+		heading.add_child(badge)
+		var reward := Style.label(Definitions.SITES[id].reward,13,Style.ACCENT)
+		content.add_child(reward)
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size.y = 5
+		bar.show_percentage = false
+		content.add_child(bar)
+		var supplies_label := Style.label("",13,Style.MUTED)
+		content.add_child(supplies_label)
+		var blocker := Style.label("",13,Style.GOLD)
+		content.add_child(blocker)
+		project_buttons[id] = Style.button(content,"Inspect project",func(): site_selected.emit(id))
+		project_cards[id] = {"art":art,"badge":badge,"bar":bar,"supplies":supplies_label,"blocker":blocker}
+	cottage_info = _label("PERSONAL COTTAGE / A home to furnish your way. Optional; no production bonuses.", 14, Color("a2cdb3"))
+	overview.add_child(cottage_info)
+	cottage_button = _button(overview, "Make cottage kit: 12 timber + 12 planks + 8 stone", func(): world.home.make_kit(world); refresh(world, selected_id, quantity))
+
 	detail = VBoxContainer.new()
 	add_child(detail)
-	title = _label("", 19, Color("91d2b4"))
+	title = _label("",24,Style.TEXT)
 	detail.add_child(title)
+	var hero := PanelContainer.new()
+	detail.add_child(hero)
+	var hero_row := HBoxContainer.new()
+	hero_row.add_theme_constant_override("separation",12)
+	hero.add_child(hero_row)
+	current_preview = Showcase.new()
+	hero_row.add_child(current_preview)
+	current_preview.custom_minimum_size = Vector2(92,100)
+	preview_arrow = Style.label("→",24,Style.GOLD)
+	preview_arrow.autowrap_mode = TextServer.AUTOWRAP_OFF
+	hero_row.add_child(preview_arrow)
+	restored_preview = Showcase.new()
+	hero_row.add_child(restored_preview)
+	restored_preview.custom_minimum_size = Vector2(92,100)
+	var reward := VBoxContainer.new()
+	reward.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hero_row.add_child(reward)
+	reward_heading = Style.label("RESTORATION REWARD",11,Style.GOLD)
+	reward.add_child(reward_heading)
+	restoration_reward = Style.label("",14,Style.TEXT)
+	restoration_reward.max_lines_visible = 4
+	reward.add_child(restoration_reward)
 	state_label = _label("", 14, Color("e4c58b"))
 	detail.add_child(state_label)
 	talk_button = _button(detail, "Talk", func(): talk_requested.emit(selected_id))
-	defense_status = _label("", 15, Color("e4c58b"))
+	defense_status = _label("", 13, Style.GOLD)
 	detail.add_child(defense_status)
 	order_button = _button(detail, "Buy supply bundle — 20 credits", func(): supplies_order_requested.emit())
 	order_button.tooltip_text = "20 coal + 10 ammunition + 2 repair kits. Trade credits and beacon relief credits share the same wallet."
@@ -88,6 +183,7 @@ func _ready() -> void:
 	prerequisite_button = _button(detail, "View required project", func(): site_selected.emit(Definitions.SITES[selected_id].requires))
 	supply_button = _button(detail, "Deliver materials", func(): supply_requested.emit(selected_id))
 	restore_button = _button(detail, "Restore", func(): restore_requested.emit(selected_id))
+	Style.action(restore_button)
 	withdraw_button = _button(detail, "Withdraw unused goods [X]", func(): withdraw_requested.emit(selected_id))
 	supplies_title = _label("SUPPLIES  •  click to take; drag to deliver", 13, Color("a0b3b2"))
 	detail.add_child(supplies_title)
@@ -98,14 +194,37 @@ func _ready() -> void:
 	information = _label("")
 	detail.add_child(information)
 	_button(detail, "All town projects [Y]", func(): site_selected.emit(""))
+	defense_card = PanelContainer.new()
+	add_child(defense_card)
+	move_child(defense_card,1)
+	var briefing := VBoxContainer.new()
+	defense_card.add_child(briefing)
+	briefing.add_child(Style.label("BEACON DEFENSE • Know the stakes",20,Style.GOLD))
+	after_action = Style.label("",12,Style.ACCENT)
+	briefing.add_child(after_action)
+	defense_status.reparent(briefing)
+	readiness = Style.label("",12,Style.TEXT)
+	briefing.add_child(readiness)
+	beacon_button.reparent(briefing)
+	cancel_beacon_button.reparent(briefing)
+	briefing.move_child(beacon_button,defense_status.get_index()+1)
+	briefing.move_child(cancel_beacon_button,beacon_button.get_index()+1)
+	nell_card = PanelContainer.new()
+	add_child(nell_card)
+	move_child(nell_card,2)
+	var nell := VBoxContainer.new()
+	nell_card.add_child(nell)
+	nell.add_child(Style.label("NELL • Quartermaster",20,Style.GOLD))
+	nell_text = Style.label("",14,Style.TEXT)
+	nell.add_child(nell_text)
+	var nell_actions := HBoxContainer.new()
+	nell.add_child(nell_actions)
+	nell_stock = Style.button(nell_actions,"Stock reserve from pack",func(): Quartermaster.stock(world); refresh(world,selected_id,quantity))
+	nell_rearm = Style.button(nell_actions,"Rearm local defenses",func(): Quartermaster.dispatch(world); refresh(world,selected_id,quantity))
+	Style.action(nell_rearm)
 
 func _label(text: String, size: int = 16, color: Color = Color("e0e8df")) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label
+	return Style.label(text,size,color)
 
 func _button(parent: Node, text: String, action: Callable) -> Button:
 	var button := Button.new()
@@ -133,36 +252,76 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	overview.visible = id.is_empty()
 	detail.visible = not id.is_empty()
 	var region = world.settlements
-	age_box.visible = region.enabled and (world.early.enabled or id.is_empty() or id == "town_hall")
-	age_text.text = region.age_summary(world) if id == "town_hall" else "TOWN AGE: " + region.Ages.AGES[region.age].name + "\n" + ("Next: recover orchard cuttings and the Greybank mason pattern [L], then rebuild at the Hall." if region.age == 0 else "Stone civic buildings • Market shipments +2 credits")
-	age_button.visible = region.age == 0
-	age_button.text = "View Stone & Water project" if id != "town_hall" else "Rebuild Oldbridge — enter Stone & Water"
-	age_button.disabled = id == "town_hall" and not region.age_reason(world).is_empty()
-	age_button.tooltip_text = region.age_reason(world) if id == "town_hall" else "View requirements, supplies and rewards at the Town Hall."
-	if world.early.enabled:
-		age_text.text = world.early.summary(world)
-		age_button.visible = world.early.active()
-		age_button.text = "Supply shelter — enter Stone & Water" if world.early.phase == 0 else "Rebuild crossing — enter Iron & Industry"
-		age_button.disabled = not world.early.project_reason(world).is_empty()
-		age_button.tooltip_text = world.early.project_reason(world)
+	defense_card.visible = id == "town_hall" and region.sites.town_hall.repaired
+	nell_card.visible = id == "workshop" and Quartermaster.rescued(world)
+	if nell_card.visible:
+		var quote := Quartermaster.quote(world)
+		nell_text.text = "Rescued with the first arrival. Stock the workshop hatch manually or by inserter. Between defenses Nell fills healthy turret buffers within 28 tiles, using only your reserve. Continuous combat supply still needs automation.\nReserve %d/100 • Dispatch %d rounds to %d defenses • Total shortage %d\n%s" % [quote.reserve,quote.rounds,quote.jobs.size(),quote.shortage,quote.reason]
+		nell_stock.disabled = world.player.count("ammo") == 0 or not world.in_reach(region.sites.workshop.port()) or region.receiving_limit("workshop","ammo",world) == 0
+		nell_rearm.disabled = not quote.reason.is_empty()
+		nell_rearm.tooltip_text = quote.reason if not quote.reason.is_empty() else "Rechecks live targets and reserve. No credit fee; every delivered round comes from your stock."
+	var mission = region.homecoming
+	chapter_box.visible = mission.unlocked(world) and (id.is_empty() or id == "town_hall")
+	if chapter_box.visible:
+		chapter_title.text = "HOMECOMING COMPLETE • Oldbridge lives again" if mission.stage == 3 else mission.objective(world)
+		chapter_text.text = mission.describe(world)
+		chapter_deliver.text = "Load public fuel depot" if mission.stage == 3 else "Deliver phase supplies"
+		chapter_deliver.disabled = not world.in_reach(region.sites.town_hall.port())
+		chapter_deliver.tooltip_text = "Walk to Town Hall's hatch. Inserters can deliver to the same hatch."
+		chapter_finish.visible = mission.stage < 3
+		chapter_finish.disabled = not mission.reason(world).is_empty() or not world.in_reach(region.sites.town_hall.port())
+		chapter_finish.tooltip_text = mission.reason(world)
+		chapter_lead.visible = mission.stage < 3
+		chapter_lead.text = "View Orchard growing beds [L]" if mission.stage == 0 else ("View Foundry craft and power unlocks [T]" if mission.stage == 1 else "View Greybank road deliveries [L]")
+	cottage_button.disabled = not world.home.kit_reason(world).is_empty()
+	cottage_button.tooltip_text = world.home.kit_reason(world)
+	cottage_info.text = "PERSONAL COTTAGE / Optional furnished home. " + world.home.kit_reason(world)
+	age_box.visible = region.enabled and (world.early.active() or not id.is_empty()) and not chapter_box.visible and not defense_card.visible and not nell_card.visible
+	age_text.text = world.early.summary(world)
+	age_button.visible = world.early.active()
+	age_button.text = "Supply shelter — enter Stone & Water" if world.early.phase == 0 else "Rebuild crossing — enter Iron & Industry"
+	age_button.disabled = not world.early.project_reason(world).is_empty()
+	age_button.tooltip_text = world.early.project_reason(world)
 	if id.is_empty():
-		overview_text.text = "Mira promised the families beyond the ridge a market, a working road, and somewhere dry to sleep. Your factory can make that promise real.\n\nTrade credits: %d\nLifetime earned: %d\n\n%s\n" % [region.credits, region.total_earned, region.objective_text()]
-		if region.effect("burner_ticks") > 0: overview_text.text += "\nACTIVE REGIONAL BONUS\nBurner coal lasts 20% longer.\n"
+		overview_text.text = "A market, a working road, and somewhere dry to sleep. Build a town the families can return to.\n%d trade credits  •  %s" % [region.credits,region.objective_text()]
 		for project in project_buttons:
+			var report := Reports.settlement(world,project)
+			var card: Dictionary = project_cards[project]
 			var landmark = region.sites[project]
-			project_buttons[project].text = "%s\n%s" % [Definitions.SITES[project].name, ("Disabled — repair [H]" if landmark.health == 0 else "Restored") if landmark.repaired else "Ruined"]
-			project_buttons[project].disabled = not region.enabled or world.early.active()
-			if world.early.active(): project_buttons[project].text += " — after the crossing"
+			card.art.present("site",project,landmark.repaired)
+			card.badge.text = {"restored":"RESTORED","offline":"SERVICES OFFLINE","ready":"READY TO RESTORE","incomplete":"RESTORATION PROJECT"}[report.state]
+			card.bar.value = 100.0 * report.delivered / report.required
+			card.bar.visible = not landmark.repaired
+			card.supplies.visible = not landmark.repaired
+			card.supplies.text = "%d/%d materials delivered" % [report.delivered,report.required]
+			if not report.missing.is_empty(): card.supplies.text += "  •  Missing: " + Catalog.describe(report.missing)
+			if report.credit_cost > 0: card.supplies.text += "  •  %d/%d credits" % [mini(region.credits,report.credit_cost),report.credit_cost]
+			card.blocker.text = ("Repair Town Hall to resume regional services." if landmark.health > 0 else "Building disabled; repair it with a kit [H].") if report.state == "offline" else ("" if landmark.repaired else report.reason)
+			card.blocker.visible = not card.blocker.text.is_empty()
+			project_buttons[project].text = "Manage building" if landmark.repaired else ("Review and restore" if report.state == "ready" else "Inspect requirements")
+			project_buttons[project].disabled = not region.enabled
 		return
 	if not region.sites.has(id): return
 	var site = region.sites[id]
 	var definition: Dictionary = Definitions.SITES[id]
+	current_preview.present("site",id,site.repaired)
+	restored_preview.present("site",id,true)
+	current_preview.visible = not site.repaired
+	preview_arrow.visible = not site.repaired
+	reward_heading.text = "RESTORED BENEFIT" if site.repaired else "RESTORATION REWARD"
+	restoration_reward.text = definition.reward
+	restoration_reward.tooltip_text = definition.reward
 	supplies.visible = not site.repaired or definition.has("contract")
 	supplies_title.visible = supplies.visible
 	withdraw_button.visible = supplies.visible
 	var expected: Array = definition.repair.keys()
 	if site.repaired: expected = Definitions.CONTRACTS[definition.contract].goods.keys() if definition.has("contract") else []
 	if id == "trading_post" and site.repaired and world.orchard_project.beds > 0: expected.append("foraged_food")
+	if id == "workshop" and site.repaired and Quartermaster.rescued(world): expected.append("ammo")
+	if id == "town_hall" and site.repaired:
+		for item in mission.goods():
+			if item not in expected: expected.append(item)
+		if mission.stage == 3: expected.append("coal")
 	supplies.descriptor = {"kind": "site", "site_id": id}
 	supplies.destination = supplies.descriptor
 	supplies.world_token = world.get_instance_id()
@@ -211,15 +370,27 @@ func refresh(state: RefCounted, id: String = "", amount: int = 5) -> void:
 	damage_button.visible = site.repaired and site.health < site.max_health()
 	damage_button.disabled = not reachable or world.player.count("repair_kit") == 0
 	if defense_status.visible:
-		defense_status.text = "%s\nNEXT: %s\n%s\nRifle [V], turrets, walls, and repair kits. No automatic waves." % [world.defense.summary(), Catalog.Combat.composition(world.defense.cleared), "Central eastern gate." if world.defense.cleared == 0 else "Three marked eastern gates. Scouts flank walls; dismantlers break through; haulers resist ordinary rounds."]
-		if world.defense.cleared == world.defense.MAX_WAVES: defense_status.text = "%s\n%d families sheltered. Road crews remain active while the hall is operational." % [world.defense.summary(), world.defense.cleared * 3]
-		if world.defense.cleared < world.defense.MAX_WAVES:
-			defense_status.text = "NEXT: %s\nVICTORY: +%d relief credits • 3 families home\nCREWS: +5%% movement • Hearth coverage %d tiles\n15-second warning. Voluntary; failure pays no reward.\nPrepare rifle [V], turrets, repair kits and protective coat [P]." % [Catalog.Combat.composition(world.defense.cleared), region.defense_reward(world.defense.cleared + 1), 8 + mini(4, (world.defense.cleared + 1) / 2) + world.frontier.hearth_bonus(world)]
+		var cleared: int = world.defense.cleared
+		if cleared >= world.defense.MAX_WAVES:
+			defense_status.text = "Eastern route secured • All ten arrivals rescued."
+		else:
+			defense_status.text = ("RESCUE NELL • Unlock workshop rearming from stocked ammunition.\n" if cleared == 0 else "")
+			defense_status.text += Catalog.Combat.encounter(cleared+1).name + "\n"
+			defense_status.text += "Arrival %d: %s • %s\n" % [cleared+1,Catalog.Combat.composition(cleared),"Central eastern gate" if cleared == 0 else "Three eastern gates"]
+			defense_status.text += "Victory: +%d relief credits and 3 families. Crew benefits in tooltip.\n" % region.defense_reward(cleared+1)
+			defense_status.text += ("Defense underway; reinforcement groups are committed. Next wave waits for your signal." if world.defense.phase == "active" else ("Repair the Hall fully to retry this arrival; previous victories are safe." if world.defense.phase == "recovery" else "15s initial warning; cancel before combat. Subsequent waves wait for your signal."))
+			if world.defense.phase != "idle": defense_status.text += "\n" + world.defense.summary()
+		defense_status.tooltip_text = world.defense.reward_preview(world) + "\nScouts flank walls; dismantlers demolish blockers; haulers resist ordinary rounds. Cannons pierce armor; pulses slow groups."
+		readiness.text = preload("res://scripts/ui/defense_briefing.gd").describe(world)
+		if cleared < world.defense.MAX_WAVES: readiness.text += "\nPLAN: " + Catalog.Combat.encounter(cleared+1).lesson
+		after_action.visible = not world.defense.last_result.is_empty()
+		after_action.text = world.defense.cost_summary()
 		beacon_button.tooltip_text = world.defense.reward_preview(world)
 		var blocked: String = world.defense.ready_reason(world)
 		beacon_button.disabled = not reachable or not blocked.is_empty()
-		beacon_button.text = "Signal arrival %d — 15s warning" % (world.defense.cleared + 1) if blocked.is_empty() else blocked
-	var reason: String = region.repair_reason(id)
+		beacon_button.visible = cleared < world.defense.MAX_WAVES and world.defense.phase in ["idle","recovery"]
+		beacon_button.text = "Signal arrival %d — 15s warning" % (cleared+1) if blocked.is_empty() else blocked
+	var reason: String = Reports.settlement(world,id).reason
 	var prerequisite: String = definition.get("requires", "")
 	prerequisite_button.visible = not site.repaired and not prerequisite.is_empty() and not region.sites[prerequisite].repaired
 	if prerequisite_button.visible:

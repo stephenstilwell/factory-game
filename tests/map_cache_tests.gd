@@ -1,10 +1,11 @@
 ﻿extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 const Cache = preload("res://scripts/ui/map_terrain_cache.gd")
 static func run(test: SceneTree) -> void:
-	var world := World.new()
-	world.start(false)
+	var world := Fixtures.industrial()
+	Fixtures.begin_lessons(world)
 	world.exploration.reveal(Vector2(14, 16))
 	var cell := Vector2i(14, 16)
 	var chunk: Vector2i = world.terrain.chunk_at(cell)
@@ -23,8 +24,8 @@ static func run(test: SceneTree) -> void:
 	test.check(result.has(cell) and result[cell].item == deposit.item and int(world.terrain.depleted[cell]) == int(deposit.amount) - 1, "Reconstructed chart honors saved seed and live depletion")
 	test.check(world.terrain.chunks.is_empty() and Saves.encode(world) == before, "Map reconstruction never generates authoritative terrain or changes saved state")
 	test.check(cache.request(world, Vector2i(500, 500)).is_empty() and cache.pending.is_empty(), "Unexplored chunks cannot enter the map generation queue")
-	var other := World.new(54321)
-	other.start(false)
+	var other := Fixtures.industrial(54321)
+	Fixtures.begin_lessons(other)
 	cache.bind(other)
 	test.check(cache.terrain.chunks.is_empty() and cache.pending.is_empty() and cache.terrain.seed_value == 54321, "Changing worlds clears cached terrain and seed")
 	for x in range(12):

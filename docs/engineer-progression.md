@@ -57,7 +57,7 @@ Equipment cards show current-to-next stats, complete material costs, exact locke
 - The journal also shows the last ten messages from a saved, bounded 40-entry activity history. This retains missed milestone rewards, introductions, and factory notices.
 - Engineer gets the full workspace width. All three skill summaries and tracking actions fit at 1100x720 and 1280x800.
 
-Goals, acknowledgements, activity history, commission counters, and crafting surplus are optional save extensions. New games reset them. Loading validates IDs, ranks, milestone targets, credit bounds, and history timestamps. No offline rewards or repeated reminder popups are introduced.
+Goals, acknowledgements, activity history, commission counters, and crafting surplus are required save sections. New games reset them. Loading validates IDs, ranks, milestone targets, credit bounds, and history timestamps. No offline rewards or repeated reminder popups are introduced.
 
 ## Validation
 

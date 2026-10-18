@@ -1,11 +1,12 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 
 static func run(test: SceneTree) -> void:
 	var scene = load("res://main.tscn").instantiate()
 	test.root.add_child(scene)
-	var world := World.new()
+	var world := Fixtures.industrial()
 	scene._bind_world(world)
 	scene.paused = true
 	var polish = scene.presentation
@@ -42,7 +43,7 @@ static func run(test: SceneTree) -> void:
 	polish.reduced_control.button_pressed = false
 	polish.ambient_control.button_pressed = true
 	world.feedback_requested.emit("build", Vector2i.ZERO)
-	scene._bind_world(World.new())
+	scene._bind_world(Fixtures.industrial())
 	test.check(scene.view.effects.rings.is_empty(), "Loading another world clears old action effects")
 	world.feedback_requested.emit("build", Vector2i.ZERO)
 	test.check(scene.view.effects.rings.is_empty(), "Old worlds cannot send visual events after rebinding")

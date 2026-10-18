@@ -19,6 +19,7 @@ static func step(world: RefCounted) -> void:
 	world.combat.step(world)
 	world.defense.step(world)
 	world.settlements.step(world)
+	world.frontier.marsh.step(world)
 	world.quarry_project.step(world)
 	world.orchard_project.step(world)
 	_player(world)
@@ -155,6 +156,7 @@ static func _lab(world: RefCounted, entity: RefCounted) -> void:
 	var technology: Dictionary = Catalog.technology(id)
 	if world.research_progress >= int(technology.cost):
 		world.researched.append(id)
+		world.technology_completed.emit(id)
 		world.record("researched:" + id)
 		world.research_progress = 0
 		world.research_target = ""
@@ -166,13 +168,13 @@ static func _player(world: RefCounted) -> void:
 	world.skills.observe(world)
 	if not world.craft_queue.is_empty():
 		var entry: Dictionary = world.craft_queue[0]
-		if int(entry.remaining) > 0:
+		if int(entry.remaining) > 0 and world.Crafting.ready(entry):
 			var work: int = int(entry.get("work", 0)) + world.skills.work_units("fabrication") + world.craft_credit
 			world.craft_credit = maxi(0, work - int(entry.remaining) * 100)
 			entry.remaining = maxi(0, int(entry.remaining) - work / 100)
 			entry.work = work % 100 if int(entry.remaining) > 0 else 0
 		var recipe: Dictionary = Catalog.RECIPES[entry.recipe]
-		if entry.remaining == 0 and world.player.exchange({}, recipe["out"]):
+		if entry.remaining == 0 and world.Crafting.complete(world, entry):
 			for item in recipe["out"]:
 				_record(world, item, int(recipe["out"][item]))
 				world.record("crafted:" + item, int(recipe["out"][item]))
@@ -199,13 +201,14 @@ static func _player(world: RefCounted) -> void:
 		world.mining_progress = 0
 		return
 	if deposit.is_empty():
-		if world.frontier.tree_at(world, world.mining_cell):
-			if not world.player.can_exchange({}, {"timber": 4}):
+		if world.frontier.tree_at(world, world.mining_cell) or world.frontier.forestry.growing(world, world.mining_cell):
+			var mature: bool = world.frontier.tree_at(world, world.mining_cell)
+			if mature and not world.player.can_exchange({}, {"timber": 4}):
 				world.mining_progress = 0
 				return
 			world.mining_progress += world.skills.work_units("mining")
 			if world.mining_progress >= 600:
-				if world.frontier.clear_tree(world, world.mining_cell):
+				if world.frontier.clear_tree(world, world.mining_cell) and mature:
 					world.player.add("timber", 4)
 					world.early.produced(world, "timber", 4)
 					world.award_skill("mining", 6)

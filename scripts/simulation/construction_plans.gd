@@ -181,9 +181,9 @@ func supply_report(world: RefCounted, nearby_only: bool = true) -> Dictionary:
 				ready += 1
 				allocated[kind] = int(allocated.get(kind, 0)) + 1
 			elif not reason.is_empty(): blocked += 1
-	for job in world.craft_queue:
-		for item in Catalog.RECIPES[job.recipe]["out"]:
-			if rows.has(item): rows[item].queued += int(Catalog.RECIPES[job.recipe]["out"][item])
+	var queued: Dictionary = world.Crafting.free_outputs(world)
+	for item in queued:
+		if rows.has(item): rows[item].queued = int(queued[item])
 	for kind in rows:
 		var row: Dictionary = rows[kind]
 		row.missing = maxi(0, int(row.needed) - int(row.pack) - int(row.queued))

@@ -14,6 +14,8 @@ const TILE := 48
 const SaveSlots = preload("res://scripts/persistence/save_slots.gd")
 var autosave_toggle: CheckButton
 var last_autosave := 0
+var home_was_paused := false
+var pending_restoration := ""
 var save_dialog: ConfirmationDialog
 var presentation: Node
 var audio: Node
@@ -69,11 +71,24 @@ func _ready() -> void:
 	add_child(presentation)
 	presentation.configure(hud, view)
 	audio.watch_ui(hud)
+	hud.home_requested.connect(_enter_home)
+	hud.home_panel.close_requested.connect(_leave_home)
+	hud.home_panel.save_requested.connect(_save)
 	hud.produce_requested.connect(func(): world.orchard_project.deliver_market(world))
 	hud.maintenance_requested.connect(func(): world.TownServices.dispatch(world))
 	hud.supplies_order_requested.connect(func(): world.settlements.order_supplies(world))
+	hud.town_panel.chapter_lead_requested.connect(func(id):
+		if id == "technology": _open_factory("research")
+		else: _open_frontier(id))
+	hud.history_requested.connect(_open_history)
+	hud.history.navigate.connect(_history_navigate)
 	hud.factory_requested.connect(func(): _open_factory("research"))
+	hud.workspace.machine.technology_requested.connect(func(): _open_factory("research"))
 	hud.factory_panel.research_requested.connect(func(id): world.select_research(id); hud.refresh())
+	hud.factory_panel.recipe_requested.connect(func(id):
+		hud.factory_panel.close_panel()
+		hud.toggle_crafting()
+		hud.crafting.select_recipe(id))
 	hud.factory_panel.copy_requested.connect(_start_copy)
 	hud.factory_panel.paste_requested.connect(_start_paste)
 	hud.factory_panel.build_requested.connect(_build_plans)
@@ -100,7 +115,7 @@ func _ready() -> void:
 	hud.supply_requested.connect(func(): world.supply(selected_cell))
 	hud.collect_requested.connect(func(): world.collect_output(selected_cell))
 	hud.recipe_requested.connect(func(): world.cycle_recipe(selected_cell))
-	hud.craft_requested.connect(func(id, count): world.craft_many(id, count))
+	hud.craft_requested.connect(_request_craft)
 	hud.craft_cancel_requested.connect(func(): world.cancel_craft())
 	hud.job_cancel_requested.connect(func(id): world.cancel_craft_job(id))
 	hud.cancel_all_requested.connect(func(): world.cancel_all_crafts())
@@ -108,7 +123,7 @@ func _ready() -> void:
 	hud.recipe_selected.connect(func(id): world.set_recipe(selected_cell, id))
 	hud.site_selected.connect(_inspect_site)
 	hud.site_supply_requested.connect(func(id): world.supply_site(id))
-	hud.age_requested.connect(func(): world.settlements.advance_age(world))
+	hud.age_requested.connect(func(): world.early.advance(world))
 	hud.site_restore_requested.connect(func(id): world.restore_site(id))
 	hud.site_talk_requested.connect(func(id): world.talk_to_site(id))
 	hud.journal_requested.connect(_open_journal)
@@ -128,6 +143,21 @@ func _ready() -> void:
 	if not world.story.seen.has("arrival"): _open_story("arrival")
 
 func _bind_world(state: RefCounted) -> void:
+	pending_restoration = ""
+	if world != null:
+		if world.defense_won.is_connected(_defense_won): world.defense_won.disconnect(_defense_won)
+		if world.chapter_progressed.is_connected(_chapter_completed): world.chapter_progressed.disconnect(_chapter_completed)
+		if world.technology_completed.is_connected(_technology_completed): world.technology_completed.disconnect(_technology_completed)
+		if world.hand_craft_completed.is_connected(_craft_completed): world.hand_craft_completed.disconnect(_craft_completed)
+		if world.equipment_upgraded.is_connected(_equipment_completed): world.equipment_upgraded.disconnect(_equipment_completed)
+		if world.settlement_restored.is_connected(_restoration_completed): world.settlement_restored.disconnect(_restoration_completed)
+		if world.region_restored.is_connected(_region_completed): world.region_restored.disconnect(_region_completed)
+	hud.history.hide()
+	hud.history.clear()
+	hud.completion.clear()
+	hud.workspace.reward_card.clear()
+	if world != null: world.home.leave()
+	hud.home_panel.hide()
 	last_autosave = state.ticks
 	if autosave_toggle != null: autosave_toggle.set_pressed_no_signal(SaveSlots.autosave_enabled(save_path))
 	if hud.story_panel.visible:
@@ -139,10 +169,17 @@ func _bind_world(state: RefCounted) -> void:
 	_cancel_planning()
 	firing_held = false
 	world = state
+	world.defense_won.connect(_defense_won)
+	world.chapter_progressed.connect(_chapter_completed)
+	world.technology_completed.connect(_technology_completed)
+	world.hand_craft_completed.connect(_craft_completed)
+	world.equipment_upgraded.connect(_equipment_completed)
+	world.settlement_restored.connect(_restoration_completed)
+	world.region_restored.connect(_region_completed)
 	world.story_requested.connect(_open_story)
 	audio.bind_world(world)
 	world.message.connect(func(text): hud.show_notice(text))
-	world.changed.connect(func(): hud.refresh())
+	world.changed.connect(func(): hud.request_refresh())
 	world.skill_progressed.connect(func(id, amount, level, leveled): hud.show_skill_xp(id, amount, level, leveled))
 	accumulator = 0
 	painting = false
@@ -167,16 +204,23 @@ func _bind_world(state: RefCounted) -> void:
 	hud.refresh()
 
 func _process(delta: float) -> void:
+	if hud.home_panel.visible:
+		world.move_direction = Vector2.ZERO
+		world.mining = false
+		world.combat.firing = false
+		view.paused = true
+		audio.set_interface_state(true, true)
+		return
 	var mouse_cell := _mouse_cell()
 	var pointer: bool = hud.world_has_pointer()
-	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible or hud.frontier_panel.visible, paused)
+	audio.set_interface_state(hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible or hud.history.visible or hud.frontier_panel.visible, paused)
 	if not view.resource_target.is_empty() and world.terrain.tile(view.resource_target.cell).is_empty():
 		view.resource_target = world.terrain.find_resource(view.resource_target.item, Vector2i(world.player_position.floor()), world.survey_radius())
 		hud.show_notice("Tracked tile exhausted. Survey marker updated to remaining resources." if not view.resource_target.is_empty() else "No remaining patch found nearby. Explore farther and press M to survey again.")
 	world.move_direction = Vector2(
 		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
 		float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)))
-	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible or hud.frontier_panel.visible or paused:
+	if hud.workspace.visible or hud.pause_menu.visible or hud.survey.visible or hud.hotbar.picker.visible or hud.story_panel.visible or hud.factory_panel.visible or hud.frontier_panel.visible or hud.history.visible or paused:
 		world.move_direction = Vector2.ZERO
 		painting = false
 		mining_held = false
@@ -228,15 +272,24 @@ func _process(delta: float) -> void:
 		elif not world.early.resource_at(world, mouse_cell).is_empty(): text += "%s • %d remaining • Hold RMB to gather" % [Catalog.item_name(world.early.resource_at(world, mouse_cell).item), world.early.resource_at(world, mouse_cell).amount]
 		elif world.frontier.tree_at(world, mouse_cell): text += ("Grove tree • Hold RMB to fell for 4 timber • Building clears brush" if world.early.enabled else "Grove tree • Hold right mouse to clear • Building clears brush automatically")
 		elif not deposit.is_empty(): text += "%s: %d remaining  |  Hold right mouse to mine" % [Catalog.item_name(deposit.item), deposit.amount]
+		elif world.frontier.marsh.water_at(world.frontier,mouse_cell): text += "Reedwater causeway" if world.frontier.marsh.boardwalk(world.frontier,mouse_cell) else "Reedwater water • Causeway project in Discoveries [L]"
 		else: text += "Old watercourse • Waterwheel sawmill site" if world.early.enabled and world.early.water_at(mouse_cell) else "Grassland"
 		if world.early.active() and not deposit.is_empty() and deposit.item != "stone": text += " • Rebuild the crossing to unlock ore mining [Y]"
 		if not world.in_reach(mouse_cell): text += "  |  Out of reach"
 		if selected_kind != "": text += "  |  Facing " + ["EAST", "SOUTH", "WEST", "NORTH"][facing]
 		hud.hover_label.text = text
 
+
 func _input(event: InputEvent) -> void:
+	if hud.home_panel.visible:
+		if event is InputEventKey:
+			if event.keycode == KEY_F11 and event.pressed and not event.echo: _toggle_fullscreen()
+			else: hud.home_panel.handle_key(event)
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
-		if hud.story_panel.visible: hud.story_panel.close_panel()
+		if hud.history.visible: hud.history.hide()
+		elif hud.story_panel.visible: hud.story_panel.close_panel()
 		elif hud.frontier_panel.visible: hud.frontier_panel.hide()
 		elif hud.factory_panel.visible: hud.factory_panel.close_panel()
 		elif copy_mode or pasting: _cancel_planning()
@@ -282,6 +335,7 @@ func _update_display_button() -> void:
 	hud.fullscreen_button.text = "Window [F11]" if fullscreen else "Fullscreen [F11]"
 
 func _unhandled_input(event: InputEvent) -> void:
+	if hud.home_panel.visible or hud.history.visible: return
 	if event is InputEventKey and event.pressed and not event.echo and event.ctrl_pressed and event.keycode in [KEY_Z, KEY_Y]:
 		if not hud.workspace.visible and not hud.pause_menu.visible and not hud.survey.visible and not hud.frontier_panel.visible and not hud.story_panel.visible and not hud.hotbar.picker.visible and (not hud.factory_panel.visible or hud.factory_panel.tab == "plans"):
 			var redo: bool = event.keycode == KEY_Y or event.shift_pressed
@@ -399,7 +453,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					if site != null: world.supply_site(site.id)
 					else: world.supply(cell)
 				elif not world.story.npc_at(world, cell).is_empty(): _inspect(cell)
-				elif selected_kind == "": _inspect(cell)
+				elif selected_kind == "" or world.at(cell) != null:
+					_request_inspection(cell)
 				else:
 					painting = true
 					last_painted = cell
@@ -461,6 +516,14 @@ func _open_frontier(id: String = "") -> void:
 	hud.hotbar.close_picker()
 	hud.frontier_panel.open_panel(world, id)
 
+func _request_inspection(cell: Vector2i) -> void:
+	painting = false
+	mining_held = false
+	_apply_inspection.call_deferred(cell, world.get_instance_id())
+
+func _apply_inspection(cell: Vector2i, world_token: int) -> void:
+	if world != null and world.get_instance_id() == world_token: _inspect(cell)
+
 func _inspect(cell: Vector2i) -> void:
 	var landmark: String = world.frontier.at(cell)
 	if not landmark.is_empty():
@@ -495,6 +558,31 @@ func _paint_to(cell: Vector2i) -> void:
 		else: cursor.y += signi(offset.y)
 		if world.at(cursor) == null and world.can_build(selected_kind, cursor).is_empty(): world.build(selected_kind, cursor, facing, underground_exit)
 	last_painted = cell
+
+func _enter_home() -> void:
+	if not hud.workspace.visible or hud.workspace.mode != "machine": return
+	var id: int = hud.workspace.entity_id
+	if not world.home.enter(world, id):
+		hud.show_notice(world.home.entry_reason(world, id))
+		return
+	home_was_paused = paused
+	_cancel_planning()
+	painting = false
+	mining_held = false
+	firing_held = false
+	world.mining = false
+	world.combat.firing = false
+	world.move_direction = Vector2.ZERO
+	hud.close_workspace()
+	if not paused: _toggle_pause()
+	hud.home_panel.open(world, id)
+
+func _leave_home() -> void:
+	hud.home_panel.hide()
+	world.home.leave()
+	if paused != home_was_paused: _toggle_pause()
+	view.paused = paused
+	hud.refresh()
 
 func _toggle_pause() -> void:
 	paused = not paused
@@ -541,6 +629,7 @@ func _update_reclaim(cell: Vector2i, held: bool, delta: float) -> void:
 		reclaim_progress = 0.0
 
 func _prepare_story() -> void:
+	hud.history.hide()
 	firing_held = false
 	world.combat.firing = false
 	_cancel_planning()
@@ -569,6 +658,10 @@ func _open_journal() -> void:
 	hud.story_panel.open_journal(world)
 
 func _story_finished(chapter: String) -> void:
+	if not pending_restoration.is_empty():
+		var id := pending_restoration
+		pending_restoration = ""
+		_present_restoration.call_deferred(id,world.get_instance_id())
 	if not chapter.is_empty(): world.story.mark_seen(world, chapter)
 	if paused != story_was_paused: _toggle_pause()
 	hud.refresh()
@@ -591,6 +684,7 @@ func _save_to_slot(path: String, title: String) -> void:
 func _save() -> void:
 	var error := SaveService.save_world(world, save_path)
 	hud.show_notice("Factory saved. Recovery copies are available through Load / recovery." if error.is_empty() else error)
+	if hud.home_panel.visible: hud.home_panel.hint.text = "Cottage and factory saved." if error.is_empty() else error
 
 func _load_save() -> void:
 	if not hud.pause_menu.visible: _open_menu()
@@ -601,12 +695,11 @@ func _load_from_path(source: String) -> void:
 	if not result.get("error", "").is_empty():
 		hud.show_notice(result.error)
 		return
-	if not result.get("legacy", false): save_path = source.trim_suffix(".bak").trim_suffix(".auto.json")
+	save_path = source.trim_suffix(".bak").trim_suffix(".auto.json")
 	_bind_world(result.world)
 	if hud.pause_menu.visible: _close_menu()
 	if not world.story.seen.has("arrival"): _open_story("arrival")
-	hud.show_notice("Recovery copy loaded. Save when ready to make this your current factory." if source.ends_with(".bak") or source.ends_with(".auto.json") else ("Legacy factory imported; old file preserved. Add inserters between belts and machines." if result.get("legacy", false) else "Factory restored."))
-	if result.get("frontier_added", false): hud.show_notice("Factory restored. New exploration leads await in Discoveries [L / J].")
+	hud.show_notice("Recovery copy loaded. Save when ready to make this your current factory." if source.ends_with(".bak") or source.ends_with(".auto.json") else "Factory restored.")
 
 func _cancel_planning() -> void:
 	copy_mode = false
@@ -657,8 +750,8 @@ func _open_factory(next_tab: String = "production") -> void:
 	hud.hotbar.close_picker()
 	hud.factory_panel.open_panel(world, next_tab)
 
-func _toggle_weapon() -> void:
-	if not world.combat.toggle(world): return
+func _toggle_weapon(specific: String = "") -> void:
+	if not world.combat.toggle(world, specific): return
 	_cancel_planning()
 	selected_kind = ""
 	hud.selection = ""
@@ -666,3 +759,80 @@ func _toggle_weapon() -> void:
 	firing_held = false
 	hud.close_workspace()
 	hud.refresh()
+
+func _craft_completed(recipe: String, delivered: Dictionary) -> void:
+	if delivered.is_empty(): return
+	var item: String = delivered.keys()[0]
+	var amount: int = int(delivered[item]) if delivered.size() == 1 else 0
+	hud.history.record("craft:"+recipe,"Craft complete",Catalog.describe(delivered) if amount == 0 else Catalog.item_name(item),"crafting",recipe,amount)
+	_reward_target().reveal("item", item, "Craft complete", Catalog.item_name(item) if amount > 0 else Catalog.describe(delivered), amount)
+
+func _equipment_completed(id: String, rank: int) -> void:
+	var definition: Dictionary = world.character.Definitions.UPGRADES[id]
+	hud.history.record("equipment:"+id,"Equipment installed • Tier %d" % rank,definition.name + " / " + world.character.Definitions.format_stat(definition.stat,definition.values[rank-1]),"equipment",id)
+	_reward_target().reveal("equipment",id,"Equipment installed • Tier %d" % rank,definition.name + " / " + world.character.Definitions.format_stat(definition.stat, definition.values[rank - 1]))
+
+func _region_completed(id: String) -> void:
+	var name: String = world.frontier.Definitions.SITES[id].name
+	var detail := "+25% repair-kit healing; supply the lodge to produce maintenance kits. Discoveries [L]."
+	hud.history.record("region:"+id,name+" restored",detail,"discoveries",id)
+	_reward_target().reveal("item","repair_kit",name+" restored",detail,0,true)
+
+func _restoration_completed(id: String) -> void:
+	var definition: Dictionary = world.settlements.Definitions.SITES[id]
+	hud.history.record("site:"+id,"A place brought back to life",definition.name + " / " + definition.reward,"town",id)
+	_present_restoration.call_deferred(id,world.get_instance_id())
+
+func _present_restoration(id: String, world_token: int) -> void:
+	if world.get_instance_id() != world_token: return
+	if hud.story_panel.visible:
+		pending_restoration = id
+		return
+	var definition: Dictionary = world.settlements.Definitions.SITES[id]
+	_reward_target().reveal("site",id,"A place brought back to life",definition.name + " / " + definition.reward)
+
+func _reward_target() -> PanelContainer:
+	return hud.workspace.reward_card if hud.workspace.visible else hud.completion
+
+func _request_craft(id: String, count: int) -> void:
+	if world.craft_many(id,count): hud.crafting.preview.absorb(Catalog.RECIPES[id]["in"].keys())
+
+func _technology_completed(id: String) -> void:
+	var definition: Dictionary = Catalog.technology(id)
+	hud.history.record("technology:"+id,"Technology unlocked: " + definition.name,definition.unlock,"technology",id)
+	_reward_target().reveal("item",definition.get("preview","science"),"Technology unlocked",definition.name + " / " + definition.unlock,0,true)
+
+func _open_history() -> void:
+	_cancel_planning()
+	painting = false
+	mining_held = false
+	firing_held = false
+	hud.close_workspace()
+	hud.factory_panel.close_panel()
+	hud.frontier_panel.hide()
+	hud.survey.hide()
+	hud.hotbar.close_picker()
+	hud.history.open_history()
+
+func _history_navigate(destination: String, id: String) -> void:
+	match destination:
+		"crafting":
+			hud.toggle_crafting()
+			hud.crafting.select_recipe(id)
+		"technology":
+			_open_factory("research")
+			hud.factory_panel.research_panel.select(id)
+		"equipment":
+			hud.toggle_character()
+			hud.workspace.character_panel.show_section("equipment")
+		"town": _inspect_site(id)
+		"discoveries": _open_frontier(id)
+
+func _chapter_completed(stage: int) -> void:
+	var chapter = world.settlements.homecoming
+	var text: String = "The fair is open. Town Hall's public fuel depot is now available." if stage == 3 else chapter.STAGES[stage].purpose
+	hud.history.record("homecoming:%d" % stage,"Homecoming • %d/3 complete" % stage,text,"town","town_hall")
+	_reward_target().reveal("site","town_hall","Oldbridge comes to life • %d/3" % stage,text,0,true)
+
+func _defense_won(wave: int) -> void:
+	hud.history.record("defense:%d" % wave,"Nell rescued • Workshop rearming unlocked" if wave == 1 else "Arrival %d secured" % wave,"Visit the workshop hatch to stock ammunition and rearm local defenses between waves." if wave == 1 else "+%d relief credits; 3 families home. %s" % [world.settlements.defense_reward(wave),world.defense.cost_summary()],"town","workshop" if wave == 1 else "town_hall")

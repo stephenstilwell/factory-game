@@ -4,8 +4,8 @@ const Fixtures = preload("res://tests/fixtures.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 
 static func run(test: SceneTree) -> void:
-	var empty := World.new()
-	empty.start(false)
+	var empty := Fixtures.industrial()
+	Fixtures.begin_lessons(empty)
 	test.check(not empty.defense.begin(empty) and empty.defense.phase == "idle", "A fresh empty world cannot start an attack")
 	test.advance(empty, 500)
 	test.check(empty.defense.enemies.is_empty() and empty.defense.cleared == 0, "Waves never begin automatically")
@@ -109,7 +109,7 @@ static func run(test: SceneTree) -> void:
 	old.entities.append(World.Entity.new(int(old.next_id), "chest", Vector2i(42, 12), 0).serialize())
 	old.next_id += 1
 	var migrated := Saves.decode(JSON.parse_string(JSON.stringify(old)))
-	test.check(migrated.error.is_empty() and migrated.world.at(Vector2i(42, 12)) != null and migrated.world.settlements.sites.town_hall.origin != Vector2i(42, 12) and migrated.world.defense.phase == "idle", "Old factories gain a vacant relocated Town Hall without losing existing buildings or receiving attacks")
+	test.check(not migrated.error.is_empty(), "Missing old Hall and defense state are rejected without reconstruction")
 	var malformed := Saves.encode(world)
 	malformed.defense.phase = "active"
 	test.check(not Saves.decode(malformed).error.is_empty(), "Impossible empty active waves are rejected")

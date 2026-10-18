@@ -17,7 +17,7 @@ static func run(test: SceneTree) -> void:
 	_plans(test)
 
 static func _routes(test: SceneTree) -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.researched = ["logistics", "routing"]
 	var splitter = world.spawn("splitter", Vector2i.ZERO, 0)
 	var forward = world.spawn("belt", Vector2i.RIGHT, 0)
@@ -37,7 +37,7 @@ static func _routes(test: SceneTree) -> void:
 	test.check(side.inventory.count("copper_ore") == 1 and forward.inventory.count("stone") == 1, "Blocked splitter branch bypasses to the other output")
 	var snapshot := roundtrip(world)
 	test.check(snapshot.error.is_empty(), "Splitter cursors and branch research survive JSON saves")
-	var merge := World.new()
+	var merge := Fixtures.industrial()
 	var a = merge.spawn("belt", Vector2i(-1, 0), 0)
 	var b = merge.spawn("belt", Vector2i(0, -1), 1)
 	var target = merge.spawn("belt", Vector2i.ZERO, 0)
@@ -48,7 +48,7 @@ static func _routes(test: SceneTree) -> void:
 		Transport.step(merge)
 		for item in merged: merged[item] += target.inventory.remove(item)
 	test.check(merged.iron_ore == 10 and merged.copper_ore == 10, "Receiver round-robin prevents merge starvation")
-	var tunnel := World.new()
+	var tunnel := Fixtures.industrial()
 	tunnel.researched = ["logistics", "routing"]
 	var entry = tunnel.spawn("underground_belt", Vector2i.ZERO, 0)
 	var exit = tunnel.spawn("underground_belt", Vector2i(6, 0), 0)
@@ -73,7 +73,7 @@ static func _routes(test: SceneTree) -> void:
 	tunnel.reclaim(blocker.cell)
 	test.check(Transport.partner(tunnel, entry) == exit, "Removing an intervening entrance reconnects its tunnel")
 	test.check(roundtrip(tunnel).error.is_empty(), "Tunnel mode and contents validate through saves")
-	var far := World.new()
+	var far := Fixtures.industrial()
 	var far_entry = far.spawn("underground_belt", Vector2i.ZERO, 0)
 	far.spawn("underground_belt", Vector2i(7, 0), 0).underground_exit = true
 	test.check(Transport.partner(far, far_entry) == null, "Underground range is bounded to six tiles")
@@ -109,14 +109,14 @@ static func _manufacturing(test: SceneTree) -> void:
 	test.check(stats.made.belt == 2 and stats.used.iron_plate == 1 and stats.seconds == 2.0, "Production history reports actual made and used amounts over observed time")
 	for i in range(1000): metrics.record(i * 10, "made", "stone", 1)
 	test.check(metrics.buckets.size() <= 60 and metrics.snapshot(10000).made.get("belt", 0) == 0, "Rolling production history remains bounded and expires old activity")
-	var canceled := World.new()
+	var canceled := Fixtures.industrial()
 	canceled.player.add("iron_plate")
 	canceled.craft("belt")
 	canceled.cancel_all_crafts()
 	test.check(canceled.metrics.snapshot(1).used.is_empty(), "Canceled craft reservations do not inflate consumption")
 
 static func _research(test: SceneTree) -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.researched = ["logistics"]
 	world.research_target = "metallurgy"
 	world.research_progress = 3
@@ -138,11 +138,11 @@ static func _research(test: SceneTree) -> void:
 	test.advance(world, 450)
 	test.check("routing" in world.researched and world.unlocked(Catalog.BUILDINGS.splitter), "Routing can complete before metallurgy and unlocks real layout tools")
 	test.check(roundtrip(world).error.is_empty(), "Nonlinear technology completion order validates")
-	var old: Dictionary = Saves.encode(World.new())
+	var old: Dictionary = Saves.encode(Fixtures.industrial())
 	for key in ["research_target", "research_banks", "automation_awards", "plans"]: old.erase(key)
 	old.researched = ["logistics", "metallurgy"]
 	var migrated := Saves.decode(old)
-	test.check(migrated.error.is_empty() and migrated.world.current_research() == "routing", "Older completed two-technology saves discover new branches safely")
+	test.check(not migrated.has("world"), "Incomplete or obsolete saves are rejected without migration")
 	var invalid: Dictionary = Saves.encode(world)
 	invalid.researched = ["construction"]
 	test.check(not Saves.decode(invalid).error.is_empty(), "Save validation rejects research without its prerequisites")
@@ -189,7 +189,7 @@ static func _housing(test: SceneTree) -> void:
 	test.check(world.settlements.effect("burner_ticks") == 0, "Breached hub suspends neighborhood and workshop services")
 
 static func _plans(test: SceneTree) -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.researched = ["logistics", "routing"]
 	world.player_position = Vector2(2.5, 2.5)
 	world.player_position = Vector2(2.5, 2.5)
@@ -216,13 +216,13 @@ static func _plans(test: SceneTree) -> void:
 	test.check(world.plans.build_nearby(world) == 0 and world.player.count("assembler") == 1, "Remote ghosts wait for player reach and preserve inventory")
 	var saved := roundtrip(world)
 	test.check(saved.error.is_empty() and saved.world.plans.ghosts.size() == 2, "Persistent construction ghosts validate after load")
-	var legacy: Dictionary = Saves.encode(World.new())
-	var old_machine = World.new()
+	var legacy: Dictionary = Saves.encode(Fixtures.industrial())
+	var old_machine = Fixtures.industrial()
 	old_machine.spawn("belt", Vector2i.ZERO, 0)
 	legacy = Saves.encode(old_machine)
 	for record in legacy.entities:
 		for key in ["merge_cursor", "routing_cursor", "underground_exit"]: record.erase(key)
-	test.check(Saves.decode(legacy).error.is_empty(), "Older transport entities load with safe new-field defaults")
+	test.check(not Saves.decode(legacy).error.is_empty(), "Incomplete or obsolete saves are rejected without migration")
 	var before: Array = world.plans.serialize()
 	test.check(not world.plans.place(world, Vector2i.ZERO).is_empty() and world.plans.serialize() == before, "Conflicting module stamps fail atomically")
 	var previous_clipboard: Array = world.plans.clipboard.duplicate(true)
@@ -234,7 +234,7 @@ static func _plans(test: SceneTree) -> void:
 static func ui(test: SceneTree) -> void:
 	var scene = load("res://main.tscn").instantiate()
 	test.root.add_child(scene)
-	scene._bind_world(World.new())
+	scene._bind_world(Fixtures.industrial())
 	scene.paused = true
 	var key := InputEventKey.new()
 	key.pressed = true

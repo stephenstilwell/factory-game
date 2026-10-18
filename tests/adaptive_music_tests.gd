@@ -1,4 +1,5 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const Director = preload("res://scripts/audio/audio_director.gd")
 const Score = preload("res://scripts/audio/adaptive_music.gd")
 const World = preload("res://scripts/simulation/world.gd")
@@ -42,7 +43,7 @@ static func run(test: SceneTree) -> void:
 		for i in range(1, heard.size()):
 			if heard[i] == heard[i - 1]: repeats = true
 		test.check(not repeats and heard[0] != heard[1], "Context playlist avoids repeats across shuffle bag boundaries: " + context_id)
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.start()
 	test.check(Score.context(world) == "wilds", "Empty timber worlds begin with the exploration theme")
 	var home = world.spawn("communal_hearth", Vector2i(23, 14), 0)

@@ -52,6 +52,8 @@ try {
 } finally { Pop-Location }
 Copy-Item -LiteralPath (Join-Path $projectRoot 'docs/PLAYER-README.txt') -Destination (Join-Path $packageDirectory 'README.txt')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'MUSIC-CREDITS.txt') -Destination (Join-Path $packageDirectory 'MUSIC-CREDITS.txt')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'FONT-CREDITS.txt') -Destination (Join-Path $packageDirectory 'FONT-CREDITS.txt')
+Copy-Item -LiteralPath (Join-Path $projectRoot 'assets/fonts/OFL-Manrope.txt') -Destination (Join-Path $packageDirectory 'OFL-Manrope.txt')
 Copy-Item -LiteralPath (Join-Path $projectRoot 'assets/audio/licensed/CC0-1.0.txt') -Destination (Join-Path $packageDirectory 'CC0-1.0.txt')
 $commit = (& git -C $projectRoot rev-parse HEAD | Out-String).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Could not resolve source commit' }

@@ -1,0 +1,41 @@
+extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
+const Saves = preload("res://scripts/persistence/save_service.gd")
+static func ui(test: SceneTree) -> void:
+	var scene = load("res://main.tscn").instantiate()
+	test.root.add_child(scene)
+	await test.process_frame
+	scene.set_process(false)
+	scene.hud.story_panel.dismiss_silently()
+	var world := Fixtures.industrial()
+	scene._bind_world(world)
+	var before := Saves.encode(world)
+	test.check(scene.hud.objective_frame.visible and scene.hud.objective_frame.is_ancestor_of(scene.hud.objective),"HUD places the current settlement objective in its own visual area")
+	test.check(scene.hud.pause_content.is_ancestor_of(scene.hud.fullscreen_button),"Window controls remain accessible in the pause menu")
+	var reward = scene.hud.completion
+	scene.presentation.reduced_motion = false
+	scene.presentation.apply_preferences()
+	reward.reveal("site","workshop","Restored","Regional coal lasts longer")
+	test.check(reward.remaining == 5.0 and reward.accent.is_processing(),"Major restoration rewards remain readable longer and start a bounded accent")
+	var child_count: int = reward.get_child_count()
+	for i in range(20): reward.reveal("site","town_hall","Restored","Families can return")
+	test.check(reward.get_child_count() == child_count,"Repeated milestones reuse one effect rather than accumulating particles or nodes")
+	reward.accent._process(1)
+	test.check(not reward.accent.is_processing(),"Milestone effect stops processing after its short duration")
+	reward.reveal("item","gear","Craft complete","Gear",1)
+	test.check(reward.remaining == 3.5 and not reward.accent.is_processing(),"Ordinary crafts keep quieter feedback and cannot inherit milestone bursts")
+	reward.reveal("site","town_hall","Restored","Families can return")
+	scene.presentation.reduced_motion = true
+	scene.presentation.apply_preferences()
+	test.check(not reward.accent.is_processing() and reward.accent.elapsed == 1.0 and reward.modulate.a == 1.0,"Turning reduced motion on cancels an active milestone without fading its text")
+	reward.reveal("equipment","boots","Installed","Movement improved")
+	test.check(not reward.accent.is_processing() and reward.visible,"Reduced-motion milestones stay visible without starting animation")
+	reward.art.present("site","trading_post",false)
+	test.check(reward.art.illustration.preview.repaired == false and not world.settlements.sites.trading_post.repaired,"Ruined civic portrait uses UI-owned state")
+	reward.art.present("site","trading_post",true)
+	test.check(reward.art.illustration.preview.repaired and not world.settlements.sites.trading_post.repaired,"Restored civic portrait cannot restore its live world building")
+	test.check(Saves.encode(world) == before,"HUD, civic artwork and milestone effects leave simulation and saves unchanged")
+	reward.clear()
+	test.check(not reward.visible and not reward.accent.is_processing(),"Clearing a reward also clears its transient effects")
+	scene.queue_free()
+	await test.process_frame

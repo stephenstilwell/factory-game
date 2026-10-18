@@ -4,8 +4,8 @@ const Saves = preload("res://scripts/persistence/save_service.gd")
 const Fixtures = preload("res://tests/fixtures.gd")
 
 static func run(test: SceneTree) -> void:
-	var world := World.new()
-	world.start(false)
+	var world := Fixtures.industrial()
+	Fixtures.begin_lessons(world)
 	test.check(world.story.seen.is_empty() and world.entities.is_empty() and world.player.total() == 0, "Story starts with a promise, never free machines or materials")
 	test.check(world.story.goal(world).contains("Mira") and world.story.conversation(world, "trading_post") == "mira_before", "Opening story explains why the market matters")
 	var requests: Array = []
@@ -31,7 +31,7 @@ static func run(test: SceneTree) -> void:
 	var old := saved.duplicate(true)
 	old.erase("story")
 	var migrated := Saves.decode(old)
-	test.check(migrated.error.is_empty() and migrated.world.story.seen.has("arrival") and migrated.world.settlements.sites.trading_post.repaired, "Older saves gain story support without an arrival interruption or lost repairs")
+	test.check(not migrated.has("world"), "Incomplete or obsolete saves are rejected without migration")
 	for invalid in [{"seen": ["unknown"]}, {"seen": ["arrival", "arrival"]}, {"seen": ["first_homecoming"]}, {"seen": "invalid"}]:
 		var broken := saved.duplicate(true)
 		broken.story = invalid
@@ -42,11 +42,11 @@ static func run(test: SceneTree) -> void:
 	test.check(after != before and world.at(before).kind == "chest", "NPC presentation moves around existing machines without moving or deleting them")
 	world.settlements.sites.workshop.origin += Vector2i(80, 0)
 	world.settlements.rebuild_index()
-	test.check(world.story.npc_cell(world, "workshop").x > 100, "NPC positions follow relocated landmarks in migrated worlds")
+	test.check(world.story.npc_cell(world, "workshop").x > 100, "NPC positions follow the saved landmark origins")
 	var defended := Fixtures.defense_town()
 	for site_id in world.story.Definitions.NPCS:
 		var npc: Dictionary = world.story.Definitions.NPCS[site_id]
-		test.check(world.story.Definitions.CHAPTERS.has(npc.before) and world.story.Definitions.CHAPTERS.has(npc.after) and defended.story.conversation(defended, site_id) == npc.after, "Every keeper has a valid before/after conversation and restoration selects the latter")
+		test.check(world.story.Definitions.CHAPTERS.has(npc.before) and world.story.Definitions.CHAPTERS.has(npc.after) and defended.story.conversation(defended, site_id) == ("stone_homecoming" if site_id == "workshop" else npc.after), "Every keeper has a valid before/after conversation and restoration selects the latter")
 	var milestones: Array = []
 	defended.story_requested.connect(func(chapter): milestones.append(chapter))
 	defended.defense.begin(defended)

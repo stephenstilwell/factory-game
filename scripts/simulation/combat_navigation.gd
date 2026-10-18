@@ -24,7 +24,9 @@ func next_cell(world: RefCounted, enemy: Dictionary) -> Vector2i:
 		for y in range(grid.region.position.y, grid.region.end.y):
 			for x in range(grid.region.position.x, grid.region.end.x):
 				var cell := Vector2i(x, y)
-				if world.solid(cell): grid.set_point_weight_scale(cell, float(Definitions.ENEMIES[enemy.kind].weight))
+				if world.frontier.marsh.blocked(world.frontier,cell):
+					grid.set_point_solid(cell)
+				elif world.solid(cell): grid.set_point_weight_scale(cell, float(Definitions.ENEMIES[enemy.kind].weight))
 		grids[enemy.kind] = grid
 	var route: Array[Vector2i] = grids[enemy.kind].get_id_path(enemy.cell, hall.origin + Vector2i(1, 1))
 	return route[1] if route.size() > 1 else enemy.cell

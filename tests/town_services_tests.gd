@@ -1,11 +1,12 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 const Services = preload("res://scripts/simulation/town_services.gd")
 
 static func town() -> RefCounted:
-	var world := World.new()
-	world.start(false)
+	var world := Fixtures.industrial()
+	Fixtures.begin_lessons(world)
 	world.guide.enabled = false
 	world.researched = ["logistics"]
 	for site in world.settlements.sites.values():
@@ -43,7 +44,7 @@ static func run(test: SceneTree) -> void:
 	var legacy := town()
 	var old := Saves.encode(legacy)
 	old.settlements.erase("maintenance_kits")
-	test.check(Saves.decode(old).error.is_empty(), "Older settlements default to zero maintenance spending")
+	test.check(not Saves.decode(old).error.is_empty(), "Incomplete or obsolete saves are rejected without migration")
 	world.defense.phase = "active"
 	var before := [world.settlements.credits, world.player.count("repair_kit"), broken.health]
 	test.check(not Services.dispatch(world) and [world.settlements.credits, world.player.count("repair_kit"), broken.health] == before, "Crew cannot heal during combat or spend on a rejected order")

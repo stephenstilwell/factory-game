@@ -5,8 +5,41 @@ const World = preload("res://scripts/simulation/world.gd")
 const Settlements = preload("res://scripts/simulation/settlements.gd")
 const Simulation = preload("res://scripts/simulation/simulation.gd")
 
+static func industrial(seed_value: int = 74103) -> World:
+	var world := World.new(seed_value)
+	world.start()
+	world.guide.enabled = false
+	world.early.phase = 2
+	world.early.delivered = 8
+	world.early.sawn = 12
+	world.early.charcoal = 4
+	world.production = {"timber": 8, "plank": 12, "coal": 4}
+	world.settlements.age = 2
+	world.frontier.sites.quarry.discovered = true
+	world.frontier.sites.quarry.claimed = true
+	world.player_position = Vector2(18.5, 18.5)
+	world.previous_position = world.player_position
+	return world
+
+static func begin_lessons(world: RefCounted) -> void:
+	world.start()
+	world.early.phase = 2
+	world.early.delivered = 8
+	world.early.sawn = 12
+	world.early.charcoal = 4
+	world.production = {"timber": 8, "plank": 12, "coal": 4}
+	world.settlements.age = 2
+	world.frontier.sites.quarry.discovered = true
+	world.frontier.sites.quarry.claimed = true
+
+static func install_frontier(world: RefCounted) -> void:
+	world.frontier.install(world)
+	if world.early.phase == 2:
+		world.frontier.sites.quarry.discovered = true
+		world.frontier.sites.quarry.claimed = true
+
 static func demo() -> RefCounted:
-	var world := World.new()
+	var world := industrial()
 	world.player.contents = {"belt": 60, "inserter": 12, "drill": 4, "furnace": 4, "chest": 6, "assembler": 2, "lab": 1,
 		"coal": 40, "stone": 20, "iron_plate": 40, "copper_plate": 20, "gear": 15, "wire": 10}
 	world.spawn("drill", Vector2i(15, 15), 0).inventory.add("coal", 10)
@@ -22,6 +55,7 @@ static func demo() -> RefCounted:
 static func trading_town() -> RefCounted:
 	var world := demo()
 	world.settlements = Settlements.new(true)
+	world.settlements.age = world.early.phase
 	world.player_position = Vector2(28.5, 15.5)
 	world.previous_position = world.player_position
 	world.supply_site("trading_post")

@@ -127,6 +127,7 @@ func consume(world: RefCounted, entity: RefCounted) -> bool:
 		generator.status = "Generating - supplying district"
 	networks[members[entity.id]].supplied += int(LOAD[entity.kind])
 	allocations.erase(entity.id)
+	world.settlements.homecoming.observe_work(world,entity)
 	return true
 
 func reason(world: RefCounted, entity: RefCounted) -> String:

@@ -12,7 +12,7 @@ Healthy drills and furnaces within eight tiles receive actual coal, with a small
 
 ## Resources that support longer projects
 
-All deposits contain four times the former stock, while retaining finite amounts and the same seed, shapes, and positions. Older saves without resource richness metadata scale their remaining amounts once. Exhausted tiles remain exhausted. Saving and loading again never multiplies the amounts repeatedly.
+Deposits have generous but finite stock. Saving preserves exact remaining amounts, including exhausted tiles. No resource-richness migration occurs.
 
 ## Interfaces and controls
 
@@ -20,7 +20,7 @@ All deposits contain four times the former stock, while retaining finite amounts
 - T opens Technology. Four project cards show purpose, prerequisites by name, investment, and unlocks.
 - Y opens settlement projects.
 - F opens production and construction plans.
-- After each completed project, benches wait for the player's next choice. The introductory Supply routes project remains selected for the guided opening. Switching banks invested dossiers; older saves without project selection metadata retain a valid initial choice.
+- Benches wait for the next project choice. Supply routes starts selected; switching projects banks invested dossiers. Current saves store selection and investment explicitly.
 
 Stable IDs remain unchanged for save compatibility. Engineering dossier and drafting bench replace the science flask / lab presentation, including their vector art. New project names are Supply routes, Foundry craft, District distribution, and Homes for Oldbridge.
 
@@ -35,7 +35,7 @@ Trade and relief credits share a wallet. At the repaired trading post, after res
 ## Playtest
 
 1. Start empty, reach the working-drill lesson, and craft a hearth. Place it near a drill and furnace, load coal once, and watch both work. Feed its store by inserter.
-2. Load an older save with partial and exhausted deposits; verify only remaining stock increases.
+2. Reload partially mined and exhausted deposits; verify exact remaining stock.
 3. Open C at 1100x720. Inspect recipes, ingredients, queue jobs, and filters.
 4. Press T, complete a project, choose a branch, switch away and back, then save/load.
 5. Inspect Town Hall with Y. Compare its promised first reward with the wallet after victory.

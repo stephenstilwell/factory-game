@@ -6,6 +6,9 @@ const MAX_WAVES := 10
 const WARNING_TICKS := 150
 const RANGE := 6.0
 const SHOT_DAMAGE := 12
+var blocked_entry := false # Transient presentation; recomputed on spawn attempts.
+var costs := {"ammo":0,"kits":0,"damage":0}
+var last_result: Dictionary = {}
 var phase := "idle"
 var cleared := 0
 var warning := 0
@@ -15,6 +18,7 @@ var next_id := 1
 var enemies: Dictionary = {}
 var shots: Array = [] # Presentation only.
 var impacts: Array = []
+var misses: Array = []
 var navigation := Navigation.new()
 
 func hub(world: RefCounted):
@@ -53,7 +57,7 @@ func spawn_enemy(kind: String, cell: Vector2i) -> Dictionary:
 func reward_preview(world: RefCounted) -> String:
 	if cleared >= MAX_WAVES: return "Eastern route secure. All ten arrivals rescued."
 	var coverage: int = 8 + mini(4, (cleared + 1) / 2) + world.frontier.hearth_bonus(world)
-	return "ON VICTORY: +%d relief credits and 3 families home.\nCrew services: +5%% movement; hearth coverage %d tiles. Every second arrival extends coverage up to 12, plus restored depot runners. Services require an operational Town Hall.\nSpend credits on civic restoration or supply bundles at the trading post [Y]. Failure pays nothing; repair and retry." % [world.settlements.defense_reward(cleared + 1), coverage]
+	return ("FIRST RESCUE: Nell, the quartermaster. Unlock workshop rearming from your stocked ammunition; between defenses only.\n" if cleared == 0 else "") + "ON VICTORY: +%d relief credits and 3 families home.\nCrew services: +5%% movement; hearth coverage %d tiles. Every second arrival extends coverage up to 12, plus restored depot runners. Services require an operational Town Hall.\nSpend credits on civic restoration or supply bundles at the trading post [Y]. Failure pays nothing; repair and retry." % [world.settlements.defense_reward(cleared + 1), coverage]
 
 func ready_reason(world: RefCounted) -> String:
 	if not world.settlements.enabled or not hub(world).repaired: return "Restore the Town Hall first."
@@ -71,9 +75,12 @@ func begin(world: RefCounted) -> bool:
 	if not world.in_reach(hub(world).port()):
 		world.message.emit("Walk to the Town Hall hatch to light its beacon.")
 		return false
+	costs = {"ammo":0,"kits":0,"damage":0}
+	blocked_entry = false
 	phase = "warning"
 	warning = WARNING_TICKS
 	world.feedback_requested.emit("warning", Vector2i(world.player_position.floor()))
+	world.message.emit("Encounter: " + Definitions.encounter(cleared+1).name + ". " + Definitions.encounter(cleared+1).lesson)
 	world.message.emit("Beacon lit! In 15 seconds: %s. %s" % [Definitions.composition(cleared), "Central eastern gate." if cleared == 0 else "Three eastern gates — cover the flanks."])
 	world.changed.emit()
 	return true
@@ -89,6 +96,7 @@ func cancel(world: RefCounted) -> bool:
 func step(world: RefCounted) -> void:
 	shots = shots.filter(func(shot): return int(shot.until) > world.ticks)
 	impacts = impacts.filter(func(impact): return int(impact.until) > world.ticks)
+	misses = misses.filter(func(miss): return int(miss.until) > world.ticks)
 	if phase == "recovery":
 		if hub(world).health == hub(world).max_health(): phase = "idle"
 		return
@@ -102,19 +110,21 @@ func step(world: RefCounted) -> void:
 	if phase != "active": return
 	if pending > 0:
 		if spawn_timer > 0: spawn_timer -= 1
-		else:
+		if spawn_timer == 0:
 			var index := wave_size() - pending
 			var gates: Array = entries(world)
-			var cell: Vector2i = gates[index % gates.size()]
+			var cell: Vector2i = gates[Definitions.gate_index(cleared+1,index)]
 			if world.solid(cell): cell += Vector2i.RIGHT
-			if not occupied(cell):
+			blocked_entry = occupied(cell) or world.solid(cell)
+			if not blocked_entry:
 				spawn_enemy(Definitions.kind_at(cleared + 1, index), cell)
 				pending -= 1
-				spawn_timer = 14
+				spawn_timer = Definitions.spawn_delay(cleared+1,index+1) if pending > 0 else 0
 	_fire_turrets(world)
 	for id in enemies.keys():
 		_advance_enemy(world, enemies[id])
 		if hub(world).health == 0:
+			finish_report(false)
 			phase = "recovery"
 			enemies.clear()
 			pending = 0
@@ -124,10 +134,12 @@ func step(world: RefCounted) -> void:
 			world.changed.emit()
 			return
 	if pending == 0 and enemies.is_empty():
+		finish_report(true)
 		cleared += 1
 		var reward: int = world.settlements.award_defense(cleared)
 		world.feedback_requested.emit("success", Vector2i(world.player_position.floor()))
 		phase = "idle"
+		world.defense_won.emit(cleared)
 		spawn_timer = 0
 		world.message.emit("Arrival %d secured! +%d relief credits; %d families sheltered. Returning crews: +5%% movement and %d-tile hearth coverage while Town Hall operates. Choose the next arrival when ready." % [cleared, reward, cleared * 3, world.supply_radius()])
 		world.changed.emit()
@@ -168,13 +180,29 @@ func add_shot(world: RefCounted, from: Vector2, to: Vector2, kind: String) -> vo
 	if shots.size() >= 64: shots.pop_front()
 	shots.append({"from": from - Vector2.ONE * 0.5, "to": to - Vector2.ONE * 0.5, "kind": kind, "until": world.ticks + 2})
 
+func add_miss(world: RefCounted, point: Vector2) -> void:
+	if misses.size() >= 32: misses.pop_front()
+	misses.append({"point": point, "until": world.ticks + 4})
+	world.feedback_requested.emit("miss", Vector2i(point.floor()))
+
 func hit(world: RefCounted, id: int, amount: int, piercing: bool) -> void:
 	if not enemies.has(id): return
 	var enemy: Dictionary = enemies[id]
-	var armor: int = 0 if piercing else int(Definitions.ENEMIES[enemy.kind].armor)
-	enemy.last_damage = maxi(1, amount - armor)
-	enemy.health -= enemy.last_damage
-	enemy.hit_until = world.ticks + 2
+	var base_armor: int = int(Definitions.ENEMIES[enemy.kind].armor)
+	var armor: int = 0 if piercing else base_armor
+	var dealt: int = maxi(1, amount - armor)
+	var absorbed: int = (amount - dealt) if not piercing else 0
+	enemy.last_damage = dealt
+	enemy.last_absorbed = absorbed
+	enemy.hit_kind = "pierce" if (piercing and base_armor > 0) else ("resisted" if absorbed > 0 else "hit")
+	enemy.health -= dealt
+	enemy.hit_until = world.ticks + 3
+	if enemy.hit_kind == "resisted":
+		world.feedback_requested.emit("armor_clink", enemy.cell)
+	elif enemy.hit_kind == "pierce":
+		world.feedback_requested.emit("pierce", enemy.cell)
+	else:
+		world.feedback_requested.emit("hit", enemy.cell)
 	if enemy.health <= 0:
 		if impacts.size() >= 32: impacts.pop_front()
 		impacts.append({"cell": enemy.cell, "until": world.ticks + 4, "color": Definitions.ENEMIES[enemy.kind].color})
@@ -206,6 +234,7 @@ func _fire_turrets(world: RefCounted) -> void:
 			if target == -1: continue
 			var point: Vector2i = enemies[target].cell
 			turret.inventory.remove("ammo", int(weapon.ammo))
+			costs.ammo += int(weapon.ammo)
 			world.metrics.record(world.ticks, "used", "ammo", int(weapon.ammo))
 			world.feedback_requested.emit("shot", turret.cell)
 			turret.attack_cooldown = int(weapon.cooldown)
@@ -226,7 +255,12 @@ func morale_multiplier(world: RefCounted) -> float:
 func summary() -> String:
 	match phase:
 		"warning": return "EAST WAVE %d • %.1fs to arrival" % [cleared + 1, warning / 10.0]
-		"active": return "DEFEND THE HALL • %d constructs remaining" % (enemies.size() + pending)
+		"active":
+			if blocked_entry and pending > 0: return "EAST ENTRY OBSTRUCTED • Clear marked entry tiles; arrivals are waiting"
+			var next_index := wave_size()-pending
+			if pending > 0 and spawn_timer > 0 and next_index in Definitions.encounter(cleared+1).breaks:
+				return "REINFORCEMENTS IN %.1fs • %d constructs remaining" % [spawn_timer/10.0,enemies.size()+pending]
+			return "DEFEND THE HALL • %d constructs remaining" % (enemies.size()+pending)
 		"recovery": return "HALL BREACHED • Repair with kits [H]"
 	return "Eastern route secured — all ten defenses complete" if cleared == MAX_WAVES else "Beacon idle • %d/10 defenses complete • Awaiting your signal" % cleared
 
@@ -234,4 +268,11 @@ func serialize() -> Dictionary:
 	var records: Array = []
 	for enemy in enemies.values():
 		records.append({"id": enemy.id, "kind": enemy.kind, "x": enemy.cell.x, "y": enemy.cell.y, "health": enemy.health, "cooldown": enemy.cooldown, "slow": enemy.slow, "attack_ticks": enemy.attack_ticks, "attack_x": enemy.attack_cell.x, "attack_y": enemy.attack_cell.y, "attack_player": enemy.attack_player})
-	return {"version": 2, "phase": phase, "cleared": cleared, "warning": warning, "pending": pending, "spawn_timer": spawn_timer, "next_id": next_id, "enemies": records}
+	return {"version": 2, "phase": phase, "cleared": cleared, "warning": warning, "pending": pending, "spawn_timer": spawn_timer, "next_id": next_id, "costs":costs.duplicate(), "last_result":last_result.duplicate(), "enemies": records}
+
+func finish_report(victory: bool) -> void:
+	last_result = {"wave":cleared+1,"victory":victory,"ammo":int(costs.ammo),"kits":int(costs.kits),"damage":int(costs.damage)}
+
+func cost_summary() -> String:
+	if last_result.is_empty(): return ""
+	return "LAST DEFENSE • Arrival %d • %s • %d rounds fired • %d in-battle repair kits • %d structure health lost" % [last_result.wave,"Victory" if last_result.victory else "Hall breached",last_result.ammo,last_result.kits,last_result.damage]

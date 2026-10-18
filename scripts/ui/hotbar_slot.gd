@@ -9,14 +9,16 @@ var key_label: Label
 var placeholder: Label
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(62, 62)
+	custom_minimum_size = Vector2(60, 62)
 	focus_mode = Control.FOCUS_NONE
 	glyph = Icon.new()
 	glyph.position = Vector2(13, 12)
 	glyph.size = Vector2(38, 38)
 	add_child(glyph)
 	key_label = Style.label(str((index + 1) % 10), 12, Style.MUTED)
-	key_label.position = Vector2(6, 2)
+	key_label.position = Vector2(5, 3)
+	key_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	Style.badge(key_label, Style.MUTED, 2)
 	add_child(key_label)
 	count_label = Style.label("", 12, Style.TEXT)
 	count_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -47,14 +49,12 @@ func refresh(id: String, amount: int, available: bool, selected: bool) -> void:
 	count_label.add_theme_color_override("font_color", Style.TEXT if amount > 0 else Style.ERROR)
 	placeholder.visible = id.is_empty() or not available
 	placeholder.text = "+" if id.is_empty() else "·"
-	var border := Style.GOLD if selected else Color("3a5050")
-	var background := Color("38504a") if selected else Color("172729")
-	add_theme_stylebox_override("normal", Style.panel(background, border))
-	add_theme_stylebox_override("hover", Style.panel(background.lightened(0.15), Style.ACCENT))
+	add_theme_stylebox_override("normal", Style.tile(selected))
+	add_theme_stylebox_override("hover", Style.tile(selected, true))
 
 func _make_custom_tooltip(for_text: String) -> Object:
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", Style.panel(Color("172729"), Style.ACCENT))
+	panel.add_theme_stylebox_override("panel", Style.panel(Style.BACKGROUND, Style.GOLD.darkened(0.3)))
 	var tooltip_label := Style.label(for_text, 14)
 	tooltip_label.custom_minimum_size.x = 390
 	panel.add_child(tooltip_label)

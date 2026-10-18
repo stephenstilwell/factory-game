@@ -19,7 +19,7 @@ Skill bonuses multiply the relevant equipment stat; they do not change machine p
 - Commissioning the first automated extraction of each resource grants 100 Mining XP. The first completed automated batch of each recipe grants 120 Fabrication XP. Deliveries 1, 5, and 10 at each civic site grant 150 Fabrication XP each. These persistent milestones reward new production capabilities; repeat batches, rebuilding machines, and reloading cannot repeat them.
 - Labs, building placement/reclamation, transfers, and equipment installation grant no XP. Productive automated lines also earn graduated commissions at 10/50/250/1,000/5,000 real batches per recipe or resource, worth 150/400/1,000/2,500/6,000 XP. Counts are shared across machines and persist. Transfers, blocked machines, rebuilding, and reloading cannot repeat rewards. Civic deliveries add later milestones and neighborhood rewards; see [engineer progression](engineer-progression.md).
 - Exploration requires actual player movement. Standing still, camera movement, rendering terrain, and running surveys do not discover areas or patches for XP. Persistent ledgers prevent revisits and cache eviction from repeating rewards.
-- Patch identity is its generated center and resource type, so crossing a chunk boundary or discovering another edge of the same patch cannot repeat its reward. Ledger validation also supports legacy overlapping patches.
+- Patch identity is its generated center and resource type, so crossing a chunk boundary or discovering another edge of the same patch cannot repeat its reward. Ledgers validate discoveries against the current seeded generator.
 
 ## Architecture and saves
 
@@ -27,7 +27,7 @@ Skill bonuses multiply the relevant equipment stat; they do not change machine p
 
 Levels and bonuses are derived from XP, capped at 99. Mining and crafting advance in integer hundredths of a work tick, avoiding fractional drift. Craft-job work remainders are saved and validated. Mining cursor intent remains transient and stops when interaction ends, as before.
 
-The optional version-1 `skills` save extension stores XP, visited area coordinates, and discovered patch identities. Loading validates bounds, unique records, and generated patch definitions against the saved terrain seed/version. Older saves start at level 1 without retroactive rewards; their existing inventories, equipment, world, and lessons remain intact. New skill IDs can be added with zero XP defaults while preserving known saved skills; changes to published IDs, thresholds, or discovery geometry require a compatibility strategy.
+The required skills section stores XP, discoveries and commissioning milestones. Loading validates bounds, unique records and generated patch identities. Missing sections are rejected. Incompatible skill IDs or thresholds require a save-version bump.
 
 Discovery tracking is independent of terrain/render caches. It stores at most 100,000 areas and 100,000 patches, matching save validation limits. Ordinary simulation checks only when the player enters a different tile; it does not scan distant regions every frame.
 

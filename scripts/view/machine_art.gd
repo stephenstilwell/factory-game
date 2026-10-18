@@ -5,8 +5,19 @@ const Catalog = preload("res://scripts/data/catalog.gd")
 const DIRS := [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]
 
 static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: float, aim: Vector2, firing: bool, interpolation: float = 1.0) -> void:
+	if entity.kind == "furnace":
+		var Hero = preload("res://scripts/view/hero_art.gd")
+		Hero.paint(canvas,"furnace",Hero.furnace_frame(entity.health > 0,entity.status == "Working",time,entity.id),center)
+		return
 	if entity.kind in ["lumber_camp", "cart_post", "communal_hearth", "watermill", "charcoal_kiln"]:
 		EarlyArt.machine(canvas, entity, center, time)
+		return
+	if entity.kind == "cottage":
+		Art.shadow(canvas, center + Vector2(0, 14), Vector2(24, 12))
+		Art.box(canvas, Rect2(center + Vector2(-20, -12), Vector2(40, 35)), Color("d0bd95"), 3)
+		canvas.draw_colored_polygon(PackedVector2Array([center + Vector2(-25, -10), center + Vector2(0, -32), center + Vector2(25, -10)]), Color("648577"))
+		Art.box(canvas, Rect2(center + Vector2(-6, 3), Vector2(13, 20)), Art.COPPER, 2)
+		for x in [-14, 10]: Art.box(canvas, Rect2(center + Vector2(x, -3), Vector2(7, 9)), Color("ecd291"), 1)
 		return
 	if entity.kind == "power_pole":
 		Art.shadow(canvas, center + Vector2(0, 14), Vector2(9, 5))
@@ -45,10 +56,20 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 		canvas.draw_circle(center, 4, Art.CREAM)
 		canvas.draw_line(hand - direction.orthogonal() * 5, hand + direction.orthogonal() * 5, Art.STEEL_LIGHT, 3, true)
 		return
-	if kind == "wall":
+	if kind in ["wall", "reinforced_wall"]:
 		if not healthy:
 			for i in range(5):
-				Art.box(canvas, Rect2(center + Vector2(-20 + i * 8, -3 + posmod(i * 7, 11)), Vector2(13, 8)), Art.STONE.darkened(0.15), 3)
+				Art.box(canvas, Rect2(center + Vector2(-20 + i * 8, -3 + posmod(i * 7, 11)), Vector2(13, 8)), (Art.STEEL.darkened(0.4) if kind == "reinforced_wall" else Art.STONE.darkened(0.15)), 3)
+			return
+		if kind == "reinforced_wall":
+			Art.box(canvas, Rect2(center + Vector2(-21, -21), Vector2(42, 38)), Art.INK, 4)
+			Art.box(canvas, Rect2(center + Vector2(-19, -19), Vector2(38, 34)), Color("4e575e"), 3)
+			for row in range(2):
+				var y := center.y - 12 + row * 16
+				Art.box(canvas, Rect2(Vector2(center.x - 17, y), Vector2(34, 12)), Art.STEEL, 2)
+				canvas.draw_line(Vector2(center.x - 15, y + 6), Vector2(center.x + 15, y + 6), Art.STEEL_LIGHT, 1, true)
+			for x in [-14, 0, 14]:
+				for y in [-14, 14]: Art.bolt(canvas, center + Vector2(x, y))
 			return
 		for row in range(3):
 			for column in range(2):
@@ -66,7 +87,6 @@ static func draw(canvas: CanvasItem, entity: RefCounted, center: Vector2, time: 
 			canvas.draw_circle(center + Vector2(8, -1), 12, Art.INK)
 			canvas.draw_arc(center + Vector2(8, -1), 9, (time * 2 if entity.status.begins_with("Generating") else 0.0), (time * 2 if entity.status.begins_with("Generating") else 0.0) + PI * 1.5, 14, Art.AMBER, 3, true)
 			canvas.draw_line(center + Vector2(-11, -22), center + Vector2(-11, -32), Art.STEEL, 7, true)
-		"furnace": _furnace(canvas, center, time, entity.id, working)
 		"drill": _drill(canvas, center, time, direction, working)
 		"turret", "cannon_turret", "pulse_turret":
 			Art.ellipse(canvas, center + Vector2(0, 3), Vector2(18, 14), Art.INK)
@@ -131,22 +151,6 @@ static func _belt(canvas: CanvasItem, entity: RefCounted, center: Vector2, time:
 static func hand_extension(entity: RefCounted, interpolation: float) -> float:
 	var travel := clampf((2.0 - entity.cooldown + interpolation) / 2.0, 0, 1)
 	return lerpf(-16, 16, travel) if entity.carried != "" else lerpf(16, -16, travel)
-
-static func _furnace(canvas: CanvasItem, p: Vector2, time: float, id: int, working: bool) -> void:
-	Art.box(canvas, Rect2(p + Vector2(-17, -22), Vector2(34, 36)), Color("84624b"), 10, Art.INK)
-	for row in range(3):
-		canvas.draw_line(p + Vector2(-15, -13 + row * 10), p + Vector2(15, -13 + row * 10), Color("634c3b"), 1, true)
-		canvas.draw_line(p + Vector2(-5 if row % 2 == 0 else 6, -21 + row * 10), p + Vector2(-5 if row % 2 == 0 else 6, -13 + row * 10), Color("634c3b"), 1)
-	Art.box(canvas, Rect2(p + Vector2(-13, -3), Vector2(26, 18)), Art.INK, 8)
-	if working:
-		Art.glow(canvas, p + Vector2(0, 8), 18, Art.AMBER, 0.8 + sin(time * 6) * 0.1)
-		Art.ellipse(canvas, p + Vector2(0, 8), Vector2(9, 6), Color("d77c44"))
-		canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(-6, 10), p + Vector2(-3, -1 - sin(time * 9) * 2), p + Vector2(1, 5), p + Vector2(5, -2), p + Vector2(7, 10)]), Art.AMBER)
-	for x in [-7, 0, 7]: canvas.draw_line(p + Vector2(x, 1), p + Vector2(x, 13), Color("594c3c"), 2, true)
-	Art.ellipse(canvas, p + Vector2(0, -23), Vector2(17, 7), Color("c1a887"))
-	Art.box(canvas, Rect2(p + Vector2(7, -38), Vector2(10, 18)), Art.STEEL.darkened(0.2), 2)
-	Art.box(canvas, Rect2(p + Vector2(5, -40), Vector2(14, 5)), Art.STEEL_LIGHT, 2)
-	if working: Art.smoke(canvas, p + Vector2(12, -40), time, id)
 
 static func _drill(canvas: CanvasItem, p: Vector2, time: float, dir: Vector2, working: bool) -> void:
 	var shake := sin(time * 24) * 0.5 if working else 0.0

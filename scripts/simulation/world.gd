@@ -24,6 +24,13 @@ const Defense = preload("res://scripts/simulation/defense.gd")
 const DIRS := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
 const TICK_SECONDS := 0.1
 
+signal defense_won(wave: int)
+signal chapter_progressed(stage: int)
+signal technology_completed(id: String)
+signal hand_craft_completed(recipe_id: String, delivered: Dictionary)
+signal equipment_upgraded(id: String, rank: int)
+signal settlement_restored(id: String)
+signal region_restored(id: String)
 signal changed
 signal message(text: String)
 signal skill_progressed(id: String, amount: int, level: int, leveled: bool)
@@ -64,6 +71,7 @@ var research_target := "logistics"
 var research_banks: Dictionary = {}
 var automation_awards: Dictionary = {}
 var metrics := Metrics.new()
+var home := preload("res://scripts/model/player_home.gd").new()
 var power := preload("res://scripts/simulation/power_grid.gd").new()
 var plans := Plans.new()
 var craft_queue: Array = []
@@ -87,10 +95,9 @@ func _init(world_seed: int = 74103) -> void:
 func _remember_message(text: String) -> void:
 	guidance.remember(text, ticks)
 
-func start(primitive: bool = true) -> void:
+func start() -> void:
 	# A new game has no possessions or construction. All content must be earned.
 	terrain = Terrain.new(terrain.seed_value)
-	terrain.generator_version = Terrain.GENERATOR_VERSION
 	character = Character.new()
 	skills = Skills.new()
 	player.capacity = int(character.stat("inventory_capacity"))
@@ -100,13 +107,13 @@ func start(primitive: bool = true) -> void:
 	for kind in by_kind: by_kind[kind].clear()
 	guide = Onboarding.new()
 	guide.enabled = true
-	guide.timber_opening = primitive
 	early = Early.new()
-	early.enabled = primitive
+	early.enabled = true
 	settlements = Settlements.new(true)
 	defense = Defense.new()
 	combat = PlayerCombat.new()
 	navigation_revision += 1
+	home = preload("res://scripts/model/player_home.gd").new()
 	power = preload("res://scripts/simulation/power_grid.gd").new()
 	orchard_project = preload("res://scripts/simulation/orchard_project.gd").new()
 	quarry_project = preload("res://scripts/simulation/quarry_project.gd").new()
@@ -138,11 +145,12 @@ func start(primitive: bool = true) -> void:
 	changed.emit()
 
 func content_available(id: String) -> bool:
+	if id == "cottage": return home.unlocked(self)
 	if not early.available(id): return false
 	if id in early.Definitions.TIMBER_RECIPES or id in early.Definitions.STONE_RECIPES: return true
 	if id == "fuel_depot": return guide.available("chest")
 	if id in ["wall", "repair_kit"]: return settlements.enabled and settlements.sites.trading_post.repaired
-	if id in ["turret", "ammo", "service_rifle", "cannon_turret", "pulse_turret"]: return settlements.enabled and settlements.sites.workshop.repaired
+	if id in ["turret", "ammo", "service_rifle", "marksman_rifle", "cannon_turret", "pulse_turret", "reinforced_wall"]: return settlements.enabled and settlements.sites.workshop.repaired
 	if id in ["splitter", "underground_belt", "construction_kit"]: return guide.available("assembler")
 	return guide.available(id)
 
@@ -190,7 +198,10 @@ func unlocked(definition: Dictionary) -> bool:
 func can_build(kind: String, cell: Vector2i, require_item: bool = true) -> String:
 	if not Catalog.BUILDINGS.has(kind): return "Unknown building."
 	if not in_reach(cell): return "Out of reach. Walk closer with WASD."
+	if kind == "cottage" and not by_kind.cottage.is_empty(): return "One personal cottage per world. Pick up its entrance to move it; the interior stays saved."
 	if at(cell) != null: return "Tile is occupied."
+	if frontier.marsh.blocked(frontier,cell): return "Reedwater water: build the marked causeway in Discoveries [L]; ordinary buildings need dry land."
+	if frontier.marsh.boardwalk(frontier,cell) and Catalog.BUILDINGS[kind].solid: return "Keep the narrow causeway open. Place solid buildings on the island or shore."
 	if defense.occupied(cell): return "A construct occupies this tile."
 	if settlements.at(cell) != null: return "This land belongs to a settlement project."
 	if frontier.at(cell) != "": return "This land belongs to a frontier landmark."
@@ -326,6 +337,9 @@ func cancel_craft() -> void:
 func supply(cell: Vector2i) -> void:
 	var entity = at(cell)
 	if entity == null or not in_reach(cell): return
+	if entity.kind == "lumber_camp":
+		frontier.forestry.replant(self, entity)
+		return
 	if entity.kind == "communal_hearth":
 		early.advance(self)
 		return
@@ -418,6 +432,7 @@ func award_automation(key: String, skill: String, xp_amount: int) -> void:
 	message.emit("Automation milestone! +%d %s XP. Your factory is doing the work." % [xp_amount, Skills.Definitions.SKILLS[skill].name])
 
 func accepts(entity: RefCounted, item: String) -> bool:
+	if entity.kind == "marsh_port": return frontier.marsh.receiving_limit(self,item) > 0
 	if entity.kind == "orchard_port": return orchard_project.receiving_limit(self, item) > 0
 	if entity.kind == "regional_port": return quarry_project.receiving_limit(self, item) > 0
 	if entity.kind == "generator": return entity.health > 0 and item == "coal" and entity.inventory.count("coal") < 50
@@ -432,12 +447,12 @@ func accepts(entity: RefCounted, item: String) -> bool:
 	return false
 
 func transfer_source(entity: RefCounted):
-	if entity.kind == "orchard_port": return entity.output
+	if entity.kind in ["orchard_port","marsh_port"]: return entity.output
 	return entity.inventory if entity.kind in (Catalog.TRANSPORT + ["chest", "cart_post", "fuel_depot", "generator"]) else entity.output
 
 func solid(cell: Vector2i) -> bool:
 	var entity = at(cell)
-	return settlements.at(cell) != null or frontier.blocks(cell) or (entity != null and entity.health > 0 and Catalog.BUILDINGS[entity.kind].solid)
+	return frontier.marsh.blocked(frontier,cell) or settlements.at(cell) != null or frontier.blocks(cell) or (entity != null and entity.health > 0 and Catalog.BUILDINGS[entity.kind].solid)
 
 func damage_structure(cell: Vector2i, damage: int) -> void:
 	if damage <= 0: return
@@ -447,9 +462,13 @@ func damage_structure(cell: Vector2i, damage: int) -> void:
 	if target == null: return
 	var previous_health: int = target.health
 	target.health = maxi(0, target.health - damage)
+	if defense.phase == "active": defense.costs.damage += previous_health-target.health
 	if previous_health > 0 and target.health == 0: navigation_revision += 1
 	if target.health != previous_health: feedback_requested.emit("damage", cell)
 	if target.kind != "settlement_port" and target.health == 0: target.status = "Disabled — repair with H"
+
+func repair_power() -> int:
+	return roundi(float(character.stat("repair_power"))*(1.25 if frontier.marsh.restored else 1.0))
 
 func repair_at(cell: Vector2i) -> bool:
 	if not in_reach(cell):
@@ -467,8 +486,9 @@ func repair_at(cell: Vector2i) -> bool:
 	if player.remove("repair_kit") != 1:
 		message.emit("Craft a repair kit first (C).")
 		return false
+	if defense.phase == "active": defense.costs.kits += 1
 	if target.health == 0: navigation_revision += 1
-	target.health = mini(target.max_health(), target.health + int(character.stat("repair_power")))
+	target.health = mini(target.max_health(), target.health + repair_power())
 	structure_repaired.emit(cell)
 	if target.kind != "settlement_port": target.status = "Repaired"
 	if defense.phase == "recovery" and settlements.sites.town_hall.health == settlements.sites.town_hall.max_health(): defense.phase = "idle"
@@ -479,6 +499,7 @@ func repair_at(cell: Vector2i) -> bool:
 func logistics_receiver(cell: Vector2i):
 	var entity = at(cell)
 	if entity != null: return entity
+	if frontier.sites.has("marsh") and cell == frontier.port("marsh"): return frontier.marsh
 	if frontier.sites.has("quarry") and cell == frontier.port("quarry"): return quarry_project
 	if frontier.sites.has("orchard") and cell == frontier.port("orchard"): return orchard_project
 	return settlements.receiver(cell)
@@ -486,6 +507,7 @@ func logistics_receiver(cell: Vector2i):
 func logistics_source(cell: Vector2i):
 	var entity = at(cell)
 	if entity != null: return entity
+	if frontier.sites.has("marsh") and cell == frontier.port("marsh"): return frontier.marsh
 	return orchard_project if frontier.sites.has("orchard") and cell == frontier.port("orchard") else null
 
 func burner_fuel_duration() -> int:
@@ -551,6 +573,7 @@ func restore_site(id: String) -> bool:
 	if id == "trading_post" and frontier.claimed("orchard"): message.emit("Iona can restore growing beds at the Lost Orchard. Discoveries [L] shows costs, supplies and produce trading.")
 	if id == "trading_post" and frontier.claimed("quarry"): message.emit("Greybank roadbuilders need stone and planks. Discoveries [L] shows shipments, rewards and the quarry hatch.")
 	feedback_requested.emit("success", settlements.sites[id].port())
+	settlement_restored.emit(id)
 	changed.emit()
 	request_story(Story.Definitions.NPCS[id].after)
 	return true

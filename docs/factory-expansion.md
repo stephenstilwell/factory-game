@@ -41,6 +41,6 @@ Plans copy direction, selected recipe, and tunnel mode. They do not copy invento
 
 ## Foundation
 
-Transport routing, construction plans, production history, and research definitions are separate from presentation. Stable IDs and optional validated v2 save fields preserve older worlds. End modes, merge/splitter cursors, research investments, commission ledgers, civic deliveries, and ghosts survive save/load. Production history and editing gestures are transient.
+Transport, plans, history and research remain separate from presentation. Current saves explicitly store modes, fairness cursors, research banks, commissions, housing deliveries and ghosts. History and gestures are transient.
 
 Further work should expand production dependencies and energy before adding fluids or trains. This pass supplies layout decisions and a reason to scale production, while retaining the game's settlement identity.

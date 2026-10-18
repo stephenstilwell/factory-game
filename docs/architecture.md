@@ -43,7 +43,7 @@ The simulation and model use `RefCounted` objects and can run without a scene tr
 | `scripts/view/defense_view.gd` | Arrival markers, typed construct art, strike telegraphs, rifle aim, health, and transient shot presentation |
 | `scripts/persistence/settlement_save.gd` | Settlement extension validation and currency reconciliation |
 | `scripts/ui/settlement_panel.gd` / `scripts/view/settlement_view.gd` | Town UI intent and procedural landmark presentation |
-| `scripts/persistence/save_service.gd` | Schema validation, integer normalization, migration, transactional save writes |
+| Save service | Current-schema validation, integer normalization and transactional writes |
 | `scripts/view/terrain_chunk.gd` | Static chunk draw commands, invalidated on depletion |
 | `scripts/view/world_view.gd` | View culling, cached terrain CanvasItems, animated machine/engineer drawing |
 | `scripts/view/art.gd` / `machine_art.gd` / `engineer_art.gd` | Shared illustrated materials, machine silhouettes, and character poses |
@@ -52,10 +52,10 @@ The simulation and model use `RefCounted` objects and can run without a scene tr
 
 ## State contracts
 
-- String content IDs are serialized API. Preserve them when renaming display labels; migrate saves when changing IDs or rules.
+- String IDs are serialized API. Incompatible changes require a development save-version bump and a new world.
 - Entity IDs are monotonically assigned and never reused. `entities` owns objects; `occupancy` maps grid cells to IDs; `by_kind` holds IDs in stable order. Use `spawn/register/reclaim` to maintain all three indexes.
 - Inventories count individual items with a total capacity. This is intentionally simpler than slot/stack inventories. `exchange` validates all ingredients and final capacity before mutating. `move_to` removes exactly what the receiver accepted. A future slot-based implementation can retain these operations.
-- Machines separate **input inventory**, **output inventory**, and **inserter hand**. A recipe consumes inputs only upon completion, after verifying output room. Changing recipes atomically returns obsolete inputs, retains burner coal and energy, and clears work progress. Hand-craft jobs own reserved ingredients until completion or cancellation; stable monotonically increasing job IDs identify cancellation targets and persist across saves. Older queues receive IDs when loaded.
+- Machine inputs, outputs and inserter hands remain separate. Hand-craft jobs save stable IDs, reservations and dependency links for safe completion and cancellation.
 - Runtime intent (`move_direction`, current mining pointer) and presentation (`status`, selection, camera, interpolation) are transient. Item counts, progress, fuel energy, carried items, resource depletion, research, crafting jobs, ticks, and production totals are authoritative save state.
 - New-game learning milestones and their action counters are also authoritative. They are recorded only by successful commands and production events. Content disclosure is enforced by build/craft commands and recipe selection as well as the HUD. `World.start()` creates an empty guided world; `World.new()` creates an unpopulated model for loading and focused tests. Demonstration factories live in `tests/fixtures.gd`.
 - New machine behavior should be a phase/system operating on these records. Avoid one Node per belt item or a per-frame callback per machine.
@@ -96,25 +96,25 @@ For a new recipe using an existing machine:
 1. Add any new output item to `Catalog.ITEMS` with its stable ID/name/color.
 2. Add `RECIPES[id]` with input/output dictionaries, duration in ticks, and machine ID. Add `hand: true` only if the engineer can craft it. Optionally name a prerequisite technology.
 3. Add the recipe ID to the machine's `BUILDINGS[kind].recipes` list. The inspector offers an unlocked recipe picker; inserter input filtering follows the active recipe automatically.
-4. Add quantity/timing/unlock checks to the integration tests. If changing saved state or procedural terrain, add a schema migration rather than silently interpreting old data differently.
+4. Add timing, quantity and unlock checks. For incompatible saved-state or procedural changes, bump the schema and require a new world.
 
 For a new building behavior, add a definition/build recipe and a simulation phase or focused system. Register its transient indexes when spawning/loading/reclaiming. Rendering can draw a new icon without modifying recipe/transport rules. Persist only authoritative state, then validate and test its round trip and deterministic continuation.
 
 ## Persistence and tests
 
-The optional `defense` extension stores warning, wave progress, pending arrivals, enemy IDs/positions/health, and timers. Entity records add health and turret cooldowns. Settlement extension 2 adds civic health and the Town Hall; extension 1 migrates only the missing ruin onto vacant land. Defeated structures retain their goods as repairable records. See [defense.md](defense.md).
+Current defense data stores wave state, enemies and timers. All civic sites and health are mandatory. Defeated structures remain repairable ruins; missing older records are rejected.
 
-The optional `skills` extension stores XP and unique area/patch discovery ledgers. Levels and bonuses are derived. Missing skills start at zero XP; craft jobs optionally include integer work remainders. Skill XP is awarded at successful action completion, while automated production and UI actions never grant it. See [skills.md](skills.md).
+The required skills section stores XP, unique discoveries and commissioning milestones. Levels and bonuses are derived; successful actions grant XP.
 
-The optional `character` extension stores purchased personal upgrade ranks. Saves without it retain base stats. Loading derives inventory capacity before validating item counts, then checks upgrade prerequisites after restoring lessons, research, and settlement state. See [character-progression.md](character-progression.md).
+The required character section stores purchased upgrade ranks. Inventory capacity is derived before validating items; prerequisites are checked after restoring progression.
 
-Schema v2 validates known IDs, numeric ranges, capacities, coordinates, unique entity IDs/tiles, recipe ownership, research prerequisites and investments, crafting queues, and depletion bounds. JSON numbers are normalized back to integer counts/timers. A decoded world replaces the live world only after successful validation. The writer flushes a temporary file, preserves a backup, then renames the temporary file into the slot. File-system write/backup/rename failures are reported; there is no autosave or automatic backup recovery yet.
+Schema v3 validates IDs, numeric ranges, capacities, coordinates, entity identity/occupancy, recipe ownership, research, craft reservations and depletion bounds. Decoding replaces live state only after validation. Transactional writes, backups and optional autosaves remain available.
 
-The optional `onboarding` v2 extension stores enabled state, action counters, and completed lesson IDs. Completed lessons must match definition order and satisfied goals. Saves from before this extension load with onboarding disabled, preserving their established factories without new lesson gates. Adding/reordering published milestone IDs requires a compatibility strategy, just as changing recipes or terrain does.
+The required onboarding section stores action counters and completed lessons. Lessons must match definition order and satisfied goals. The only playable opening starts with timber, shelter and the crossing.
 
-The optional `settlements` extension has its own schema version. It validates civic stock quotas, shipment timers, repair prerequisites, wallet reconciliation, and non-overlapping footprints. Saves predating the extension gain ruined landmarks on vacant land; existing construction and the engineer are preserved. Fixed landmarks live outside the craftable entity registry and connect to inserters through `World.logistics_receiver`. See [settlements.md](settlements.md) for the economy and extension rules.
+The required settlement section validates stock quotas, contract timers, repairs, currency reconciliation and civic footprints. It never inserts missing sites into saved factories.
 
-`tests/factory_tests.gd` exercises behavior without rendering, plus a small scene/UI smoke test. `tests/capture_preview.gd` renders inspection/crafting previews. The legacy `verify_factory.gd` entry point remains usable.
+`tests/factory_tests.gd` exercises behavior without rendering, plus a small scene/UI smoke test. `tests/capture_preview.gd` renders inspection/crafting previews. The `verify_factory.gd` entry point remains usable.
 
 ## Factory expansion systems
 
@@ -124,8 +124,12 @@ ConstructionPlans owns configuration-only clipboard records and validated persis
 
 ProductionMetrics keeps at most 60 per-second buckets of actual production and selected consumption events. It is transient and resets its observation window on load. Research definitions carry prerequisite IDs; shared project selection banks consumed science under inactive IDs. Commissioning awards use stable persistent keys, independent of lifetime production counters and manual XP.
 
-Settlement neighborhood level derives from completed housing deliveries, and bonuses derive from current service availability. No separate writable neighborhood count can drift out of sync. Optional v2 fields preserve existing worlds; all persistent extensions are validated before replacing the live world. See factory-expansion.md for controls and limits.
+Settlement neighborhood level derives from completed housing deliveries, and bonuses derive from current service availability. No separate writable neighborhood count can drift out of sync. All persistent sections are required and validated before replacing the live world. See factory-expansion.md for controls and limits.
 
 ## Combat expansion
 
 combat_catalog.gd owns construct identities, turret roles, rifle values, and deterministic wave composition. player_combat.gd owns engineer health, protection, rifle state, and recoverable retreat. combat_navigation.gd caches bounded AStarGrid2D routes per construct type; a transient world topology revision invalidates grids on construction/removal and disabling/repairing blockers. The simulation advances the engineer weapon before turrets/enemies, after inserter delivery. Attack windups and slows use saved integer tick budgets; render-only flashes, traces, and cache data remain transient. See defense.md for phase, compatibility, and control contracts.
+
+Reedwater: frontier owns a Marsh regional state object. Its deterministic water layer is shared by movement, construction, enemy navigation, cached terrain and maps. Sequential causeway changes invalidate navigation; workshop ingredients, output and committed work are saved. Region restoration emits a generic success signal for interface rewards/history. See [Reedwater](reedwater-marsh.md).
+
+Graphics G1: WorldLighting drives a capped single-pass canvas light field; terrain_surface.gd bakes cached terrain commands once per dirty chunk into reusable textures. Dynamic world art remains immediate-mode and requires batching before expanding machine detail. UI stays on its separate canvas. See [graphics foundation](graphics-foundation.md).

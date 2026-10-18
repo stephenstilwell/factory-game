@@ -36,10 +36,10 @@ func serialize() -> Dictionary:
 	return {"pins": records, "active": active, "next_id": next_id}
 
 func restore(data: Variant) -> bool:
-	if not data is Dictionary or not data.get("pins", []) is Array or data.get("pins", []).size() > MAX_PINS: return false
+	if not data is Dictionary or not data.get("pins") is Array or data.get("pins").size() > MAX_PINS: return false
 	var restored: Dictionary = {}
 	var highest := 0
-	for record in data.get("pins", []):
+	for record in data.pins:
 		if not record is Dictionary or not record.get("title") is String or record.title.length() > 40: return false
 		for key in ["id", "x", "y"]:
 			if not integer(record.get(key), -1000000, 1000000): return false

@@ -1,15 +1,31 @@
 extends RefCounted
 ## Decode into a new world and validate before replacing live state.
-## v1 is imported on request; the original save is never overwritten.
+## Only the current development schema is supported; older worlds require a new game.
 
 const World = preload("res://scripts/simulation/world.gd")
 const Entity = preload("res://scripts/model/entity.gd")
 const Catalog = preload("res://scripts/data/catalog.gd")
 const SettlementSave = preload("res://scripts/persistence/settlement_save.gd")
 const DefenseSave = preload("res://scripts/persistence/defense_save.gd")
-const PATH := "user://factory_save_v2.json"
-const LEGACY_PATH := "user://factory_save.json"
+const VERSION := 3
+const PATH := "user://factory_save_v3.json"
 const MAX_ENTITIES := 50000
+const SECTION_FIELDS := {
+	"character": ["version","levels"],
+	"skills": ["version","xp","visited","patches","commissions"],
+	"home": ["stock","pieces","floor","wall"],
+	"orchard_project": ["beds","inventory","output","growth_ticks","growing_beds","sale_ticks"],
+	"quarry_project": ["inventory","shipment_ticks"],
+	"navigation": ["pins","active","next_id"],
+	"story": ["seen"],
+	"guidance": ["pinned","acknowledged","introduced","history"],
+	"early": ["version","enabled","phase","gathered","delivered","sawn","charcoal"],
+	"frontier": ["version","enabled","sites","cleared","board","target","forestry","marsh"],
+	"onboarding": ["enabled","counters","completed"],
+	"settlements": ["version","enabled","credits","total_earned","relief_waves","garden_beds","produce_sales","road_deliveries","maintenance_kits","supply_orders","age","stone_shipments","homecoming","sites"],
+	"combat": ["health","invulnerable","regen_delay","cooldown","armed"],
+	"defense": ["version","phase","cleared","warning","pending","spawn_timer","next_id","costs","last_result","enemies"],
+}
 
 static func encode(world: RefCounted) -> Dictionary:
 	var records: Array = []
@@ -19,9 +35,9 @@ static func encode(world: RefCounted) -> Dictionary:
 	var depletion: Array = []
 	for cell in world.terrain.depleted:
 		depletion.append([cell.x, cell.y, world.terrain.depleted[cell]])
-	return {"version": 2, "seed": world.terrain.seed_value, "terrain_generator": world.terrain.generator_version, "resource_scale": world.terrain.stock_scale, "ticks": world.ticks, "next_id": world.next_id,
+	return {"version": VERSION, "seed": world.terrain.seed_value, "ticks": world.ticks, "next_id": world.next_id,
 		"player": world.player.contents.duplicate(), "character": world.character.serialize(), "skills": world.skills.serialize(), "position": [world.player_position.x, world.player_position.y],
-		"orchard_project": world.orchard_project.serialize(), "quarry_project": world.quarry_project.serialize(), "navigation": world.navigation.serialize(), "exploration": world.exploration.serialize(), "entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(), "frontier": world.frontier.serialize(), "early": world.early.serialize(),
+		"home": world.home.serialize(), "orchard_project": world.orchard_project.serialize(), "quarry_project": world.quarry_project.serialize(), "navigation": world.navigation.serialize(), "exploration": world.exploration.serialize(), "entities": records, "depletion": depletion, "production": world.production.duplicate(), "defense": world.defense.serialize(), "combat": world.combat.serialize(), "story": world.story.serialize(), "guidance": world.guidance.serialize(), "frontier": world.frontier.serialize(), "early": world.early.serialize(),
 		"researched": world.researched.duplicate(), "research_progress": world.research_progress, "research_target": world.current_research(), "research_banks": world.research_banks.duplicate(), "automation_awards": world.automation_awards.duplicate(), "plans": world.plans.serialize(),
 		"craft_queue": world.craft_queue.duplicate(true), "next_craft_id": world.next_craft_id, "craft_credit": world.craft_credit, "onboarding": world.guide.serialize(), "settlements": world.settlements.serialize()}
 
@@ -48,7 +64,6 @@ static func save_world(world: RefCounted, path: String = PATH) -> String:
 
 static func load_world(path: String = PATH) -> Dictionary:
 	var source := path
-	if path == PATH and not FileAccess.file_exists(path) and FileAccess.file_exists(LEGACY_PATH): source = LEGACY_PATH
 	if not FileAccess.file_exists(source): return {"error": "No saved factory yet."}
 	var file := FileAccess.open(source, FileAccess.READ)
 	if file == null: return {"error": "Could not read save: " + error_string(FileAccess.get_open_error())}
@@ -86,8 +101,6 @@ static func _restore_guide(world: RefCounted, data) -> bool:
 		if parts[0] == "researched":
 			if Catalog.technology(parts[1]).is_empty(): return false
 		elif parts[0] not in ["mined", "crafted", "placed", "fed", "collected", "extracted", "smelted", "assembled", "stored", "produced"] or not Catalog.ITEMS.has(parts[1]): return false
-	if not data.get("timber_opening", false) is bool: return false
-	world.guide.timber_opening = data.get("timber_opening", false)
 	world.guide.enabled = data.enabled
 	world.guide.counters = _counts(data.counters)
 	for i in range(data.completed.size()):
@@ -99,11 +112,17 @@ static func _restore_guide(world: RefCounted, data) -> bool:
 
 static func decode(data) -> Dictionary:
 	if not data is Dictionary: return {"error": "Invalid save document."}
-	if data.get("version") == 1: return _legacy(data)
-	if data.get("version") != 2: return {"error": "Unsupported save version."}
+	if data.get("version") != VERSION: return {"error": "This save uses an unsupported version. Start a new world for this development build."}
+	for key in ["seed", "ticks", "next_id", "player", "character", "skills", "position", "home", "orchard_project", "quarry_project", "navigation", "exploration", "entities", "depletion", "production", "defense", "combat", "story", "guidance", "frontier", "early", "researched", "research_progress", "research_target", "research_banks", "automation_awards", "plans", "craft_queue", "next_craft_id", "craft_credit", "onboarding", "settlements"]:
+		if not data.has(key): return {"error": "Incomplete save document: missing " + key}
+	# Validate complete sections before any authoritative state is restored.
+	for section in SECTION_FIELDS:
+		if not data[section] is Dictionary: return {"error": "Invalid save section: " + section}
+		for key in SECTION_FIELDS[section]:
+			if not data[section].has(key): return {"error": "Incomplete save section: " + section + "/" + key}
 	if not _integer(data.get("seed"), -2000000000) or not _integer(data.get("ticks")) or not _integer(data.get("next_id"), 1): return {"error": "Invalid world metadata."}
 	var character := World.Character.new()
-	if data.has("character") and not character.restore(data.character): return {"error": "Invalid engineer upgrades."}
+	if not character.restore(data.character): return {"error": "Invalid engineer upgrades."}
 	if not _inventory(data.get("player"), int(character.stat("inventory_capacity"))): return {"error": "Invalid player inventory."}
 	var position = data.get("position")
 	if not position is Array or position.size() != 2: return {"error": "Invalid player position."}
@@ -113,43 +132,33 @@ static func decode(data) -> Dictionary:
 	var world = World.new(int(data.seed))
 	world.character = character
 	world.player.capacity = int(character.stat("inventory_capacity"))
-	if not _integer(data.get("terrain_generator", 1), 1, World.Terrain.GENERATOR_VERSION): return {"error": "Unsupported terrain generator."}
-	world.terrain.generator_version = int(data.get("terrain_generator", 1))
-	var saved_scale = data.get("resource_scale", 1)
-	if not _integer(saved_scale, 1, 4) or int(saved_scale) not in [1, 4]: return {"error": "Invalid resource richness."}
-	if data.has("skills") and not world.skills.restore(data.skills, world.terrain): return {"error": "Invalid skill progress."}
+	if not world.skills.restore(data.skills, world.terrain): return {"error": "Invalid skill progress."}
 	world.player.contents = _counts(data.player)
 	world.player_position = Vector2(float(position[0]), float(position[1]))
 	world.previous_position = world.player_position
-	if not world.exploration.restore(data.get("exploration", [])): return {"error": "Invalid exploration chart."}
-	if not world.navigation.restore(data.get("navigation", {})): return {"error": "Invalid map pins."}
+	if not world.exploration.restore(data.exploration): return {"error": "Invalid exploration chart."}
+	if not world.navigation.restore(data.navigation): return {"error": "Invalid map pins."}
 	world.ticks = int(data.ticks)
 	world.metrics.start_tick = world.ticks
 	world.next_id = int(data.next_id)
-	if data.has("early") and not world.early.restore(world, data.early): return {"error": "Invalid early settlement progression."}
-	# Older v2 saves had no guide. Preserve their unrestricted progression and layout.
-	if data.has("onboarding") and not _restore_guide(world, data.onboarding): return {"error": "Invalid learning progress."}
-	if data.has("settlements") and not SettlementSave.restore(world, data.settlements): return {"error": "Invalid settlement economy."}
+	if not world.early.restore(world, data.early): return {"error": "Invalid early settlement progression."}
+	if not _restore_guide(world, data.onboarding): return {"error": "Invalid learning progress."}
+	if not SettlementSave.restore(world, data.settlements): return {"error": "Invalid settlement economy."}
 	var research = data.get("researched")
 	if not research is Array or research.size() > Catalog.TECHNOLOGIES.size(): return {"error": "Invalid research."}
 	for id in research:
 		if not id is String or not world.research_available(id): return {"error": "Invalid technology prerequisites."}
 		world.researched.append(id)
-	var legacy_target := ""
-	for definition in Catalog.TECHNOLOGIES:
-		if world.research_available(definition.id):
-			legacy_target = definition.id
-			break
-	var target = data.get("research_target", legacy_target)
+	var target = data.research_target
 	if not target is String or (not target.is_empty() and not world.research_available(target)): return {"error": "Invalid research target."}
 
 	world.research_target = target
-	var banks = data.get("research_banks", {})
+	var banks = data.research_banks
 	if not banks is Dictionary or banks.size() > Catalog.TECHNOLOGIES.size(): return {"error": "Invalid research investments."}
 	for id in banks:
 		if id == target or not world.research_available(id) or not _integer(banks[id], 1, int(Catalog.technology(id).cost) - 1): return {"error": "Invalid research investment."}
 	world.research_banks = _counts(banks)
-	var awards = data.get("automation_awards", {})
+	var awards = data.automation_awards
 	if not awards is Dictionary or awards.size() > 128: return {"error": "Invalid automation milestones."}
 	var allowed_awards: Array = []
 	for id in Catalog.RECIPES: allowed_awards.append("line:" + id)
@@ -166,6 +175,9 @@ static func decode(data) -> Dictionary:
 	if not _integer(data.get("research_progress"), 0, research_limit): return {"error": "Invalid research progress."}
 	world.research_progress = int(data.research_progress)
 	for record in data.entities:
+		if not record is Dictionary: return {"error": "Invalid saved entity."}
+		for key in ["id","kind","x","y","direction","recipe","electric_mode","energy","health","attack_cooldown","routing_cursor","merge_cursor","underground_exit","supply_cursor","inventory","output","progress","burn_ticks","cooldown","carried"]:
+			if not record.has(key): return {"error": "Incomplete saved entity: " + key}
 		if not record is Dictionary or not _cell(record) or not _integer(record.get("id"), 1, world.next_id - 1): return {"error": "Invalid entity coordinates or ID."}
 		if not Catalog.BUILDINGS.has(record.get("kind")) or not _integer(record.get("direction"), 0, 3): return {"error": "Unknown building or direction."}
 		var entity = Entity.new(int(record.id), record.kind, Vector2i(int(record.x), int(record.y)), int(record.direction))
@@ -174,22 +186,22 @@ static func decode(data) -> Dictionary:
 		var recipes: Array = Catalog.BUILDINGS[entity.kind].get("recipes", [])
 		if (recipes.is_empty() and record.get("recipe") != "") or (not recipes.is_empty() and record.get("recipe") not in recipes): return {"error": "Invalid machine recipe."}
 		entity.recipe = record.recipe
-		if not record.get("electric_mode", false) is bool or not _integer(record.get("energy", 0), 0, world.power.FUEL_ENERGY): return {"error": "Invalid electrical state."}
-		entity.electric_mode = record.get("electric_mode", false)
-		entity.energy = int(record.get("energy", 0))
+		if not record.electric_mode is bool or not _integer(record.energy, 0, world.power.FUEL_ENERGY): return {"error": "Invalid electrical state."}
+		entity.electric_mode = record.electric_mode
+		entity.energy = int(record.energy)
 		if entity.electric_mode and (not world.power.LOAD.has(entity.kind) or "metallurgy" not in world.researched): return {"error": "Invalid electric drive."}
 		if entity.kind == "power_pole" and ("metallurgy" not in world.researched or not record.inventory.is_empty() or not record.output.is_empty()): return {"error": "Invalid district pole."}
 		if entity.kind != "generator" and entity.energy != 0: return {"error": "Energy stored outside a generator."}
 		if entity.kind == "generator" and ("metallurgy" not in world.researched or record.inventory.keys().any(func(item): return item != "coal") or not record.output.is_empty()): return {"error": "Invalid dynamo state."}
-		if not _integer(record.get("health", entity.max_health()), 0, entity.max_health()) or not _integer(record.get("attack_cooldown", 0), 0, int(Catalog.Combat.TURRETS.get(entity.kind, {"cooldown": 0}).cooldown)): return {"error": "Invalid structure health or combat timer."}
-		entity.health = int(record.get("health", entity.max_health()))
-		entity.attack_cooldown = int(record.get("attack_cooldown", 0))
-		if not _integer(record.get("routing_cursor", 0), 0, 1) or not _integer(record.get("merge_cursor", 0)) or not record.get("underground_exit", false) is bool: return {"error": "Invalid transport state."}
-		if not _integer(record.get("supply_cursor", 0), 0, world.next_id - 1) or (entity.kind != "fuel_depot" and record.get("supply_cursor", 0) != 0): return {"error": "Invalid hearth state."}
-		entity.supply_cursor = int(record.get("supply_cursor", 0))
-		entity.routing_cursor = int(record.get("routing_cursor", 0))
-		entity.merge_cursor = int(record.get("merge_cursor", 0))
-		entity.underground_exit = record.get("underground_exit", false)
+		if not _integer(record.health, 0, entity.max_health()) or not _integer(record.attack_cooldown, 0, int(Catalog.Combat.TURRETS.get(entity.kind, {"cooldown": 0}).cooldown)): return {"error": "Invalid structure health or combat timer."}
+		entity.health = int(record.health)
+		entity.attack_cooldown = int(record.attack_cooldown)
+		if not _integer(record.routing_cursor, 0, 1) or not _integer(record.merge_cursor) or not record.underground_exit is bool: return {"error": "Invalid transport state."}
+		if not _integer(record.supply_cursor, 0, world.next_id - 1) or (entity.kind != "fuel_depot" and record.supply_cursor != 0): return {"error": "Invalid hearth state."}
+		entity.supply_cursor = int(record.supply_cursor)
+		entity.routing_cursor = int(record.routing_cursor)
+		entity.merge_cursor = int(record.merge_cursor)
+		entity.underground_exit = record.underground_exit
 		if entity.kind != "splitter" and entity.routing_cursor != 0: return {"error": "Invalid splitter state."}
 		if entity.kind not in Catalog.TRANSPORT and entity.merge_cursor != 0: return {"error": "Invalid merge state."}
 		if entity.kind != "underground_belt" and entity.underground_exit: return {"error": "Invalid tunnel state."}
@@ -208,18 +220,15 @@ static func decode(data) -> Dictionary:
 		entity.carried = record.carried
 		world.register(entity)
 	for kind in world.by_kind: world.by_kind[kind].sort()
-	if data.has("settlements"):
-		if not SettlementSave.place_pending(world): return {"error": "No vacant land for the Town Hall."}
-		if not SettlementSave.valid_layout(world): return {"error": "Settlement footprints overlap occupied land."}
-	elif not world.settlements.install_legacy(world): return {"error": "No vacant land for new settlement projects."}
+	if not SettlementSave.valid_layout(world): return {"error": "Settlement footprints overlap occupied land."}
 	if not data.get("depletion") is Array or data.depletion.size() > 100000: return {"error": "Invalid resource depletion."}
 	for entry in data.depletion:
 		if not entry is Array or entry.size() != 3: return {"error": "Invalid resource tile."}
 		if not _integer(entry[0], -1000000, 1000000) or not _integer(entry[1], -1000000, 1000000) or not _integer(entry[2], 0, 1000000): return {"error": "Invalid resource amounts."}
 		var cell := Vector2i(int(entry[0]), int(entry[1]))
 		var deposit: Dictionary = world.terrain.tile(cell)
-		if world.terrain.depleted.has(cell) or deposit.is_empty() or int(entry[2]) * (4 / int(saved_scale)) > int(deposit.amount): return {"error": "Invalid resource override."}
-		world.terrain.depleted[cell] = int(entry[2]) * (4 / int(saved_scale))
+		if world.terrain.depleted.has(cell) or deposit.is_empty() or int(entry[2]) > int(deposit.amount): return {"error": "Invalid resource override."}
+		world.terrain.depleted[cell] = int(entry[2])
 	if not data.get("production") is Dictionary: return {"error": "Invalid production counters."}
 	for item in data.production:
 		if not Catalog.ITEMS.has(item) or not _integer(data.production[item]): return {"error": "Invalid production statistic."}
@@ -228,29 +237,33 @@ static func decode(data) -> Dictionary:
 	var job_ids: Dictionary = {}
 	var maximum_job_id := 0
 	for entry in data.craft_queue:
+		if not entry is Dictionary: return {"error": "Invalid saved craft."}
+		for key in ["id", "recipe", "remaining", "work", "reserved", "dependencies"]:
+			if not entry.has(key): return {"error": "Incomplete saved craft: " + key}
 		if not entry is Dictionary or not Catalog.RECIPES.has(entry.get("recipe")): return {"error": "Invalid queued recipe."}
 		var recipe: Dictionary = Catalog.RECIPES[entry.recipe]
 		if not recipe.get("hand", false) or not world.unlocked(recipe) or not _integer(entry.get("remaining"), 0, int(recipe.get("ticks", 5))): return {"error": "Invalid queued crafting state."}
-		var job_id = entry.get("id", maximum_job_id + 1)
+		var job_id = entry.id
 		if not _integer(job_id, 1) or job_ids.has(int(job_id)): return {"error": "Invalid crafting job identity."}
 		job_ids[int(job_id)] = true
 		maximum_job_id = maxi(maximum_job_id, int(job_id))
-		var work = entry.get("work", 0)
+		var work = entry.work
 		if not _integer(work, 0, 99) or (int(entry.remaining) == 0 and work != 0): return {"error": "Invalid queued crafting work."}
-		world.craft_queue.append({"id": int(job_id), "recipe": entry.recipe, "remaining": int(entry.remaining), "work": int(work)})
-	if not _integer(data.get("next_craft_id", maximum_job_id + 1), maximum_job_id + 1): return {"error": "Invalid next crafting job ID."}
-	world.next_craft_id = int(data.get("next_craft_id", maximum_job_id + 1))
-	if not _integer(data.get("craft_credit", 0), 0, 124) or (world.craft_queue.is_empty() and data.get("craft_credit", 0) != 0): return {"error": "Invalid carried crafting work."}
-	world.craft_credit = int(data.get("craft_credit", 0))
-	if data.has("combat") and not world.combat.restore(data.combat, world): return {"error": "Invalid engineer combat state."}
-	if data.has("defense") and not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
-	if data.has("frontier"):
-		if not world.frontier.restore(world, data.frontier): return {"error": "Invalid frontier discoveries."}
-		world.frontier.add_missing_sites(world)
-	elif world.settlements.enabled: world.frontier.install(world)
-	if not world.early.enabled and world.settlements.age == 1 and (not world.frontier.claimed("orchard") or not world.frontier.claimed("quarry")): return {"error": "Invalid town age discoveries."}
+		var restored_job := {"id": int(job_id), "recipe": entry.recipe, "remaining": int(entry.remaining), "work": int(work)}
+		restored_job["reserved"] = entry.reserved.duplicate(true) if entry.reserved is Dictionary else entry.reserved
+		restored_job["dependencies"] = entry.dependencies.duplicate(true) if entry.dependencies is Array else entry.dependencies
+		world.craft_queue.append(restored_job)
+	if not world.Crafting.validate_queue(world): return {"error": "Invalid crafting reservations or dependency links."}
+	if not _integer(data.next_craft_id, maximum_job_id + 1): return {"error": "Invalid next crafting job ID."}
+	world.next_craft_id = int(data.next_craft_id)
+	if not _integer(data.craft_credit, 0, 124) or (world.craft_queue.is_empty() and data.craft_credit != 0): return {"error": "Invalid carried crafting work."}
+	world.craft_credit = int(data.craft_credit)
+	if not world.combat.restore(data.combat, world): return {"error": "Invalid engineer combat state."}
+	if not DefenseSave.restore(world, data.defense): return {"error": "Invalid beacon defense state."}
+	if not world.frontier.restore(world, data.frontier): return {"error": "Invalid frontier discoveries."}
+	if not world.early.enabled or not world.settlements.enabled or not world.frontier.enabled: return {"error": "Save lacks the current settlement progression."}
 	if world.early.enabled:
-		if world.settlements.age != world.early.phase or not world.guide.timber_opening: return {"error": "Town age and opening disagree."}
+		if world.settlements.age != world.early.phase: return {"error": "Town age and opening disagree."}
 		if world.early.phase == 2 and not world.frontier.claimed("quarry"): return {"error": "The crossing lacks its mason pattern."}
 		if world.early.sawn > int(world.production.get("plank", 0)) or world.early.charcoal > int(world.production.get("coal", 0)) or world.early.delivered > int(world.production.get("timber", 0)): return {"error": "Opening counters exceed actual production."}
 		if world.early.active():
@@ -260,50 +273,28 @@ static func decode(data) -> Dictionary:
 		for entity in world.entities.values():
 			if not world.early.available(entity.kind): return {"error": "Building predates its civic age."}
 			if entity.kind == "watermill" and not world.early.near_water(entity.cell): return {"error": "Watermill is not beside its watercourse."}
-	elif world.guide.timber_opening: return {"error": "Missing timber opening."}
-	for entity in world.entities.values():
-		if entity.kind in world.early.Definitions.BUILDINGS and not world.early.enabled: return {"error": "Primitive building lacks its world extension."}
 	for job in world.craft_queue:
 		if not world.early.available(job.recipe): return {"error": "Queued recipe predates its civic age."}
 	if not character.valid_progress(world): return {"error": "Engineer upgrades lack required progression."}
 	for wave in world.settlements.relief_waves:
 		if wave > world.defense.cleared: return {"error": "Relief reward lacks a completed defense."}
-	if data.has("story") and not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
-	if data.has("guidance") and not world.guidance.restore(data.guidance, world.ticks): return {"error": "Invalid player goals or notices."}
-	if data.has("plans") and not world.plans.restore(data.plans, world): return {"error": "Invalid construction plans."}
-	if not world.orchard_project.restore(world, data.get("orchard_project", {})): return {"error": "Invalid orchard gardens."}
-	if not world.quarry_project.restore(world, data.get("quarry_project", {})): return {"error": "Invalid Greybank road project."}
-	return {"world": world, "error": "", "frontier_added": not data.has("frontier") and world.frontier.enabled}
+	if not world.settlements.homecoming.restore(data.settlements.homecoming,world.ticks): return {"error":"Invalid homecoming chapter."}
+	if not world.story.restore(data.story, world): return {"error": "Invalid story journal."}
+	if not world.guidance.restore(data.guidance, world.ticks): return {"error": "Invalid player goals or notices."}
+	if not world.plans.restore(data.plans, world): return {"error": "Invalid construction plans."}
+	if not world.orchard_project.restore(world, data.orchard_project): return {"error": "Invalid orchard gardens."}
+	if not world.quarry_project.restore(world, data.quarry_project): return {"error": "Invalid Greybank road project."}
+	if world.frontier.marsh.sections > 0 and world.early.active(): return {"error":"Reedwater causeway predates the crossing."}
+	for entity in world.entities.values():
+		if world.frontier.marsh.boardwalk(world.frontier,entity.cell) and Catalog.BUILDINGS[entity.kind].solid: return {"error":"Solid building blocks the Reedwater causeway."}
+	if world.by_kind.cottage.size() > 1: return {"error": "Duplicate personal cottage."}
+	if not world.by_kind.cottage.is_empty() and not world.home.unlocked(world): return {"error": "Cottage predates shelter restoration."}
+	if not world.home.restore(world, data.home): return {"error": "Invalid cottage interior."}
+	if not world.settlements.homecoming.valid_world(world): return {"error":"Invalid homecoming prerequisites."}
+	return {"world": world, "error": ""}
 
-static func _legacy(data: Dictionary) -> Dictionary:
-	if not data.get("buildings") is Array or not data.get("items") is Array or data.buildings.size() > MAX_ENTITIES: return {"error": "Invalid legacy save."}
-	if not _integer(data.get("credits")) or not _integer(data.get("delivered")): return {"error": "Invalid legacy counters."}
-	var world = World.new()
-	world.player.add("iron_plate", mini(1000, int(data.credits) / 4))
-	world.production["iron_plate"] = int(data.delivered)
-	var kinds := ["belt", "drill", "furnace", "chest"]
-	for record in data.buildings:
-		if not record is Dictionary or not _cell(record) or not record.get("machine") is Dictionary: return {"error": "Invalid legacy building."}
-		var machine: Dictionary = record.machine
-		if not _integer(machine.get("kind"), 0, 3) or not _integer(machine.get("dir"), 0, 3): return {"error": "Invalid legacy machine."}
-		var cell := Vector2i(int(record.x), int(record.y))
-		if world.at(cell) != null: return {"error": "Duplicate legacy tile."}
-		var entity = world.spawn(kinds[int(machine.kind)], cell, int(machine.dir))
-		if entity.kind in ["drill", "furnace"]: entity.inventory.add("coal", 10)
-		if entity.kind == "furnace" and _integer(machine.get("ore", 0), 0, 5): entity.inventory.add("iron_ore", int(machine.get("ore", 0)))
-	for record in data.items:
-		if not record is Dictionary or not _cell(record) or record.get("item") not in ["ore", "plate"]: return {"error": "Invalid legacy item."}
-		var entity = world.at(Vector2i(int(record.x), int(record.y)))
-		if entity == null: continue
-		var storage = world.transfer_source(entity)
-		storage.add("iron_ore" if record.item == "ore" else "iron_plate")
-	if not world.settlements.install_legacy(world): return {"error": "No vacant land for settlement projects."}
-	world.frontier.install(world)
-	return {"world": world, "error": "", "legacy": true}
-
-static func describe(path: String, allow_legacy: bool = false) -> Dictionary:
+static func describe(path: String) -> Dictionary:
 	var source := path
-	if allow_legacy and path == PATH and not FileAccess.file_exists(path) and FileAccess.file_exists(LEGACY_PATH): source = LEGACY_PATH
 	var info := {"path": source, "exists": FileAccess.file_exists(source), "valid": false, "summary": "No saved game yet."}
 	if not info.exists: return info
 	var result := load_world(source)
@@ -313,7 +304,7 @@ static func describe(path: String, allow_legacy: bool = false) -> Dictionary:
 	var world: RefCounted = result.world
 	var seconds := int(world.ticks * World.TICK_SECONDS)
 	var date := Time.get_datetime_string_from_unix_time(FileAccess.get_modified_time(source)).replace("T", " ")
-	var chapter: String = world.early.Definitions.NAMES[world.early.phase] if world.early.enabled else "Industrial factory"
+	var chapter: String = world.early.Definitions.NAMES[world.early.phase]
 	info.valid = true
 	info.summary = "%s UTC\n%s / World time %dh %02dm\n%d buildings / Seed %d" % [date, chapter, seconds / 3600, (seconds / 60) % 60, world.entities.size(), world.terrain.seed_value]
 	return info

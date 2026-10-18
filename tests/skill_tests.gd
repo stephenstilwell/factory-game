@@ -1,10 +1,11 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 const Definitions = preload("res://scripts/data/skill_catalog.gd")
 
 static func run(test: SceneTree) -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	test.check(world.skills.level("mining") == 1 and world.skills.xp.mining == 0, "Skills begin at level one with no XP")
 	var increasing := true
 	for level in range(2, 100):
@@ -20,7 +21,7 @@ static func run(test: SceneTree) -> void:
 	world.award_skill("mining", Definitions.threshold(99) + 10)
 	test.check(world.skills.level("mining") == 99 and world.skills.xp.mining == Definitions.threshold(99) and world.skills.multiplier("mining") == 1.25, "Level 99 clamps XP and the total mining bonus")
 	test.check(world.skills.gain("mining", 10).is_empty(), "Mastered skills stop emitting empty XP rewards")
-	var traveler := World.new()
+	var traveler := Fixtures.industrial()
 	traveler.skills.xp.exploration = Definitions.threshold(25)
 	traveler.move_direction = Vector2.RIGHT
 	var start: Vector2 = traveler.player_position
@@ -30,13 +31,13 @@ static func run(test: SceneTree) -> void:
 	test.check(traveler.skills.survey_radius() == 5, "Level 75 earns the second survey expansion")
 	traveler.skills.xp.exploration = Definitions.threshold(99)
 	test.check(is_equal_approx(traveler.movement_speed(), 4.4), "Exploration mastery caps the movement bonus at ten percent")
-	var builder := World.new()
+	var builder := Fixtures.industrial()
 	builder.player.add("furnace")
 	for i in range(5):
 		builder.build("furnace", Vector2i(19, 18), 0)
 		builder.reclaim(Vector2i(19, 18))
 	test.check(builder.skills.xp == {"mining": 0, "fabrication": 0, "exploration": 0} and builder.player.count("furnace") == 1, "Repeated placement and reclamation cannot farm any skill")
-	var miner := World.new()
+	var miner := Fixtures.industrial()
 	miner.player_position = Vector2(14.5, 16.5)
 	miner.previous_position = miner.player_position
 	miner.mining_cell = Vector2i(14, 16)
@@ -49,14 +50,14 @@ static func run(test: SceneTree) -> void:
 	miner.player.capacity = miner.player.total()
 	test.advance(miner, 20)
 	test.check(miner.skills.xp.mining == 12 and miner.skills.xp.exploration == 0, "Full-pack mining and standing still grant no further XP")
-	var quick := World.new()
+	var quick := Fixtures.industrial()
 	quick.player_position = Vector2(14.5, 16.5)
 	quick.mining_cell = Vector2i(14, 16)
 	quick.mining = true
 	quick.skills.xp.mining = Definitions.threshold(99)
 	test.advance(quick, 32)
 	test.check(quick.player.count("iron_ore") == 5 and quick.terrain.tile(quick.mining_cell).amount == amount - 5, "Mastery speed carries fractional mining work without creating extra resources")
-	var craft := World.new()
+	var craft := Fixtures.industrial()
 	craft.player.add("iron_plate", 20)
 	craft.craft("gear")
 	test.check(craft.skills.xp.fabrication == 0, "Reserving a recipe grants no XP")
@@ -71,7 +72,7 @@ static func run(test: SceneTree) -> void:
 	craft.craft("wire")
 	test.advance(craft, 5)
 	test.check(craft.skills.xp.fabrication == 18 and craft.player.count("wire") == 2, "Multi-output recipes award XP per batch rather than per output item")
-	var blocked := World.new()
+	var blocked := Fixtures.industrial()
 	blocked.player.add("iron_plate")
 	blocked.craft("belt")
 	blocked.player.capacity = 1
@@ -81,13 +82,13 @@ static func run(test: SceneTree) -> void:
 	blocked.player.capacity = 10
 	test.advance(blocked, 1)
 	test.check(blocked.skills.xp.fabrication == 8 and blocked.craft_queue.is_empty(), "Unblocking output awards its XP once")
-	var automated := World.new()
+	var automated := Fixtures.industrial()
 	automated.spawn("assembler", Vector2i(19, 15), 0).inventory.add("iron_plate", 4)
 	automated.spawn("drill", Vector2i(14, 16), 0).inventory.add("coal", 5)
 	test.advance(automated, 40)
 	test.check(automated.skills.xp.mining == 100 and automated.skills.xp.fabrication == 120 and automated.skills.xp.exploration == 0, "First automated resource and recipe batches grant commissioning XP without idle XP")
-	var explorer := World.new(123)
-	explorer.start(false)
+	var explorer := Fixtures.industrial(123)
+	Fixtures.begin_lessons(explorer)
 	explorer.move_direction = Vector2.RIGHT
 	test.advance(explorer, 1)
 	test.check(explorer.skills.visited.size() == 1 and explorer.skills.patches.size() > 0 and explorer.skills.xp.exploration > 20, "Walking discovers nearby patches and awards unique area and patch XP")
@@ -106,7 +107,7 @@ static func run(test: SceneTree) -> void:
 		result.world.move_direction = Vector2.RIGHT
 		test.advance(result.world, 1)
 		test.check(result.world.skills.xp.exploration == xp, "Loading and revisiting does not re-award discovery XP")
-	var skilled := World.new()
+	var skilled := Fixtures.industrial()
 	skilled.skills.xp.fabrication = Definitions.threshold(50)
 	skilled.player.add("iron_plate", 6)
 	skilled.craft_many("gear", 3)
@@ -131,9 +132,9 @@ static func run(test: SceneTree) -> void:
 	bad = Saves.encode(explorer)
 	bad.skills.patches.append([98765, 43210, "iron_ore"])
 	test.check(not Saves.decode(bad).error.is_empty(), "Nonexistent saved resource patches are rejected")
-	var old := Saves.encode(World.new())
+	var old := Saves.encode(Fixtures.industrial())
 	old.erase("skills")
 	result = Saves.decode(old)
-	test.check(result.error.is_empty() and result.world.skills.xp == {"mining": 0, "fabrication": 0, "exploration": 0}, "Older saves gain base skills without retroactive XP")
-	explorer.start(false)
+	test.check(not result.error.is_empty(), "Incomplete or obsolete saves are rejected without migration")
+	Fixtures.begin_lessons(explorer)
 	test.check(explorer.skills.xp.exploration == 0 and explorer.skills.visited.is_empty() and explorer.skills.patches.is_empty(), "New worlds reset skill progress and discovery history")

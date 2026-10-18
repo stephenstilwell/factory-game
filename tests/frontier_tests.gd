@@ -17,11 +17,11 @@ static func solve(world: RefCounted) -> void:
 
 static func run(test: SceneTree) -> void:
 	for seed_value in [0, 1, 74103, -2000000000, 2000000000]:
-		var a := World.new(seed_value)
-		a.start(false)
-		var b := World.new(seed_value)
-		b.start(false)
-		test.check(a.frontier.serialize() == b.frontier.serialize() and a.frontier.sites.size() == 4, "All four landmarks generate reproducibly for seed %d" % seed_value)
+		var a := Fixtures.industrial(seed_value)
+		Fixtures.begin_lessons(a)
+		var b := Fixtures.industrial(seed_value)
+		Fixtures.begin_lessons(b)
+		test.check(a.frontier.serialize() == b.frontier.serialize() and a.frontier.sites.size() == 5, "All five landmarks generate reproducibly for seed %d" % seed_value)
 		test.check(a.player.total() == 0 and a.entities.is_empty(), "Frontier keeps the empty tutorial start")
 		for id in a.frontier.sites:
 			var rect: Rect2i = a.frontier.footprint(id)
@@ -30,8 +30,8 @@ static func run(test: SceneTree) -> void:
 				for y in range(rect.position.y, rect.end.y):
 					if not a.terrain.tile(Vector2i(x, y)).is_empty() or a.settlements.at(Vector2i(x, y)) != null: clear = false
 			test.check(clear and a.solid(rect.position) and not a.solid(a.frontier.port(id)), "Landmark preserves ore and civic footprints with an accessible entrance")
-	var world := World.new()
-	world.start(false)
+	var world := Fixtures.industrial()
+	Fixtures.begin_lessons(world)
 	test.check(not world.frontier.claim(world, "camp"), "Frontier rewards require physical reach")
 	visit(world, "camp")
 	var discovered: int = world.skills.xp.exploration
@@ -80,8 +80,8 @@ static func run(test: SceneTree) -> void:
 	bad = Saves.encode(world)
 	bad.frontier.board = []
 	test.check(not Saves.decode(bad).error.is_empty(), "Claimed depot requires a completed routing table")
-	var tree_world := World.new()
-	tree_world.start(false)
+	var tree_world := Fixtures.industrial()
+	Fixtures.begin_lessons(tree_world)
 	tree_world.guide.enabled = false
 	var tree := Vector2i(2000000, 2000000)
 	for x in range(-8, 12):
@@ -94,7 +94,7 @@ static func run(test: SceneTree) -> void:
 	tree_world.mining = true
 	tree_world.mining_cell = tree
 	test.advance(tree_world, 6)
-	test.check(not tree_world.frontier.tree_at(tree_world, tree) and tree_world.player.count("timber") == 4 and tree_world.skills.xp.mining == 6, "Finite trees supply timber and Gathering XP in legacy worlds")
+	test.check(not tree_world.frontier.tree_at(tree_world, tree) and tree_world.player.count("timber") == 4 and tree_world.skills.xp.mining == 6, "Manual tree clearing supplies timber and Gathering XP")
 	test.advance(tree_world, 6)
 	test.check(tree_world.player.count("timber") == 4 and tree_world.skills.xp.mining == 6, "Cleared trees cannot yield timber or XP twice")
 	loaded = Saves.decode(JSON.parse_string(JSON.stringify(Saves.encode(tree_world))))
@@ -105,13 +105,13 @@ static func run(test: SceneTree) -> void:
 	var data := Saves.encode(old)
 	data.erase("frontier")
 	loaded = Saves.decode(data)
-	test.check(loaded.error.is_empty() and loaded.world.frontier.sites.size() == 4 and Saves.encode(loaded.world).entities == entities, "Old saves gain landmarks on vacant land without moving factories")
-	var guarded := World.new()
-	guarded.start(false)
+	test.check(not loaded.error.is_empty(), "Missing frontier state is rejected without adding landmarks")
+	var guarded := Fixtures.industrial()
+	Fixtures.begin_lessons(guarded)
 	visit(guarded, "camp")
 	guarded.defense.phase = "warning"
 	test.check(not guarded.frontier.claim(guarded, "camp"), "Active or warning defenses prevent exploration interactions")
-	world.start(false)
+	Fixtures.begin_lessons(world)
 	test.check(world.frontier.board.is_empty() and world.frontier.cleared.is_empty() and not world.frontier.claimed("camp"), "New games reset discoveries, puzzle state, and scenery removals")
 
 static func ui(test: SceneTree) -> void:
@@ -119,8 +119,8 @@ static func ui(test: SceneTree) -> void:
 	test.root.add_child(scene)
 	await test.process_frame
 	scene.set_process(false)
-	var world := World.new()
-	world.start(false)
+	var world := Fixtures.industrial()
+	Fixtures.begin_lessons(world)
 	visit(world, "depot")
 	scene._bind_world(world)
 	scene.view.paused = true
@@ -153,8 +153,8 @@ static func ui(test: SceneTree) -> void:
 		actual.sort()
 		test.check(actual == expected, "Cached grove candidates match uncached seeded scenery")
 	test.check(scene.view.grove_candidates.size() < 40, "Travel evicts distant grove candidate chunks")
-	var replacement := World.new(19)
-	replacement.start(false)
+	var replacement := Fixtures.industrial(19)
+	Fixtures.begin_lessons(replacement)
 	scene.view.bind(replacement, scene.camera)
 	test.check(scene.view.grove_candidates.is_empty(), "Rebinding a different world clears scenery caches")
 	scene.view.bind(world, scene.camera)

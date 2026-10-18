@@ -1,4 +1,5 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Simulation = preload("res://scripts/simulation/simulation.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
@@ -25,7 +26,7 @@ static func mine(test: SceneTree, world: RefCounted, cell: Vector2i, count: int)
 
 static func run(test: SceneTree) -> void:
 	for seed_value in [0, 1, 74103, -2000000000, 2000000000]:
-		var opening := World.new(seed_value)
+		var opening := Fixtures.industrial(seed_value)
 		opening.start()
 		var timber := 0
 		var food := 0
@@ -34,7 +35,7 @@ static func run(test: SceneTree) -> void:
 			if pile.get("item") == "timber": timber += int(pile.amount)
 			elif pile.get("item") == "foraged_food": food += int(pile.amount)
 		test.check(timber == 36 and food == 16, "Starter forage stays accessible across seed %d" % seed_value)
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.start()
 	test.check(world.early.active() and world.early.phase == 0 and world.player.total() == 0 and world.entities.is_empty(), "New worlds begin with an empty timber opening")
 	test.check(not world.content_available("furnace") and not world.content_available("drill") and world.content_available("lumber_camp"), "Metal machines are gated behind the actual opening")
@@ -83,7 +84,7 @@ static func run(test: SceneTree) -> void:
 	move(world, home_cell)
 	test.check(world.build("communal_hearth", home_cell, 0), "Players build their first shelter rather than receiving a prebuilt town")
 	test.advance(world, 400)
-	test.check(world.early.delivered >= 8 and world.at(post_cell).inventory.count("timber") >= 8 and not world.frontier.cleared.is_empty(), "Workers deliver real timber harvested from depleted trees")
+	test.check(world.early.delivered >= 8 and world.at(post_cell).inventory.count("timber") >= 8 and not world.frontier.forestry.plots.is_empty(), "Workers deliver real timber from gradual grove harvests")
 	move(world, post_cell)
 	world.collect_output(post_cell)
 	craft(test, world, "plank", 4)
@@ -165,13 +166,13 @@ static func run(test: SceneTree) -> void:
 	corrupt = encoded.duplicate(true)
 	corrupt.early.gathered.append([23, 13, 1])
 	test.check(not Saves.decode(corrupt).error.is_empty(), "Duplicated forage depletion fails validation")
-	var old := World.new()
-	old.start(false)
+	var old := Fixtures.industrial()
+	Fixtures.begin_lessons(old)
 	var old_data := Saves.encode(old)
 	old_data.erase("early")
 	old_data.onboarding.erase("timber_opening")
 	loaded = Saves.decode(old_data)
-	test.check(loaded.error.is_empty() and not loaded.world.early.enabled and loaded.world.content_available("furnace"), "Older factories keep their original progression and remain playable")
+	test.check(not loaded.error.is_empty(), "Saves missing early progression are rejected")
 	world.start()
 	test.check(world.early.phase == 0 and world.early.gathered.is_empty() and world.early.delivered == 0, "New game resets primitive supplies and milestones")
 
@@ -183,7 +184,7 @@ static func ui(test: SceneTree) -> void:
 	scene.hud.story_panel.dismiss_silently()
 	scene.paused = true
 	scene.view.paused = true
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.start()
 	scene._bind_world(world)
 	test.check(scene.hud.hotbar.layout.item(0, 0) == "lumber_camp" and not scene.hud.hotbar.available("furnace"), "Timber hotbar uses its own saved preferences without overwriting industrial shortcuts")

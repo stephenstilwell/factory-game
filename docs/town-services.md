@@ -27,7 +27,7 @@ repair kits alongside crafting.
 
 ## Persistence and verification
 
-Settlement saves add an optional maintenance_kits ledger (zero for older saves).
+Current settlement saves require the maintenance_kits spending ledger.
 Currency validation includes the fee for every consumed service kit, alongside existing
 restoration and supply-order spending. Damaged-structure health and blocker navigation
 updates use the existing repair conventions.

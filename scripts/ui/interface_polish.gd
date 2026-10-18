@@ -5,6 +5,7 @@ const PATH := "user://presentation_settings.cfg"
 var settings_path := PATH
 var reduced_motion := false
 var ambient_enabled := true
+var detailed_lighting := true
 var view: Node2D
 var interface: CanvasLayer
 var tweens: Dictionary = {}
@@ -20,6 +21,8 @@ func configure(hud: CanvasLayer, world_view: Node2D) -> void:
 		var ambient = config.get_value("visuals", "ambient_enabled", true)
 		if motion is bool: reduced_motion = motion
 		if ambient is bool: ambient_enabled = ambient
+		var detail = config.get_value("visuals","detailed_lighting",true)
+		if detail is bool: detailed_lighting = detail
 	var box := VBoxContainer.new()
 	hud.pause_content.add_child(box)
 	hud.pause_content.move_child(box, 1)
@@ -36,6 +39,12 @@ func configure(hud: CanvasLayer, world_view: Node2D) -> void:
 	ambient_control.button_pressed = ambient_enabled
 	box.add_child(ambient_control)
 	ambient_control.toggled.connect(func(value): ambient_enabled = value; apply_preferences(); save_preferences())
+	var detail_control := CheckButton.new()
+	detail_control.text = "Detailed surface lighting"
+	detail_control.tooltip_text = "Material highlights and soft light blocking by walls and civic buildings. Disable for simpler lighting."
+	detail_control.button_pressed = detailed_lighting
+	box.add_child(detail_control)
+	detail_control.toggled.connect(func(value): detailed_lighting = value; apply_preferences(); save_preferences())
 	for panel in [hud.workspace, hud.frontier_panel, hud.factory_panel, hud.story_panel, hud.survey, hud.pause_menu, hud.hotbar.picker]:
 		panel.visibility_changed.connect(_panel_changed.bind(panel))
 	_watch(hud)
@@ -92,9 +101,11 @@ func apply_preferences() -> void:
 	if view != null:
 		view.reduced_motion = reduced_motion
 		view.ambient_enabled = ambient_enabled
+		view.detailed_lighting = detailed_lighting
 		if reduced_motion or not ambient_enabled: view.effects.clear()
 
 func _reset_colors(node: Node) -> void:
+	if node.has_method("set_reduced_motion"): node.set_reduced_motion(reduced_motion)
 	if node is BaseButton: node.self_modulate = Color.WHITE
 	if node is ColorRect or node == interface.workspace: node.modulate.a = 1.0
 	for child in node.get_children(): _reset_colors(child)
@@ -103,4 +114,5 @@ func save_preferences() -> void:
 	var config := ConfigFile.new()
 	config.set_value("visuals", "reduced_motion", reduced_motion)
 	config.set_value("visuals", "ambient_enabled", ambient_enabled)
+	config.set_value("visuals","detailed_lighting",detailed_lighting)
 	if config.save(settings_path) != OK: interface.show_notice("Could not save presentation preferences.")

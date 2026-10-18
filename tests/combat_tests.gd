@@ -17,8 +17,8 @@ static func copy(world: RefCounted) -> Dictionary:
 	return Saves.decode(JSON.parse_string(JSON.stringify(Saves.encode(world))))
 
 static func run(test: SceneTree) -> void:
-	var empty := World.new()
-	empty.start(false)
+	var empty := Fixtures.industrial()
+	Fixtures.begin_lessons(empty)
 	test.check(not empty.combat.toggle(empty) and empty.player.total() == 0, "Fresh engineers receive no free weapon or ammunition")
 	var manufacture := Fixtures.defense_town(false)
 	manufacture.player.contents = World.Catalog.RECIPES.service_rifle["in"].duplicate()
@@ -127,7 +127,7 @@ static func run(test: SceneTree) -> void:
 		test.advance(solo, 1)
 		if solo.defense.cleared == 1: break
 	test.check(solo.defense.cleared == 1 and solo.player.count("ammo") == solo_ammo - 8, "An actively aimed service rifle can complete the first wave with exactly eight rounds")
-	var healing := World.new()
+	var healing := Fixtures.industrial()
 	healing.combat.damage(healing, 20)
 	for i in range(50): healing.combat.step(healing)
 	test.check(healing.combat.health == 80, "Health does not regenerate during its five-second damage delay")
@@ -142,7 +142,7 @@ static func run(test: SceneTree) -> void:
 	for enemy in legacy.defense.enemies:
 		for key in ["kind", "slow", "attack_ticks", "attack_x", "attack_y", "attack_player"]: enemy.erase(key)
 	var migrated := Saves.decode(JSON.parse_string(JSON.stringify(legacy)))
-	test.check(migrated.error.is_empty() and migrated.world.defense.enemies.values()[0].kind == "scout" and migrated.world.combat.health == 100, "Old active waves migrate to scouts and healthy, unarmed engineer state")
+	test.check(not migrated.has("world"), "Incomplete or obsolete saves are rejected without migration")
 	var invalid: Dictionary = Saves.encode(pulse)
 	invalid.defense.enemies[0].kind = "unknown"
 	test.check(not Saves.decode(invalid).error.is_empty(), "Unknown saved construct types are rejected")

@@ -1,5 +1,7 @@
 # Oldbridge combat and beacon defense
 
+This guide describes implemented behavior. See the [combat development plan](combat-roadmap.md) for the remaining encounter, reward and campaign backlog. Adding that plan does not change the current opt-in wave rules.
+
 Oldbridge's beacon calls families home and wakes malfunctioning maintenance constructs from its old enchanted network. The engineer can now join a defense with a manufactured service rifle. Waves remain voluntary; new games still start empty.
 
 ## Try it
@@ -33,7 +35,7 @@ The combat HUD shows health, available pack ammunition, protection, and the curr
 | Dismantler | Demolition machine; favors breaking through blockers | 40 | 2 | 16 |
 | Armored hauler | Freight carrier; slow, heavily plated | 72 | 6 | 10 |
 
-Wave one brings four scouts through the central eastern gate. Wave two adds dismantlers and opens the northern/southern gates. Wave three introduces haulers. Each subsequent wave adds two constructs; scouts/dismantlers gain four health per completed wave and haulers gain six.
+Wave one brings four scouts through the central eastern gate. Wave two adds dismantlers and opens the northern/southern gates. Wave three introduces haulers. Each subsequent wave adds two constructs; scouts/dismantlers gain four health per completed wave and haulers gain six. Later waves now use authored rushes, convoys, flank patterns and reinforcement pauses. See [encounter schedules and measured supply costs](combat-encounters.md).
 
 These are machines carrying out a broken salvage order, not human bandits. Their shared fractured relay rune and Oren/Ada's dialogue connect them to the Quiet and the warning found beneath the workshop. Their final cause remains part of the story mystery.
 
@@ -66,6 +68,14 @@ Combat itself grants no repeatable skill XP or loot. Defense-supply crafting and
 
 combat_catalog.gd defines weapon/enemy roles and deterministic compositions. defense.gd owns waves, attacks, physical-ammo turret behavior, and damage. player_combat.gd owns the rifle, health, retreat, and transient aim/trigger intent. combat_navigation.gd caches one weighted grid per enemy type, invalidating on placement, reclamation, and disabling/repairing structures.
 
-Authoritative enemy types, health, slows, windups, target cells, turret cooldowns, player health/protection, and equipped state persist. Aim, held input, shot tracers, impacts, hit flashes, and path caches do not. Defense extension v2 accepts older v1 waves, treating existing enemies as scouts with default new timers; older factories default to a healthy unarmed engineer. Migrated active enemies adopt the new routing behavior. Validation rejects impossible phases, unknown types, duplicate cells/IDs, out-of-arena coordinates, invalid targets/timers, and invalid engineer state.
+Enemy types, health, slows, windups, targets, turret cooldowns, player health/protection and equipment persist. Aim, input, tracers and path caches are transient. Only the current defense schema is supported; impossible state is rejected.
 
-Checks cover ammunition conservation/misses, armor and piercing, pulse groups/slows, obstacle-routing changes, dodging, safe retreat, input/menu isolation, mid-windup deterministic saves, old-wave migration, and a resupplied mixed-defense ten-wave campaign. Native captures review the battlefield, briefing, and turret inspection at 1280×800 and 1100×720.
+Checks cover ammunition conservation/misses, armor and piercing, pulse groups/slows, obstacle-routing changes, dodging, safe retreat, input/menu isolation, mid-windup deterministic saves, obsolete-wave rejection, and a resupplied mixed-defense ten-wave campaign. Native captures review the battlefield, briefing, and turret inspection at 1280×800 and 1100×720.
+
+## First-defense specialist and briefing
+
+Winning the first wave rescues Nell, the quartermaster. The Town Hall briefing previews her service and shows live ammo, repairs and advisory range coverage. At the workshop, stock up to 100 ammunition and ask Nell to fill nearby healthy turret buffers between defenses. All rounds come from that reserve; warning/active-wave dispatch is blocked. See [C1 details](combat-readiness.md) for costs, range, recovery and persistence. Authored encounter bands and after-action reporting are now implemented in C2. The signal-station finale remains unimplemented.
+
+## Encounter groups and after-action costs
+
+The Hall briefing names the next encounter and discloses reinforcement pauses. These groups belong to one signaled defense; they do not automatically start another wave. A saved report shows the last attempt’s actual ammunition, in-battle repair kits and structure health lost. See [C2 details and finite-supply benchmarks](combat-encounters.md).

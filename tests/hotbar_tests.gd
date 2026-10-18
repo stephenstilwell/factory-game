@@ -77,8 +77,8 @@ static func run(test: SceneTree) -> void:
 	scene._unhandled_input(key)
 	test.check(scene.hud.workspace.visible and scene.selected_kind == "furnace", "Number keys in inventory do not select world tools")
 	scene.hud.close_workspace()
-	scene._bind_world(scene.World.new())
-	scene.world.start(false)
+	scene._bind_world(Fixtures.industrial())
+	Fixtures.begin_lessons(scene.world)
 	bar.refresh(scene.world, "")
 	test.check(not bar.assign(0, "turret") and not bar.available("turret"), "Custom shortcuts cannot bypass restoration or research")
 	for viewport_size in [Vector2i(1280, 800), Vector2i(1100, 720)]:

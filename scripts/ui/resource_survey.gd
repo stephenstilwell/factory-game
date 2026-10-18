@@ -129,8 +129,8 @@ func refresh_pins(prefer_active: bool = false) -> void:
 
 func refresh() -> void:
 	if world == null: return
-	description.text = "Deposits are finite. Survey nearby patches, then follow a marker to relocate your drills. " + ("Frontier deposits grow larger and richer with distance." if world.terrain.generator_version == 2 else "This saved world retains its original terrain. New worlds use the improved resource distribution.")
-	seed_label.text = "World seed: %d | Generator: %d | Local survey" % [world.terrain.seed_value, world.terrain.generator_version]
+	description.text = "Deposits are finite. Survey nearby patches, then follow a marker to relocate your drills. Frontier deposits grow larger and richer with distance."
+	seed_label.text = "World seed: %d | Local survey" % world.terrain.seed_value
 	results.clear()
 	for item in rows:
 		var found: Dictionary = world.terrain.find_resource(item, Vector2i(world.player_position.floor()), world.survey_radius())

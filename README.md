@@ -4,6 +4,8 @@ A Godot 4 factory-game foundation. Open `project.godot` and press **F5**. All re
 
 The first art pass uses a **warm industrial frontier** style: mossy terrain, illustrated machinery, copper and patina roofs, warm restored windows, and a working engineer silhouette. Mining/repair effects, machine motion, and a stateful beacon reinforce actions. The placement grid appears while building. See [art direction](docs/art-direction.md) for visual rules and review captures.
 
+The project uses Godot’s Compatibility renderer for its 2D visuals. After changing renderers, restart the editor before playtesting. See [placement stability](docs/placement-stability.md) for the native regression test and crash investigation.
+
 The game starts in **borderless fullscreen**. Press **F11** or use the top-bar display button to switch to a resizable window and back. The interface scales from its 1280x800 reference resolution, with larger default text for readability. If running inside the editor's embedded game view, pop the game out into its own window to use the full monitor.
 
 Your first regional goal is to **reopen Oldbridge's ruined trading post**, supply its neighbors, and fund the engineers' workshop. Press **Y** for town projects, or click a landmark in the world. See [docs/settlements.md](docs/settlements.md) for repair costs, contracts, delivery automation, and the first global bonus.
@@ -12,7 +14,9 @@ Press **T** for Technology and **F** for production and construction plans. Foun
 
 The engineer can join voluntary defenses with a **service rifle [V]**. Hold **left mouse / Space** to fire while drawn; shared ammunition comes from your pack. Three types of old-network maintenance constructs use multiple approaches. Gun turrets, piercing cannons, pulse turrets, and walls provide complementary defenses. See [combat and beacon defense](docs/defense.md) for a prepared playtest and controls.
 
-See [the Oldbridge pacing pass](docs/oldbridge-pacing.md) for shared fuel service, resource migration, clearer projects, and arrival rewards.
+See [the Oldbridge pacing pass](docs/oldbridge-pacing.md) for shared fuel service, resource pacing, clearer projects, and arrival rewards.
+
+Lumber camps now harvest gradually and regrow managed trees after the first shelter; placement previews and inspectors show grove health. Previously exhausted camps can use **Replant cleared grove**. See [managed forestry](docs/managed-forestry.md).
 
 The world now has seeded groves, birds and butterflies, and four recoverable landmarks. Open **Discoveries [L]** or **Journal [J]** to follow survey notes, recover orchard cuttings for a visible town garden, and solve the old depot’s loaned-conveyor puzzle. Rewards improve surveys and civic fuel service. See [the living frontier](docs/living-frontier.md).
 
@@ -47,9 +51,9 @@ The Engineer's **Skills** tab tracks Gathering, Fabrication, and Exploration fro
 
 After the workshop, rebuild **Oldbridge Town Hall** and prepare its eastern defenses. Craft walls, ammunition-fed turrets, and repair kits; deliberately light the beacon in **Y → Town Hall** to begin a wave with 15 seconds' warning. **H** repairs damaged structures. Victory grants 30–75 relief credits and shelters three families. Returning crews provide +5% movement; every second victory extends Supply Hearth coverage by one tile, up to 12. Spend 20 credits at the trading post for 20 coal, 10 ammunition, and 2 repair kits. Defeat preserves your progress and leaves a repairable hub; waves never begin automatically. See [the defense guide](docs/defense.md) for a first layout, costs, recovery, and save compatibility.
 
-Construction consumes physical building items; craft them with **C**. Select a recipe to see ingredient counts and missing materials, then choose **Craft 1**, **Craft 5**, or **Max**. Queued crafting reserves materials immediately; click a queue job to cancel and refund it. **I** opens the searchable pack. Drag items to machine or town slots using the selected 1/5/All quantity; right-click moves one and Shift-click moves all that fits. See [the inventory guide](docs/inventory-ui.md). The demonstration factory exists only in test fixtures.
+Construction consumes physical building items; craft them with **C**. Select a recipe to see ingredient counts and missing materials, then choose **Craft 1**, **Craft 5**, or **Max**. Crafting automatically queues missing hand-craftable intermediates first, with a full cost/order preview. Queued crafting reserves materials immediately; canceling a prerequisite also cancels its unfinished dependents and refunds actual reserved goods. **I** opens the searchable pack. Drag items to machine or town slots using the selected 1/5/All quantity; right-click moves one and Shift-click moves all that fits. See [the inventory guide](docs/inventory-ui.md). The demonstration factory exists only in test fixtures.
 
-Nearby starting deposits: iron around **(14, 16)**, copper **(28, 23)**, coal **(9, 23)**, stone **(26, 9)**. Deposits are finite, with four times the previous stock. Loading an older save scales its remaining stock once; exhausted tiles stay empty. New games use a random seed, varied patch shapes, and larger, richer frontier deposits. Press **M / Map** for the settlement chart and Resource survey tab. Right-click explored land to save a named pin with a purple compass. Survey results still support resource tracking. Older saves keep their original terrain. See [world generation](docs/world-generation.md) for distribution, reproducible seeds, and save compatibility.
+Nearby starting deposits: iron around **(14, 16)**, copper **(28, 23)**, coal **(9, 23)**, stone **(26, 9)**. Deposits are finite. New games use random seeds, varied patch shapes and richer frontier deposits. Press **M / Map** for the settlement chart, resource survey and named pins. See [world generation](docs/world-generation.md).
 
 | Action | Control |
 | --- | --- |
@@ -97,11 +101,11 @@ The **Supply Hearth** unlocks alongside storage. Craft it for 10 iron plates, 4 
 
 ## Saving
 
-Manual saves use `user://factory_save_v2.json` (Godot's application data directory), with the preceding successful save retained as `.bak`. A temporary file is flushed before replacing the main slot. Loading validates into a fresh world; invalid data leaves the current factory intact.
+Manual saves use `user://factory_save_v3.json` (Godot's application data directory), with the preceding successful save retained as `.bak`. A temporary file is flushed before replacing the main slot. Loading validates into a fresh world; invalid data leaves the current factory intact.
 
-The original prototype's `factory_save.json` can be imported with **Load** if no v2 save exists. Its file is preserved. Belts/drills/furnaces retain positions; delivery hubs become storage chests; ore/plate IDs migrate; legacy credits add a capped iron-plate allowance. Old layouts need inserters added between belts and machines under the new logistics rules. **Save** writes the imported factory to the new slot. A fresh empty world opens on every launch; use **Load** to resume a saved factory.
+Development saves use the current v3 format (factory_save_v3.json). Older formats require a new world; files are never imported or migrated. A fresh empty world opens on every launch; use **Load** to resume a current save.
 
-Learning milestones and action counters are included in new saves. Older v2 saves without this data retain their existing layout/inventory and unrestricted crafting, so loading an established factory cannot trap it behind introductory lessons.
+Current saves include all progression systems, milestones and action counters. Backups, named slots and optional autosaves remain available. See [development save policy](docs/development-saves.md).
 
 Settlement repairs, uncommitted supplies, in-transit shipments, credit balances, and earned-income totals are saved too. Saves predating settlements gain fresh ruins on vacant land; existing machines and the engineer are preserved. Shipment timers run only while the simulation runs, including when the player is elsewhere; there is no offline income.
 
@@ -115,7 +119,7 @@ Headless integration checks (replace `godot` with your Godot executable):
 godot --headless --path . --script res://verify_factory.gd
 ```
 
-Checks cover inventory transactions, seeded/finite terrain, construction reach and collision, item conservation, congestion, inserter hands, fuel, recipes, crafting, automated research, the resource-only path from an empty start through restoration and its first civic bonus, timed contract income, currency spending, save validation, legacy import, deterministic continuation, disk backups, and scene UI. They use an isolated temporary save slot and leave player saves untouched. Godot script/runtime errors also count as a failed verification; check stderr as well as the test summary.
+Checks cover inventory transactions, seeded/finite terrain, construction reach and collision, item conservation, congestion, inserter hands, fuel, recipes, crafting, automated research, the resource-only path from an empty start through restoration and its first civic bonus, timed contract income, currency spending, save validation, obsolete-format rejection, deterministic continuation, disk backups, and scene UI. They use an isolated temporary save slot and leave player saves untouched. Godot script/runtime errors also count as a failed verification; check stderr as well as the test summary.
 
 Optional rendered screenshots:
 
@@ -124,6 +128,12 @@ godot --path . --rendering-method gl_compatibility --script res://tests/capture_
 ```
 
 Previews are stored under the ignored `.godot/verification/` directory.
+
+## Your own cottage
+
+After welcoming the first neighbors, open **Town [Y]** and make a **personal cottage kit** for **12 timber, 12 planks and 8 stone**. Existing industrial worlds unlock it through the restored market. Assign the kit to the hotbar, place it, then inspect the entrance and choose **Enter cottage / decorate**.
+
+Make and arrange twelve furnishings, rotate with **R**, pick up with **RMB**, and undo/redo with **Ctrl+Z / Ctrl+Y**. Discover the Orchard and Greybank to unlock additional floor and wall finishes. Outdoor time pauses inside. Moving the cottage entrance preserves your room, and decoration gives no production bonuses. See [personal cottage](docs/personal-cottage.md).
 
 ## Windows builds and releases
 

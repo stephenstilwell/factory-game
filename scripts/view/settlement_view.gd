@@ -12,55 +12,60 @@ static func draw_site(canvas: Node2D, site: RefCounted, selected: String, phase:
 	var p := Vector2(site.origin) * TILE
 	var operational: bool = site.repaired and site.health > 0
 	var id: String = site.id
-	Art.shadow(canvas, p + Vector2(78, 113), Vector2(74, 27))
-	Art.box(canvas, Rect2(p + Vector2(12, 50), Vector2(126, 91)), Color("414b3d"), 7)
-	var wall := (Color("b6bbb0") if stone_age else Color("a38a61")) if site.repaired else Color("858574")
-	Art.box(canvas, Rect2(p + Vector2(17, 48), Vector2(113, 84)), wall, 5, Color("62694f"))
-	for row in range(4):
-		canvas.draw_line(p + Vector2(20, 72 + row * 15), p + Vector2(127, 72 + row * 15), wall.darkened(0.15), 1, true)
-		for column in range(4 if stone_age or not site.repaired else 0):
-			var x := 25 + column * 28 + (12 if row % 2 else 0)
-			if x < 125: canvas.draw_line(p + Vector2(x, 58 + row * 15), p + Vector2(x, 72 + row * 15), wall.darkened(0.12), 1, true)
-	if site.repaired:
-		if stone_age:
-			Art.box(canvas, Rect2(p + Vector2(13, 122), Vector2(122, 16)), Color("87928c"), 2, Art.STEEL)
+	if id == "town_hall":
+		Art.shadow(canvas,p+Vector2(78,113),Vector2(74,27))
+		var Hero = preload("res://scripts/view/hero_art.gd")
+		Hero.paint(canvas,"town_hall",Hero.hall_frame(site.repaired,operational,stone_age),p)
+		if site.repaired: _beacon(canvas,p,operational,phase,time,stone_age)
+	else:
+		Art.shadow(canvas, p + Vector2(78, 113), Vector2(74, 27))
+		Art.box(canvas, Rect2(p + Vector2(12, 50), Vector2(126, 91)), Color("414b3d"), 7)
+		var wall := (Color("b6bbb0") if stone_age else Color("a38a61")) if site.repaired else Color("858574")
+		Art.box(canvas, Rect2(p + Vector2(17, 48), Vector2(113, 84)), wall, 5, Color("62694f"))
+		for row in range(4):
+			canvas.draw_line(p + Vector2(20, 72 + row * 15), p + Vector2(127, 72 + row * 15), wall.darkened(0.15), 1, true)
+			for column in range(4 if stone_age or not site.repaired else 0):
+				var x := 25 + column * 28 + (12 if row % 2 else 0)
+				if x < 125: canvas.draw_line(p + Vector2(x, 58 + row * 15), p + Vector2(x, 72 + row * 15), wall.darkened(0.12), 1, true)
+		if site.repaired:
+			if stone_age:
+				Art.box(canvas, Rect2(p + Vector2(13, 122), Vector2(122, 16)), Color("87928c"), 2, Art.STEEL)
+			else:
+				for x in [22, 124]: canvas.draw_line(p + Vector2(x, 53), p + Vector2(x, 130), Color("68573e"), 5)
+		var roof := Color("637f73") if id == "trading_post" else (Color("b87c56") if id == "town_hall" else Color("637f85"))
+		if stone_age and site.repaired: roof = roof.lerp(Color("586e7b"), 0.55)
+		if not site.repaired: roof = Color("747664")
+		if site.repaired:
+			canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(7, 61), p + Vector2(72, 15), p + Vector2(137, 61), p + Vector2(137, 83), p + Vector2(72, 40), p + Vector2(7, 83)]), roof.darkened(0.18))
+			canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(7, 61), p + Vector2(72, 15), p + Vector2(72, 40), p + Vector2(7, 83)]), roof.lightened(0.12))
+			for i in range(1, 6):
+				var offset := i * 10.0
+				canvas.draw_line(p + Vector2(72 + offset, 16 + offset * 0.7), p + Vector2(72 + offset, 40 + offset * 0.66), roof.darkened(0.18), 1, true)
+				canvas.draw_line(p + Vector2(72 - offset, 16 + offset * 0.7), p + Vector2(72 - offset, 40 + offset * 0.66), roof.darkened(0.1), 1, true)
+			canvas.draw_polyline(PackedVector2Array([p + Vector2(7, 62), p + Vector2(72, 16), p + Vector2(137, 62)]), Art.CREAM.darkened(0.1), 3, true)
+			canvas.draw_line(p + Vector2(9, 85), p + Vector2(72, 42), roof.darkened(0.3), 3, true)
+			canvas.draw_line(p + Vector2(72, 42), p + Vector2(136, 85), roof.darkened(0.3), 3, true)
 		else:
-			for x in [22, 124]: canvas.draw_line(p + Vector2(x, 53), p + Vector2(x, 130), Color("68573e"), 5)
-	var roof := Color("637f73") if id == "trading_post" else (Color("b87c56") if id == "town_hall" else Color("637f85"))
-	if stone_age and site.repaired: roof = roof.lerp(Color("586e7b"), 0.55)
-	if not site.repaired: roof = Color("747664")
-	if site.repaired:
-		canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(7, 61), p + Vector2(72, 15), p + Vector2(137, 61), p + Vector2(137, 83), p + Vector2(72, 40), p + Vector2(7, 83)]), roof.darkened(0.18))
-		canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(7, 61), p + Vector2(72, 15), p + Vector2(72, 40), p + Vector2(7, 83)]), roof.lightened(0.12))
-		for i in range(1, 6):
-			var offset := i * 10.0
-			canvas.draw_line(p + Vector2(72 + offset, 16 + offset * 0.7), p + Vector2(72 + offset, 40 + offset * 0.66), roof.darkened(0.18), 1, true)
-			canvas.draw_line(p + Vector2(72 - offset, 16 + offset * 0.7), p + Vector2(72 - offset, 40 + offset * 0.66), roof.darkened(0.1), 1, true)
-		canvas.draw_polyline(PackedVector2Array([p + Vector2(7, 62), p + Vector2(72, 16), p + Vector2(137, 62)]), Art.CREAM.darkened(0.1), 3, true)
-		canvas.draw_line(p + Vector2(9, 85), p + Vector2(72, 42), roof.darkened(0.3), 3, true)
-		canvas.draw_line(p + Vector2(72, 42), p + Vector2(136, 85), roof.darkened(0.3), 3, true)
-	else:
-		canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(8, 64), p + Vector2(49, 35), p + Vector2(62, 47), p + Vector2(55, 68), p + Vector2(8, 84)]), roof)
-		for i in range(3): canvas.draw_line(p + Vector2(70 + i * 19, 22 + i * 14), p + Vector2(70 + i * 19, 63 + i * 8), Color("8c7e5e"), 5, true)
-		canvas.draw_line(p + Vector2(69, 21), p + Vector2(137, 68), Color("a39c7c"), 5, true)
-		for i in range(7):
-			Art.box(canvas, Rect2(p + Vector2(18 + i * 16, 119 + posmod(i * 7, 16)), Vector2(12, 7)), Color("999781"), 2)
-		for i in range(5): Art.ellipse(canvas, p + Vector2(24 + i * 10, 62 + sin(i) * 6), Vector2(9, 5), Color("566d48"))
-	Art.box(canvas, Rect2(p + Vector2(59, 86), Vector2(28, 46)), Color("5a634c"), 7)
-	Art.box(canvas, Rect2(p + Vector2(63, 91), Vector2(20, 39)), Color("34473e"), 4)
-	canvas.draw_circle(p + Vector2(79, 113), 1.7, Art.AMBER)
-	for x in [32, 100]:
-		Art.box(canvas, Rect2(p + Vector2(x - 10, 87), Vector2(22, 26)), Color("5c6753"), 3)
-		Art.box(canvas, Rect2(p + Vector2(x - 7, 90), Vector2(16, 20)), Color("e5b66b") if operational else Color("394d44"), 2)
-		canvas.draw_line(p + Vector2(x + 1, 90), p + Vector2(x + 1, 109), Color("8d7855"), 2)
-		if operational: Art.glow(canvas, p + Vector2(x, 102), 17, Art.AMBER, 0.7)
-		if not site.repaired:
-			canvas.draw_line(p + Vector2(x - 9, 93), p + Vector2(x + 10, 107), Color("ab9670"), 5, true)
-	if site.repaired:
-		_details(canvas, p, id, operational, time)
-	else:
-		canvas.draw_line(p + Vector2(62, 103), p + Vector2(85, 119), Color("aa9670"), 5, true)
-	if site.repaired and id == "town_hall": _beacon(canvas, p, operational, phase, time)
+			canvas.draw_colored_polygon(PackedVector2Array([p + Vector2(8, 64), p + Vector2(49, 35), p + Vector2(62, 47), p + Vector2(55, 68), p + Vector2(8, 84)]), roof)
+			for i in range(3): canvas.draw_line(p + Vector2(70 + i * 19, 22 + i * 14), p + Vector2(70 + i * 19, 63 + i * 8), Color("8c7e5e"), 5, true)
+			canvas.draw_line(p + Vector2(69, 21), p + Vector2(137, 68), Color("a39c7c"), 5, true)
+			for i in range(7):
+				Art.box(canvas, Rect2(p + Vector2(18 + i * 16, 119 + posmod(i * 7, 16)), Vector2(12, 7)), Color("999781"), 2)
+			for i in range(5): Art.ellipse(canvas, p + Vector2(24 + i * 10, 62 + sin(i) * 6), Vector2(9, 5), Color("566d48"))
+		Art.box(canvas, Rect2(p + Vector2(59, 86), Vector2(28, 46)), Color("5a634c"), 7)
+		Art.box(canvas, Rect2(p + Vector2(63, 91), Vector2(20, 39)), Color("34473e"), 4)
+		canvas.draw_circle(p + Vector2(79, 113), 1.7, Art.AMBER)
+		for x in [32, 100]:
+			Art.box(canvas, Rect2(p + Vector2(x - 10, 87), Vector2(22, 26)), Color("5c6753"), 3)
+			Art.box(canvas, Rect2(p + Vector2(x - 7, 90), Vector2(16, 20)), Color("e5b66b") if operational else Color("394d44"), 2)
+			canvas.draw_line(p + Vector2(x + 1, 90), p + Vector2(x + 1, 109), Color("8d7855"), 2)
+			if operational: Art.glow(canvas, p + Vector2(x, 102), 17, Art.AMBER, 0.7)
+			if not site.repaired:
+				canvas.draw_line(p + Vector2(x - 9, 93), p + Vector2(x + 10, 107), Color("ab9670"), 5, true)
+		if site.repaired:
+			_details(canvas, p, id, operational, time)
+		else:
+			canvas.draw_line(p + Vector2(62, 103), p + Vector2(85, 119), Color("aa9670"), 5, true)
 	var port := (Vector2(site.port()) + Vector2.ONE * 0.5) * TILE
 	Art.box(canvas, Rect2(port - Vector2(17, 14), Vector2(34, 28)), Color("4b685d"), 5, Color("a5c2a4"))
 	canvas.draw_polyline(PackedVector2Array([port + Vector2(-7, -5), port + Vector2(2, 0), port + Vector2(-7, 5)]), Color("b9d9bc"), 2, true)

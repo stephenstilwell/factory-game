@@ -1,4 +1,5 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Simulation = preload("res://scripts/simulation/simulation.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
@@ -7,7 +8,7 @@ static func stock(world: RefCounted) -> void:
 	world.player.contents = {"iron_plate": 500, "gear": 200, "copper_plate": 100, "wire": 100, "steel": 100}
 
 static func run(test: SceneTree) -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	stock(world)
 	test.check(world.character.stat("movement_speed") == 4.0 and world.mining_duration() == 8 and world.interaction_reach() == 6.0 and world.player.capacity == 10000, "Unupgraded characters preserve existing movement, mining, reach, and capacity")
 	var before: Dictionary = world.player.contents.duplicate()
@@ -30,14 +31,14 @@ static func run(test: SceneTree) -> void:
 	world.settlements = World.Settlements.new(true)
 	world.settlements.sites.workshop.repaired = true
 	test.check(world.upgrade_character("boots", 3) and world.character.stat("movement_speed") == 5.8 and not world.upgrade_character("boots", 4), "Workshop unlocks final boots with a bounded maximum rank")
-	var collision := World.new()
+	var collision := Fixtures.industrial()
 	stock(collision)
 	collision.upgrade_character("boots", 1)
 	collision.spawn("chest", Vector2i(19, 18), 0)
 	collision.move_direction = Vector2.RIGHT
 	for i in range(20): collision.move_player()
 	test.check(collision.player_position.x < 19.0, "Faster movement still respects machine collision")
-	var miner := World.new()
+	var miner := Fixtures.industrial()
 	stock(miner)
 	miner.player_position = Vector2(14.5, 16.5)
 	miner.mining_cell = Vector2i(14, 16)
@@ -53,7 +54,7 @@ static func run(test: SceneTree) -> void:
 	miner.player.capacity = miner.player.total()
 	test.advance(miner, 10)
 	test.check(miner.terrain.tile(miner.mining_cell).amount == ore - 2, "Full pack prevents upgraded mining from destroying ore")
-	var reach := World.new()
+	var reach := Fixtures.industrial()
 	stock(reach)
 	reach.player_position = Vector2(0.5, 0.5)
 	test.check(not reach.in_reach(Vector2i(7, 0)), "Base reach rejects a seven-tile interaction")
@@ -61,7 +62,7 @@ static func run(test: SceneTree) -> void:
 	test.check(reach.in_reach(Vector2i(7, 0)) and reach.build("chest", Vector2i(7, 0), 0) == false, "Upgraded reach extends command validation without granting free buildings")
 	reach.player.add("chest")
 	test.check(reach.build("chest", Vector2i(7, 0), 0), "Utility harness enables construction at the upgraded distance")
-	var pack := World.new()
+	var pack := Fixtures.industrial()
 	stock(pack)
 	test.check(pack.upgrade_character("pack", 1) and pack.player.capacity == 12500, "Pack upgrades increase actual inventory capacity")
 	pack.player.contents = {"iron_plate": 12000}
@@ -75,7 +76,7 @@ static func run(test: SceneTree) -> void:
 	test.check(Saves.decode(bad).error == "Engineer upgrades lack required progression.", "Saved upgrades must satisfy their progression prerequisites")
 	bad.character.levels = {"boots": 9}
 	test.check(not Saves.decode(bad).error.is_empty(), "Out-of-range saved ranks are rejected")
-	var complete := World.new()
+	var complete := Fixtures.industrial()
 	stock(complete)
 	complete.researched = ["logistics"]
 	for id in complete.character.Definitions.UPGRADES:
@@ -91,13 +92,13 @@ static func run(test: SceneTree) -> void:
 		test.advance(complete, 100)
 		test.advance(result.world, 100)
 		test.check(Saves.encode(complete) == Saves.encode(result.world) and complete.player.count("iron_ore") == 20, "Upgraded characters continue deterministically after save and load")
-	var legacy := Saves.encode(World.new())
+	var legacy := Saves.encode(Fixtures.industrial())
 	legacy.erase("character")
 	result = Saves.decode(legacy)
-	test.check(result.error.is_empty() and result.world.character.levels.is_empty() and result.world.mining_duration() == 8, "Older saves retain base stats and gain no free upgrades")
-	var guided := World.new()
-	guided.start(false)
+	test.check(not result.error.is_empty(), "Incomplete or obsolete saves are rejected without migration")
+	var guided := Fixtures.industrial()
+	Fixtures.begin_lessons(guided)
 	stock(guided)
 	test.check(not guided.upgrade_character("pickaxe", 1), "Personal upgrades cannot bypass the first automation lessons")
-	pack.start(false)
+	Fixtures.begin_lessons(pack)
 	test.check(pack.player.capacity == 10000 and pack.character.levels.is_empty() and pack.player.total() == 0, "Starting a new world resets all personal progression and capacity")

@@ -21,6 +21,14 @@ var road_box: VBoxContainer
 var road_text: Label
 var road_deliver: Button
 var road_withdraw: Button
+var marsh_box: VBoxContainer
+var marsh_text: Label
+var marsh_build: Button
+var marsh_remove: Button
+var marsh_restore: Button
+var marsh_supply: Button
+var marsh_collect: Button
+var marsh_withdraw: Button
 var puzzle: VBoxContainer
 var cells: Dictionary = {}
 var result_label: Label
@@ -58,11 +66,17 @@ func _ready() -> void:
 		site_buttons[id] = button
 	leads_hint = Style.label("", 13, Style.MUTED)
 	list.add_child(leads_hint)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(630,465)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_RESERVE
+	body.add_child(scroll)
 	var detail := VBoxContainer.new()
-	detail.custom_minimum_size.x = 610
+	detail.custom_minimum_size.x = 595
 	detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail.add_theme_constant_override("separation", 8)
-	body.add_child(detail)
+	scroll.add_child(detail)
 	title = Style.label("", 22, Style.ACCENT)
 	detail.add_child(title)
 	state_label = Style.label("", 14, Style.GOLD)
@@ -97,6 +111,20 @@ func _ready() -> void:
 	road_box.add_child(road_actions)
 	road_deliver = Style.button(road_actions, "Deliver up to one load", func(): world.quarry_project.deliver(world); refresh())
 	road_withdraw = Style.button(road_actions, "Withdraw buffer", func(): world.quarry_project.withdraw(world); refresh())
+	marsh_box = VBoxContainer.new()
+	detail.add_child(marsh_box)
+	marsh_text = Style.label("",14)
+	marsh_box.add_child(marsh_text)
+	var crossing_actions := HBoxContainer.new()
+	marsh_box.add_child(crossing_actions)
+	marsh_build = Style.button(crossing_actions,"Build next span",func(): world.frontier.marsh.build_span(world); refresh())
+	marsh_remove = Style.button(crossing_actions,"Reclaim last span",func(): world.frontier.marsh.remove_span(world); refresh())
+	marsh_restore = Style.button(marsh_box,"Restore maintenance lodge",func(): world.frontier.marsh.restore_lodge(world); refresh())
+	var service_actions := HBoxContainer.new()
+	marsh_box.add_child(service_actions)
+	marsh_supply = Style.button(service_actions,"Supply one batch",func(): world.frontier.marsh.supply(world); refresh())
+	marsh_collect = Style.button(service_actions,"Collect kits",func(): world.frontier.marsh.collect(world); refresh())
+	marsh_withdraw = Style.button(service_actions,"Withdraw inputs",func(): world.frontier.marsh.collect(world,true); refresh())
 	puzzle = VBoxContainer.new()
 	puzzle.add_theme_constant_override("separation", 6)
 	detail.add_child(puzzle)
@@ -166,9 +194,11 @@ func refresh() -> void:
 		site_buttons[id].text = Definitions.SITES[id].name + ("\nRECOVERED" if world.frontier.claimed(id) else ("\nDISCOVERED" if found else "\nRUMOR"))
 		if id == "orchard" and world.frontier.claimed(id): site_buttons[id].text += "\nGrowing beds %d / 3" % world.orchard_project.beds
 		if id == "quarry" and world.frontier.claimed(id): site_buttons[id].text += "\nRoad %d / 9 loads" % world.settlements.road_deliveries
+		if id == "marsh" and exists: site_buttons[id].text += "\n" + ("Service online" if world.frontier.marsh.restored else "Causeway %d / 4" % world.frontier.marsh.sections)
 		Style.select(site_buttons[id], id == selected)
 	road_box.hide()
 	orchard_box.hide()
+	marsh_box.hide()
 	if selected.is_empty():
 		title.text = "No leads in this world yet."
 		puzzle.hide()
@@ -188,7 +218,7 @@ func refresh() -> void:
 	description.visible = selected != "depot" or not record.discovered
 	reward.text = "REWARD\n" + definition.reward
 	track_button.show()
-	track_button.text = "Stop tracking" if world.frontier.target == selected else "Track entrance"
+	track_button.text = "Stop tracking" if world.frontier.target == selected else ("Track west bank" if selected == "marsh" and world.frontier.marsh.sections < 4 else "Track entrance")
 	claim_button.show()
 	claim_button.disabled = record.claimed or not reason.is_empty() or (selected == "depot" and not world.frontier.evaluate().success)
 	claim_button.text = "Recovered" if record.claimed else ("Restore depot" if selected == "depot" else "Recover discovery")
@@ -225,6 +255,39 @@ func refresh() -> void:
 		orchard_supply.disabled = not close or not garden.available(world) or garden.beds == 0 or not ((world.player.count("coal") > 0 and garden.receiving_limit(world, "coal") > 0) or (world.player.count("plank") > 0 and garden.receiving_limit(world, "plank") > 0))
 		orchard_collect.disabled = not close or garden.output.total() == 0 or world.player.total() >= world.player.capacity
 		orchard_withdraw.disabled = not close or garden.inventory.total() == 0 or not world.player.can_exchange({}, garden.inventory.contents)
+	marsh_box.visible = selected == "marsh"
+	if marsh_box.visible:
+		description.hide()
+		reward.hide()
+		var marsh: RefCounted = world.frontier.marsh
+		var bank: Vector2i = marsh.shore(world.frontier)
+		var hatch: Vector2i = world.frontier.port("marsh")
+		var close: bool = world.in_reach(hatch)
+		if marsh.restored:
+			marsh_text.text = "MAINTENANCE SERVICE ONLINE\nRepair kits restore 25%% more health (%d HP with your current rig).\n4 iron plates + 2 copper plates + 2 planks → 3 kits / 60s.\nBUFFER %d iron / %d copper / %d planks | KITS %d / 12\n%s\nHATCH (%d,%d): input SOUTH, facing NORTH; output NORTH, facing NORTH.\nBelts can cross the causeway; solid buildings belong on land." % [world.repair_power(),marsh.inventory.count("iron_plate"),marsh.inventory.count("copper_plate"),marsh.inventory.count("plank"),marsh.output.total(),"Batch: %.1fs remaining" % (marsh.work_ticks/10.0) if marsh.work_ticks > 0 else "Waiting for supplies / output space.",hatch.x,hatch.y]
+		else:
+			marsh_text.text = "RECONNECT NESSA'S MAINTENANCE KEEPERS\nWEST bank (%d,%d). Walk across completed spans.\nCAUSEWAY %d / 4: 6 planks + 4 stone per span.\nReclaim the last span from its west side for a full refund before restoring the lodge.\nLODGE: 20 planks + 30 stone + 8 wire after recovering the ledger.\nREWARD: +25%% repair-kit healing, +400 Fabrication XP.\nWORKSHOP: 4 iron + 2 copper plates + 2 planks → 3 kits / 60s." % [bank.x,bank.y,marsh.sections]
+		var build_reason: String = marsh.build_reason(world)
+		marsh_build.visible = marsh.sections < 4
+		marsh_remove.visible = not marsh.restored
+		marsh_restore.visible = marsh.sections == 4 and not marsh.restored
+		marsh_build.disabled = not build_reason.is_empty()
+		marsh_build.tooltip_text = build_reason
+		var remove_reason: String = marsh.remove_reason(world)
+		marsh_remove.disabled = not remove_reason.is_empty()
+		marsh_remove.tooltip_text = remove_reason
+		var lodge_reason: String = marsh.restore_reason(world)
+		marsh_restore.disabled = not lodge_reason.is_empty()
+		marsh_restore.tooltip_text = lodge_reason
+		marsh_restore.text = "Lodge restored · repair bonus active" if marsh.restored else "Restore lodge: 20 planks + 30 stone + 8 wire"
+		if not marsh.restored: marsh_text.text += "\n" + (build_reason if marsh.sections < 4 else lodge_reason)
+		marsh_text.tooltip_text = definition.story
+		marsh_supply.visible = marsh.restored
+		marsh_collect.visible = marsh.restored
+		marsh_withdraw.visible = marsh.restored
+		marsh_supply.disabled = not close or not marsh.INPUTS.keys().any(func(item): return world.player.count(item) > 0 and marsh.receiving_limit(world,item) > 0)
+		marsh_collect.disabled = not close or marsh.output.total() == 0 or not world.player.can_exchange({},marsh.output.contents)
+		marsh_withdraw.disabled = not close or marsh.inventory.total() == 0 or not world.player.can_exchange({},marsh.inventory.contents)
 	puzzle.visible = selected == "depot" and record.discovered
 	if not reason.is_empty(): state_label.text += "\n" + reason
 	if not puzzle.visible: return

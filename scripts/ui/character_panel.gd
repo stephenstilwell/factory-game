@@ -1,4 +1,5 @@
 extends VBoxContainer
+const Showcase = preload("res://scripts/ui/showcase.gd")
 const Style = preload("res://scripts/ui/ui_style.gd")
 const Catalog = preload("res://scripts/data/catalog.gd")
 const Definitions = preload("res://scripts/data/character_catalog.gd")
@@ -79,17 +80,27 @@ func _ready() -> void:
 		var box := VBoxContainer.new()
 		box.add_theme_constant_override("separation", 6)
 		panel.add_child(box)
-		var title := Style.label("", 19, Style.ACCENT)
-		box.add_child(title)
+		var heading := HBoxContainer.new()
+		heading.add_theme_constant_override("separation",12)
+		box.add_child(heading)
+		var art := Showcase.new()
+		heading.add_child(art)
+		art.custom_minimum_size = Vector2(68,68)
+		art.present("equipment",id)
+		var title := Style.label("",19,Style.TEXT)
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		heading.add_child(title)
 		box.add_child(Style.label(Definitions.UPGRADES[id].description, 13, Style.MUTED))
 		var effect := Style.label("", 15, Style.GOLD)
 		box.add_child(effect)
+		Style.badge(effect,Style.ACCENT)
 		var materials := Style.label("", 13)
 		box.add_child(materials)
 		var actions := HBoxContainer.new()
 		box.add_child(actions)
 		var button := Style.button(actions, "", func():
 			if world != null: upgrade_requested.emit(id, int(cards[id].rank)))
+		Style.action(button)
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 13)
@@ -130,7 +141,7 @@ func refresh(state: RefCounted) -> void:
 	if section == "equipment": world.guidance.view_equipment(world)
 	var status: Dictionary = world.guidance.equipment_status(world)
 	section_buttons.equipment.text = "Equipment • %d READY" % status.ready if status.ready > 0 else ("Equipment • NEW" if status.new > 0 else "Equipment upgrades")
-	stats.text = "Move %.2f tiles/s • Mine %.2f items/s • Reach %.0f • Pack %d • Repair %d HP/kit • Survey %d regions" % [world.movement_speed(), 10.0 * world.skills.multiplier("mining") / float(world.mining_duration()), world.interaction_reach(), world.player.capacity, character.stat("repair_power"), world.survey_radius()]
+	stats.text = "Move %.2f tiles/s • Mine %.2f items/s • Reach %.0f • Pack %d • Repair %d HP/kit • Survey %d regions" % [world.movement_speed(), 10.0 * world.skills.multiplier("mining") / float(world.mining_duration()), world.interaction_reach(), world.player.capacity, world.repair_power(), world.survey_radius()]
 	stats.text += " / Armor %d%%" % int(character.stat("damage_reduction"))
 	for id in skill_rows:
 		var row: Dictionary = skill_rows[id]

@@ -46,6 +46,34 @@ func advance(world: RefCounted, count: int) -> void:
 	for i in range(count): Simulation.step(world)
 
 func _run() -> void:
+	preload("res://tests/hero_art_tests.gd").run(self)
+	await preload("res://tests/hero_art_tests.gd").ui(self)
+	preload("res://tests/graphics_foundation_tests.gd").run(self)
+	await preload("res://tests/graphics_foundation_tests.gd").ui(self)
+	preload("res://tests/marsh_tests.gd").run(self)
+	await preload("res://tests/marsh_tests.gd").ui(self)
+	preload("res://tests/biome_identity_tests.gd").run(self)
+	await preload("res://tests/biome_identity_tests.gd").ui(self)
+	preload("res://tests/encounter_tests.gd").run(self)
+	await preload("res://tests/encounter_tests.gd").ui(self)
+	preload("res://tests/combat_readiness_tests.gd").run(self)
+	await preload("res://tests/combat_readiness_tests.gd").ui(self)
+	preload("res://tests/weapon_handling_tests.gd").run(self)
+	await preload("res://tests/weapon_handling_tests.gd").ui(self)
+	preload("res://tests/homecoming_tests.gd").run(self)
+	await preload("res://tests/homecoming_tests.gd").ui(self)
+	await preload("res://tests/hud_art_tests.gd").ui(self)
+	await preload("res://tests/notification_history_tests.gd").ui(self)
+	await preload("res://tests/machine_inspection_tests.gd").ui(self)
+	await preload("res://tests/project_navigation_tests.gd").ui(self)
+	await preload("res://tests/workbench_presentation_tests.gd").ui(self)
+	await preload("res://tests/camp_interaction_tests.gd").ui(self)
+	preload("res://tests/current_save_schema_tests.gd").run(self)
+	preload("res://tests/forestry_tests.gd").run(self)
+	preload("res://tests/craft_dependency_tests.gd").run(self)
+	await preload("res://tests/craft_dependency_tests.gd").ui(self)
+	preload("res://tests/home_tests.gd").run(self)
+	await preload("res://tests/home_tests.gd").ui(self)
 	preload("res://tests/regional_story_tests.gd").run(self)
 	await preload("res://tests/save_slots_tests.gd").run(self)
 	preload("res://tests/armor_tests.gd").run(self)
@@ -125,7 +153,7 @@ func _terrain() -> void:
 	check(a.tile(cell).is_empty(), "Depletion survives chunk cache eviction")
 
 func _construction() -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.player_position = Vector2(4.5, 4.5)
 	world.player.add("drill", 1)
 	world.player.add("chest", 2)
@@ -151,7 +179,7 @@ func _construction() -> void:
 	check(world.player.count("iron_ore") == 1, "Engineer hand mining produces physical ore")
 
 func _transport() -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	var a = world.spawn("belt", Vector2i(0, 0), 0)
 	var b = world.spawn("belt", Vector2i(1, 0), 0)
 	var c = world.spawn("belt", Vector2i(2, 0), 0)
@@ -168,13 +196,13 @@ func _transport() -> void:
 	world.ticks = 5
 	Simulation.step(world)
 	check(b.inventory.total() == 1 and a.inventory.total() + side.inventory.total() == 1, "Competing belts reserve one destination without loss")
-	var direct := World.new()
+	var direct := Fixtures.industrial()
 	var belt = direct.spawn("belt", Vector2i(0, 0), 0)
 	var furnace = direct.spawn("furnace", Vector2i(1, 0), 0)
 	belt.inventory.add("iron_ore")
 	advance(direct, 10)
 	check(belt.inventory.total() == 1 and furnace.inventory.total() == 0, "Machines need inserters rather than direct belt ingestion")
-	var logistics := World.new()
+	var logistics := Fixtures.industrial()
 	var source = logistics.spawn("chest", Vector2i(0, 0), 0)
 	var arm = logistics.spawn("inserter", Vector2i(1, 0), 0)
 	var target = logistics.spawn("chest", Vector2i(2, 0), 0)
@@ -187,7 +215,7 @@ func _transport() -> void:
 	logistics.player_position = Vector2(1.5, 2.5)
 	logistics.reclaim(arm.cell)
 	check(logistics.player.count("iron_plate") == 1, "Reclaiming a loaded inserter returns its hand")
-	var faster := World.new()
+	var faster := Fixtures.industrial()
 	var fast = faster.spawn("fast_belt", Vector2i(0, 0), 0)
 	var next = faster.spawn("fast_belt", Vector2i(1, 0), 0)
 	fast.inventory.add("coal")
@@ -195,7 +223,7 @@ func _transport() -> void:
 	check(next.inventory.count("coal") == 1, "Fast belt advances on ticks when ordinary belts wait")
 
 func _production() -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	var drill = world.spawn("drill", Vector2i(14, 16), 0)
 	drill.inventory.add("coal")
 	var before: int = world.terrain.tile(drill.cell).amount
@@ -235,7 +263,7 @@ func _production() -> void:
 	check(world.player.count("iron_ore") == 5 and assembler.inventory.count("iron_ore") == 0, "Manual insertion obeys machine input filters")
 
 func _progression() -> void:
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.player.add("iron_plate", 10)
 	check(world.craft("gear") and world.player.count("iron_plate") == 8 and world.player.count("gear") == 0, "Handcraft reserves ingredients before producing output")
 	world.cancel_craft()
@@ -243,7 +271,7 @@ func _progression() -> void:
 	world.craft("gear")
 	advance(world, 10)
 	check(world.player.count("gear") == 1, "Queued craft completes at its recipe duration")
-	var crowded := World.new()
+	var crowded := Fixtures.industrial()
 	crowded.player.capacity = 2
 	crowded.player.add("iron_plate")
 	crowded.craft("belt")
@@ -323,8 +351,8 @@ func _craft_for_lesson(world: RefCounted, id: String, count: int = 1) -> void:
 	advance(world, count * int(world.Catalog.RECIPES[id].get("ticks", 5)))
 
 func _onboarding() -> void:
-	var world := World.new()
-	world.start(false)
+	var world := Fixtures.industrial()
+	Fixtures.begin_lessons(world)
 	check(world.entities.is_empty() and world.occupancy.is_empty() and world.player.total() == 0, "New game has no prebuilt factory or starting inventory")
 	check(world.guide.current().id == "stone" and not world.content_available("drill"), "First lesson teaches basic gathering before machines")
 	check(not world.craft("gear") and world.craft_queue.is_empty(), "Undiscovered recipes cannot bypass the learning path")
@@ -401,7 +429,7 @@ func _onboarding() -> void:
 	var old_v2 := SaveService.encode(Fixtures.demo())
 	old_v2.erase("onboarding")
 	var imported := SaveService.decode(old_v2)
-	check(imported.has("world") and not imported.world.guide.enabled and imported.world.entities.size() == 10, "Older v2 saves keep existing factories without forced lesson gates")
+	check(not imported.has("world"), "Incomplete or obsolete saves are rejected without migration")
 	_first_settlement_from_nothing(world, furnace)
 
 func _first_settlement_from_nothing(world: RefCounted, furnace: RefCounted) -> void:
@@ -416,7 +444,7 @@ func _first_settlement_from_nothing(world: RefCounted, furnace: RefCounted) -> v
 	world.player_position = Vector2(28.5, 15.5)
 	for shipment in range(6): world.supply_site("trading_post")
 	advance(world, 1800)
-	check(world.settlements.credits == 60, "Player-earned production can fulfill enough contracts to pay a restoration crew")
+	check(world.settlements.credits == 72, "Player-earned production can fulfill enough contracts to pay a restoration crew")
 	_smelt_for_lesson(world, furnace, "iron_plate", 30)
 	_craft_for_lesson(world, "gear", 5)
 	_smelt_for_lesson(world, furnace, "copper_plate", 10)
@@ -424,7 +452,7 @@ func _first_settlement_from_nothing(world: RefCounted, furnace: RefCounted) -> v
 	world.supply_site("workshop")
 	check(world.restore_site("workshop") and world.burner_fuel_duration() == 288, "Entire empty-start economy reaches its first global civic bonus without free materials or currency")
 	var civic_save := SaveService.decode(JSON.parse_string(JSON.stringify(SaveService.encode(world))))
-	check(civic_save.has("world") and civic_save.world.settlements.sites.workshop.repaired and civic_save.world.settlements.credits == 0, "Earned campaign restoration and spent currency persist with learning progress")
+	check(civic_save.has("world") and civic_save.world.settlements.sites.workshop.repaired and civic_save.world.settlements.credits == 12, "Earned campaign restoration and spent currency persist with learning progress")
 
 func _persistence() -> void:
 	var world := Fixtures.demo()
@@ -469,7 +497,7 @@ func _persistence() -> void:
 	check(not SaveService.decode(malformed).has("world"), "Machine-only recipes cannot appear in the handcraft queue")
 	var legacy := {"version": 1, "credits": 100, "delivered": 12, "buildings": [{"x": 15, "y": 15, "machine": {"kind": 1, "dir": 0, "ore": 0}}], "items": [{"x": 15, "y": 15, "item": "ore"}]}
 	var imported := SaveService.decode(legacy)
-	check(imported.get("legacy", false) and imported.world.at(Vector2i(15, 15)).output.count("iron_ore") == 1, "Legacy save migrates stable item and building identities")
+	check(not imported.has("world"), "Incomplete or obsolete saves are rejected without migration")
 	var path := "user://factory_verification_only.json"
 	check(SaveService.save_world(world, path).is_empty(), "Save writes a new slot")
 	check(SaveService.save_world(world, path).is_empty() and FileAccess.file_exists(path + ".bak"), "Second save commits and retains backup")
@@ -513,16 +541,18 @@ func _scene_smoke() -> void:
 	var tick: int = scene.world.ticks
 	scene._process(0.5)
 	check(scene.world.ticks == tick, "Pause freezes authoritative simulation")
-	var town := World.new()
-	town.start(false)
+	var town := Fixtures.industrial()
+	Fixtures.begin_lessons(town)
 	town.player_position = Vector2(28.5, 15.5)
 	town.player.contents = {"stone": 10, "iron_plate": 24, "gear": 6}
 	scene._bind_world(town)
 	scene._inspect(town.settlements.sites.trading_post.port())
 	check(scene.hud.site_id == "trading_post" and scene.hud.town_panel.visible and scene.hud.town_panel.restore_button.disabled, "Clicking a landmark opens repair inspection and disables incomplete restoration")
 	scene.hud.town_panel.supply_button.pressed.emit()
+	await process_frame
 	check(not scene.hud.town_panel.restore_button.disabled, "Repair supply UI delivers materials through authoritative commands")
 	scene.hud.town_panel.restore_button.pressed.emit()
+	await process_frame
 	check(town.settlements.sites.trading_post.repaired and scene.hud.town_panel.information.text.contains("Mira"), "Restoration UI reopens the trading post and introduces its keeper")
 	await process_frame
 	await process_frame

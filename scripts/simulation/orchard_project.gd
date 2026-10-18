@@ -119,8 +119,8 @@ func restore(world: RefCounted, data: Variant) -> bool:
 	sale_ticks = int(data.get("sale_ticks", 0))
 	if beds != world.settlements.garden_beds: return false
 	if (growth_ticks > 0) != (growing_beds > 0) or growing_beds > beds: return false
-	if not _inventory(data.get("inventory", {}), inventory, ["coal", "plank"], 10): return false
-	if not _inventory(data.get("output", {}), output, ["foraged_food"], 24): return false
+	if not _inventory(data.get("inventory"), inventory, ["coal", "plank"], 10): return false
+	if not _inventory(data.get("output"), output, ["foraged_food"], 24): return false
 	if output.total() + growing_beds * 4 > output.capacity: return false
 	if beds > 0:
 		if not world.frontier.claimed("orchard") or world.early.active() or not world.settlements.sites.trading_post.repaired: return false

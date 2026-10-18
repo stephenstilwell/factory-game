@@ -32,6 +32,6 @@ The residents are visual consequences of settlement progress. This pass does not
 - `scripts/ui/story_panel.gd`: dialogue pages and replayable journal.
 - `scripts/view/npc_art.gd` / `npc_portrait.gd`: shared vector characters, portraits, and homecoming details.
 
-The optional `story.seen` array is stored inside v2 saves. Decoding validates known, unique IDs and milestone prerequisites before replacing the live world. Older saves load with the arrival treated as already introduced, avoiding an interruption; speaking to the keepers introduces the new story content naturally. Existing repairs, stocks, credits, skills, and defenses are preserved.
+The required story section stores known, unique conversation IDs and validates their prerequisites before replacing the live world. Missing older story data is rejected.
 
 New story chapters should use stable IDs and explicit availability rules. New exploration clues can extend the journal without making dialogue responsible for inventories, research, or progression rewards. The question of why the beacon chain failed remains open; no final-world choice or additional relay exploration system is implemented in this first arc.

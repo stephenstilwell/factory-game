@@ -1,4 +1,5 @@
 ﻿extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 const World = preload("res://scripts/simulation/world.gd")
 
@@ -6,7 +7,7 @@ static func run(test: SceneTree) -> void:
 	var folder := "user://recovery_test_%d" % Time.get_ticks_usec()
 	DirAccess.make_dir_absolute(folder)
 	var path := folder + "/factory.json"
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.start()
 	world.ticks = 12000
 	test.check(not Saves.describe(path).exists, "Recovery metadata handles absent saves")

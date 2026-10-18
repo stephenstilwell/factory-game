@@ -1,0 +1,133 @@
+extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
+const World = preload("res://scripts/simulation/world.gd")
+const Saves = preload("res://scripts/persistence/save_service.gd")
+static func timber(timber_count: int = 8, stone: int = 2) -> RefCounted:
+	var world := Fixtures.industrial()
+	world.start()
+	world.player.contents = {"timber": timber_count, "stone": stone}
+	return world
+static func run(test: SceneTree) -> void:
+	var world := timber()
+	var before: Dictionary = Saves.encode(world)
+	var preview: Dictionary = world.Crafting.plan(world, "lumber_camp")
+	test.check(preview.error.is_empty() and preview.jobs.size() == 2 and preview.jobs[0].recipe == "stone_axe" and preview.jobs[1].recipe == "lumber_camp" and preview.cost == {"timber": 8, "stone": 2}, "Lumber camp preview includes missing axe and exact combined raw cost")
+	test.check(Saves.encode(world) == before and world.craft_maximum("lumber_camp") == 1, "Dependency previews and maximum are read-only")
+	test.check(world.craft("lumber_camp") and world.player.total() == 0 and world.craft_queue.size() == 2, "One action reserves complete raw inputs and queues prerequisite before target")
+	var loaded := Saves.decode(JSON.parse_string(JSON.stringify(Saves.encode(world))))
+	test.check(loaded.error.is_empty() and loaded.world.craft_queue == world.craft_queue, "Pending dependency links and partial reservations survive saving")
+	test.advance(world, 15)
+	test.check(world.craft_queue.size() == 1 and world.player.total() == 0 and world.craft_queue[0].reserved == {"timber": 6, "stone_axe": 1} and world.craft_queue[0].dependencies.is_empty(), "Completed axe is delivered directly to the camp's real ingredient reservation")
+	loaded = Saves.decode(JSON.parse_string(JSON.stringify(Saves.encode(world))))
+	test.check(loaded.error.is_empty(), "A dependency completed into reservation remains a valid save")
+	if loaded.error.is_empty():
+		test.advance(world, 25)
+		test.advance(loaded.world, 25)
+		test.check(world.player.contents == {"lumber_camp": 1} and world.craft_queue.is_empty() and Saves.encode(world) == Saves.encode(loaded.world), "Dependent crafting completes deterministically after loading mid-chain")
+	var cancelled := timber()
+	cancelled.craft("lumber_camp")
+	test.check(cancelled.cancel_craft_job(cancelled.craft_queue[0].id) and cancelled.craft_queue.is_empty() and cancelled.player.contents == {"timber": 8, "stone": 2}, "Canceling a prerequisite cancels dependent crafts and refunds only real raw inputs")
+	cancelled = timber()
+	cancelled.craft("lumber_camp")
+	test.advance(cancelled, 15)
+	test.check(cancelled.cancel_all_crafts() and cancelled.player.contents == {"timber": 6, "stone_axe": 1}, "Canceling after a prerequisite finishes returns its real output without uncrafting it")
+	var reuse := timber()
+	reuse.craft("stone_axe")
+	var axe_id: int = reuse.craft_queue[0].id
+	preview = reuse.Crafting.plan(reuse, "lumber_camp")
+	test.check(preview.error.is_empty() and preview.jobs.size() == 1 and preview.queued == {"stone_axe": 1}, "Already queued unclaimed axe output is reused rather than crafted twice")
+	reuse.craft("lumber_camp")
+	test.check(reuse.craft_queue[1].dependencies[0].id == axe_id and int(reuse.Crafting.free_outputs(reuse).get("stone_axe", 0)) == 0, "Queued outputs promised to another craft cannot be counted twice")
+	var consumer := timber()
+	consumer.craft("lumber_camp")
+	test.check(consumer.cancel_craft_job(consumer.craft_queue[1].id) and consumer.craft_queue.size() == 1 and int(consumer.Crafting.free_outputs(consumer).get("stone_axe", 0)) == 1, "Canceling only a consumer releases its producer output without canceling the producer")
+	test.advance(consumer, 15)
+	test.check(consumer.player.contents == {"timber": 6, "stone_axe": 1}, "Released intermediate output finishes into the pack normally")
+	var independent := timber(10, 2)
+	independent.craft("lumber_camp")
+	independent.craft("plank")
+	var ids: Array = independent.craft_queue.map(func(job): return int(job.id))
+	test.check(not independent.cancel_craft_job(-1) and independent.craft_queue.size() == 3, "Invalid job IDs cannot act as bulk cancellation")
+	test.check(independent.cancel_craft_job(ids[0]) and independent.craft_queue.size() == 1 and independent.craft_queue[0].id == ids[2] and independent.player.contents == {"timber": 9, "stone": 2}, "Dependency cancellation preserves unrelated queued work and its reservation")
+	var batch := timber(16, 4)
+	test.check(batch.craft_many("lumber_camp", 2) and batch.craft_queue.size() == 4 and batch.player.total() == 0, "Batch requests include their own missing intermediates")
+	test.advance(batch, 80)
+	test.check(batch.player.contents == {"lumber_camp": 2}, "Batched dependent crafts conserve all raw inputs and final outputs")
+	var invalid := timber(7, 2)
+	before = Saves.encode(invalid)
+	test.check(not invalid.craft("lumber_camp") and Saves.encode(invalid).player == before.player and invalid.craft_queue.is_empty() and invalid.next_craft_id == before.next_craft_id, "Unaffordable dependency chain never partially spends or queues")
+	var full := timber(100, 20)
+	full.craft_many("plank", 19)
+	before = Saves.encode(full)
+	test.check(not full.craft("lumber_camp") and full.player.contents == before.player and full.craft_queue == before.craft_queue and full.next_craft_id == before.next_craft_id, "Queue limit includes every intermediate and rejects the entire chain atomically")
+	var industrial := Fixtures.industrial()
+	Fixtures.begin_lessons(industrial)
+	industrial.guide.enabled = false
+	industrial.player.contents = {"iron_plate": 20, "copper_plate": 3}
+	test.check(industrial.craft("lab") and industrial.craft_queue.size() == 9 and industrial.player.total() == 0, "Multi-ingredient chain shares batches of gears and copper wire")
+	test.advance(industrial, 200)
+	test.check(industrial.player.contents == {"lab": 1, "wire": 1}, "Multi-output intermediate surplus is returned to the pack exactly once")
+	var shared := Fixtures.industrial()
+	Fixtures.begin_lessons(shared)
+	shared.guide.enabled = false
+	shared.player.contents = {"iron_plate": 40, "copper_plate": 5}
+	test.check(shared.craft_many("lab", 2) and shared.craft_queue.size() == 17, "Batched target recipes share intermediate surplus instead of repeating unnecessary batches")
+	test.advance(shared, 400)
+	test.check(shared.player.contents == {"lab": 2}, "Shared intermediate batches neither lose nor duplicate their combined output")
+	var machines := Fixtures.industrial()
+	Fixtures.begin_lessons(machines)
+	machines.guide.enabled = false
+	machines.player.contents = {"iron_ore": 20, "stone": 10}
+	test.check(not machines.craft("drill") and machines.player.count("iron_ore") == 20 and machines.craft_queue.is_empty(), "Auto-crafting never bypasses machine-only smelting")
+	var space := timber()
+	space.craft("lumber_camp")
+	space.player.capacity = 0
+	test.advance(space, 40)
+	test.check(space.craft_queue.size() == 1 and space.craft_queue[0].remaining == 0 and space.player.total() == 0, "Intermediates use reservations even with a full pack; final output waits losslessly")
+	space.player.capacity = 1
+	test.advance(space, 1)
+	test.check(space.player.count("lumber_camp") == 1 and space.craft_queue.is_empty(), "Waiting final output completes when pack space becomes available")
+	var refund := timber()
+	refund.craft("lumber_camp")
+	refund.player.capacity = 1
+	refund.player.add("stone", 1)
+	before = Saves.encode(refund)
+	test.check(not refund.cancel_all_crafts() and refund.craft_queue == before.craft_queue and refund.player.contents == before.player, "Full-pack cancellation cannot discard or duplicate reserved chain ingredients")
+	var malformed := timber(16, 4)
+	malformed.craft_many("lumber_camp", 2)
+	var data := Saves.encode(malformed)
+	data.craft_queue[3].dependencies[0].id = data.craft_queue[0].id
+	test.check(not Saves.decode(data).error.is_empty(), "Save rejects overcommitted producer output")
+	data = Saves.encode(malformed)
+	data.craft_queue[1].dependencies[0].id = data.craft_queue[2].id
+	test.check(not Saves.decode(data).error.is_empty(), "Save rejects forward or cyclic dependency links")
+	data = Saves.encode(malformed)
+	data.craft_queue[1].reserved.stone_axe = 1
+	test.check(not Saves.decode(data).error.is_empty(), "Save rejects ingredient reservations that duplicate promised output")
+	data = Saves.encode(malformed)
+	data.craft_queue[1].erase("reserved")
+	test.check(not Saves.decode(data).error.is_empty(), "Save rejects incomplete dependency metadata")
+	var legacy := timber()
+	legacy.craft("stone_axe")
+	data = Saves.encode(legacy)
+	for job in data.craft_queue: job.erase("reserved"); job.erase("dependencies")
+	loaded = Saves.decode(data)
+	test.check(not loaded.error.is_empty(), "Incomplete or obsolete saves are rejected without migration")
+static func ui(test: SceneTree) -> void:
+	var scene = load("res://main.tscn").instantiate()
+	test.root.add_child(scene)
+	await test.process_frame
+	scene.set_process(false)
+	scene.hud.story_panel.dismiss_silently()
+	var world := timber()
+	scene._bind_world(world)
+	scene.paused = true
+	scene.hud.toggle_crafting()
+	var panel = scene.hud.workspace.crafting
+	panel.select_recipe("lumber_camp")
+	test.check(not panel.craft_one.disabled and panel.missing_label.text.contains("Stone axe") and panel.missing_label.text.contains("Timber x8"), "Craft UI explains the dependency order and complete cost before clicking")
+	panel.craft_one.pressed.emit()
+	await test.process_frame
+	test.check(world.craft_queue.size() == 2 and panel.job_buttons[world.craft_queue[0].id].tooltip_text.contains("1 dependent"), "One real craft button queues both recipes and explains cascade cancellation")
+	scene.queue_free()
+	await test.process_frame

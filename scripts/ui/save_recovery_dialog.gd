@@ -71,7 +71,7 @@ func _slot_changed() -> void:
 	var path := Slots.slot_path(base, slot_picker.selected)
 	selected_slot_path = path
 	slot_name.text = Slots.label(base, slot_picker.selected)
-	records = [Saves.describe(path, true), Saves.describe(path + ".bak"), Saves.describe(path + ".auto.json"), Saves.describe(path + ".auto.json.bak")]
+	records = [Saves.describe(path), Saves.describe(path + ".bak"), Saves.describe(path + ".auto.json"), Saves.describe(path + ".auto.json.bak")]
 	selected_path = ""
 	get_ok_button().disabled = true
 	for index in range(choices.size()):

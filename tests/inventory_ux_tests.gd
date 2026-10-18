@@ -13,7 +13,7 @@ static func models(test: SceneTree) -> void:
 	test.check(not bag.exchange({}, {"gear": -1}) and bag.count("iron_plate") == 5, "Malformed output counts are rejected atomically")
 	test.check(bag.move_to(bag, "iron_plate", 3) == 0 and bag.count("iron_plate") == 5, "Self-transfer is a no-op")
 	test.check(bag.add("unknown_item") == 0, "Inventory APIs reject unknown item identities")
-	var world := World.new()
+	var world := Fixtures.industrial()
 	world.player.add("iron_plate", 20)
 	test.check(world.craft_many("gear", 5) and world.player.count("iron_plate") == 10 and world.craft_queue.size() == 5, "Batch crafting reserves every job's ingredients atomically")
 	var next_id: int = world.next_craft_id
@@ -38,11 +38,11 @@ static func models(test: SceneTree) -> void:
 	old.erase("next_craft_id")
 	for job in old.craft_queue: job.erase("id")
 	var migrated := SaveService.decode(old)
-	test.check(migrated.has("world") and migrated.world.craft_queue[0].id != migrated.world.craft_queue[1].id, "Older queued crafts receive distinct stable identities")
+	test.check(not migrated.has("world"), "Incomplete or obsolete saves are rejected without migration")
 	var invalid := SaveService.encode(world)
 	invalid.craft_queue[1].id = invalid.craft_queue[0].id
 	test.check(not SaveService.decode(invalid).has("world"), "Duplicate craft job IDs are rejected")
-	var transfers := World.new()
+	var transfers := Fixtures.industrial()
 	transfers.player_position = Vector2(0.5, 1.5)
 	transfers.player.contents = {"iron_ore": 30, "coal": 30, "copper_ore": 5, "gear": 2}
 	var furnace = transfers.spawn("furnace", Vector2i(0, 0), 0)
@@ -69,7 +69,7 @@ static func models(test: SceneTree) -> void:
 	transfers.player_position = Vector2(0.5, 1.5)
 	transfers.reclaim(furnace.cell)
 	test.check(transfers.transfer_item("coal", 1, player, input) == 0, "Stale machine descriptors cannot target reclaimed inventories")
-	var other := World.new()
+	var other := Fixtures.industrial()
 	other.player.add("coal", 5)
 	other.player_position = Vector2(0.5, 1.5)
 	var chest = other.spawn("chest", Vector2i(0, 0), 0)
@@ -85,6 +85,7 @@ static func models(test: SceneTree) -> void:
 	arm.carried = "gear"
 	test.check(other.transfer_item("gear", 0, {"kind": "hand", "entity_id": arm.id}, player) == 1 and arm.carried == "", "Stuck inserter hands can be recovered without dismantling the machine")
 	other.settlements = Settlements.new(true)
+	other.settlements.age = other.early.phase
 	other.player_position = Vector2(28.5, 15.5)
 	other.player.add("iron_plate", 100)
 	var site := {"kind": "site", "site_id": "trading_post"}
@@ -151,6 +152,7 @@ static func ui(test: SceneTree) -> void:
 	scene.hud.refresh()
 	test.check(not craft.craft_one.disabled, "Main recipe becomes craftable after queued components finish")
 	craft.craft_one.pressed.emit()
+	await test.process_frame
 	var job_id: int = scene.world.craft_queue[0].id
 	craft.job_buttons[job_id].pressed.emit()
 	test.check(scene.world.craft_queue.is_empty() and scene.world.player.count("gear") == 3, "Queue chip cancels its own stable job ID and refunds ingredients")
@@ -242,6 +244,7 @@ static func ui(test: SceneTree) -> void:
 	test.check(workspace.visible and workspace.mode == "character" and engineer.visible and not engineer.cards.boots.button.disabled, "P opens Engineer upgrades alongside the pack")
 	var plates_before: int = scene.world.player.count("iron_plate")
 	engineer.cards.boots.button.pressed.emit()
+	await test.process_frame
 	test.check(scene.world.character.level("boots") == 1 and scene.world.player.count("iron_plate") == plates_before - 10 and engineer.cards.boots.button.disabled, "Upgrade UI installs the displayed tier then shows the next research gate")
 	scene._unhandled_input(engineer_key)
 	test.check(not workspace.visible, "P closes the Engineer workspace")
@@ -250,6 +253,7 @@ static func ui(test: SceneTree) -> void:
 	var town_panel = workspace.town
 	test.check(town_panel.beacon_button.visible and not town_panel.beacon_button.disabled and scene.hud.defense_status.visible, "Restored Town Hall inspection exposes a deliberate beacon action and live HUD status")
 	town_panel.beacon_button.pressed.emit()
+	await test.process_frame
 	test.check(scene.world.defense.phase == "warning" and town_panel.cancel_beacon_button.visible, "Town Hall beacon UI starts the warning and exposes cancellation")
 	town_panel.cancel_beacon_button.pressed.emit()
 	test.check(scene.world.defense.phase == "idle", "Beacon cancellation UI reaches the authoritative model")
@@ -262,8 +266,8 @@ static func ui(test: SceneTree) -> void:
 	scene._inspect(Vector2i(51, 11))
 	test.check(workspace.machine.input_grid.buttons.ammo.visible and not workspace.machine.output_box.visible, "Turret inspection presents ammunition as input rather than a machine output")
 	# Reproduce donating everything to Town Hall before restoring the workshop.
-	var staged_world := World.new()
-	staged_world.start(false)
+	var staged_world := Fixtures.industrial()
+	Fixtures.begin_lessons(staged_world)
 	var staged_hall = staged_world.settlements.sites.town_hall
 	staged_world.player_position = Vector2(staged_hall.port()) + Vector2(-0.5, 0.5)
 	staged_world.player.contents = staged_world.settlements.Definitions.SITES.town_hall.repair.duplicate()
@@ -283,8 +287,8 @@ static func ui(test: SceneTree) -> void:
 	town_panel.restore_button.pressed.emit()
 	test.check(staged_hall.repaired and staged_hall.health == staged_hall.max_health() and staged_hall.inventory.total() == 0, "Town Hall restoration UI consumes staged goods once and restores full health")
 
-	var pickup_world := World.new()
-	pickup_world.start(false)
+	var pickup_world := Fixtures.industrial()
+	Fixtures.begin_lessons(pickup_world)
 	pickup_world.player_position = Vector2(19.5, 17.5)
 	var pickup_furnace = pickup_world.spawn("furnace", Vector2i(20, 17), 0)
 	pickup_furnace.inventory.contents = {"coal": 3, "iron_ore": 2}
@@ -296,16 +300,16 @@ static func ui(test: SceneTree) -> void:
 	test.check(not workspace.machine.reclaim_button.disabled and workspace.machine.reclaim_button.tooltip_text.contains("right mouse"), "Inspection exposes a usable pickup action and teaches the world shortcut")
 	pickup_world.player.capacity = 1
 	scene.hud.refresh()
-	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.status_label.text.contains("Inventory full"), "Pickup explains insufficient pack space before the player clicks")
+	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.reclaim_hint.visible and workspace.machine.reclaim_hint.text.contains("Inventory full"), "Pickup explains insufficient pack space before the player clicks")
 	test.check(not pickup_world.reclaim(pickup_furnace.cell) and pickup_furnace.inventory.count("coal") == 3, "Rejected pickup preserves the building and every stored item")
 	pickup_world.player.capacity = 200
 	pickup_furnace.health -= 1
 	scene.hud.refresh()
-	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.status_label.text.contains("Repair"), "Damaged building pickup explains its repair requirement")
+	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.reclaim_hint.visible and workspace.machine.reclaim_hint.text.contains("Repair"), "Damaged building pickup explains its repair requirement")
 	pickup_furnace.health = pickup_furnace.max_health()
 	pickup_world.player_position = Vector2.ZERO
 	scene.hud.refresh()
-	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.status_label.text.contains("closer"), "Distant machine pickup explains interaction reach")
+	test.check(workspace.machine.reclaim_button.disabled and workspace.machine.reclaim_hint.visible and workspace.machine.reclaim_hint.text.contains("closer"), "Distant machine pickup explains interaction reach")
 	pickup_world.player_position = Vector2(19.5, 17.5)
 	scene.hud.refresh()
 	workspace.machine.reclaim_button.pressed.emit()

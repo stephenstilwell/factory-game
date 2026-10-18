@@ -52,7 +52,7 @@ static func run(test: SceneTree) -> void:
 	var old_data := Saves.encode(old)
 	old_data.erase("quarry_project")
 	old_data.settlements.erase("road_deliveries")
-	test.check(Saves.decode(old_data).error.is_empty(), "Older factories load with an unstarted road")
+	test.check(not Saves.decode(old_data).error.is_empty(), "Incomplete or obsolete saves are rejected without migration")
 	var automated := world()
 	var port: Vector2i = automated.frontier.port("quarry")
 	var chest = automated.spawn("chest", port + Vector2i(-2, 0), 0)

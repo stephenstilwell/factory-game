@@ -1,15 +1,16 @@
 extends RefCounted
+const Fixtures = preload("res://tests/fixtures.gd")
 const Terrain = preload("res://scripts/model/terrain.gd")
 const World = preload("res://scripts/simulation/world.gd")
 const Saves = preload("res://scripts/persistence/save_service.gd")
 
 static func run(test: SceneTree) -> void:
 	for seed_value in [0, 1, 74103, -2000000000, 2000000000]:
-		var a := World.new(seed_value)
-		a.start(false)
-		var b := World.new(seed_value)
-		b.start(false)
-		test.check(a.terrain.generator_version == 2 and a.player.total() == 0, "New generation preserves an empty guided start")
+		var a := Fixtures.industrial(seed_value)
+		Fixtures.begin_lessons(a)
+		var b := Fixtures.industrial(seed_value)
+		Fixtures.begin_lessons(b)
+		test.check(a.player.total() == 0, "New generation preserves an empty guided start")
 		for patch in Terrain.START_PATCHES:
 			test.check(a.terrain.tile(patch[0]).get("item") == patch[2], "Every seed guarantees each tutorial resource at its anchor")
 		var resources: Dictionary = {}
@@ -26,10 +27,10 @@ static func run(test: SceneTree) -> void:
 			test.check(int(a.terrain.tile(center).get("amount", 0)) >= 450, "Frontier patch centers contain substantial finite ore")
 		test.check(resources.size() == 4, "Every frontier region supplies all four resource types")
 		test.check(order_independent, "Positive and negative chunk generation is independent of visit order")
-	var a := World.new(123)
-	a.start(false)
-	var b := World.new(456)
-	b.start(false)
+	var a := Fixtures.industrial(123)
+	Fixtures.begin_lessons(a)
+	var b := Fixtures.industrial(456)
+	Fixtures.begin_lessons(b)
 	test.check(a.terrain._frontier_patches(Vector2i(3, 2)) != b.terrain._frontier_patches(Vector2i(3, 2)), "Different seeds change frontier locations and resource assignments")
 	var rich_patch: Array = a.terrain._frontier_patches(Vector2i(10, 10))[0]
 	var rich_cell: Vector2i = rich_patch[0]
@@ -43,15 +44,10 @@ static func run(test: SceneTree) -> void:
 	var partial: Vector2i = rich_cell + Vector2i.RIGHT
 	a.terrain.mine(partial)
 	var restored: Dictionary = Saves.decode(JSON.parse_string(JSON.stringify(Saves.encode(a))))
-	test.check(restored.error.is_empty() and restored.world.terrain.generator_version == 2 and restored.world.terrain.tile(rich_cell).is_empty() and restored.world.terrain.tile(partial) == a.terrain.tile(partial), "New generator, exhausted ore, and high remaining counts survive JSON saves")
-	var old := World.new(74103)
-	old.terrain.mine(Vector2i(14, 16))
-	var old_data := Saves.encode(old)
-	old_data.erase("terrain_generator")
-	var migrated := Saves.decode(old_data)
-	test.check(migrated.error.is_empty() and migrated.world.terrain.generator_version == 1 and migrated.world.terrain.tile(Vector2i(14, 16)) == old.terrain.tile(Vector2i(14, 16)), "Saves without a generator version keep original layouts and depletion")
-	old_data.terrain_generator = 99
-	test.check(not Saves.decode(old_data).error.is_empty(), "Unknown terrain versions are rejected without mutating a world")
+	test.check(restored.error.is_empty() and restored.world.terrain.tile(rich_cell).is_empty() and restored.world.terrain.tile(partial) == a.terrain.tile(partial), "New generator, exhausted ore, and high remaining counts survive JSON saves")
+	var obsolete := Saves.encode(a)
+	obsolete.version = 2
+	test.check(not Saves.decode(obsolete).error.is_empty(), "Old world formats are rejected instead of switching terrain generators")
 	var found: Dictionary = a.terrain.find_resource("iron_ore", Vector2i(24, 12))
 	test.check(not found.is_empty() and found.remaining > 0 and a.terrain.tile(found.cell).item == "iron_ore", "Survey reports actual remaining material at a reachable world coordinate")
 	# Exhaust the entire starting iron patch; the next survey must find a frontier patch.

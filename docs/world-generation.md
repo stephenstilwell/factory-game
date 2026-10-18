@@ -20,6 +20,6 @@ This only chooses the new world created on launch. **Load** restores the saved s
 
 Terrain remains lazy, using 16×16 chunks. Generation uses coordinate-local RNG streams, never the global RNG or exploration order. Queries of negative coordinates use floor division. Depletion overrides are saved separately and survive chunk cache eviction.
 
-Saves now include `terrain_generator`. Missing values select generator 1, preserving the exact terrain and exhausted tiles of older saves. New worlds use generator 2; saving and loading never silently upgrades terrain. Both versions support surveying. Existing worlds retain their original patch sizes/richness; start a new world to use the new distribution. Future changes to procedural output must introduce a new generator version.
+There is one terrain generator with fixed resource richness. Seed and depletion reconstruct the world exactly. Incompatible procedural changes require a save-version bump and a new world. No alternate generator or richness migration is supported.
 
 Surveying runs only on demand or when a tracked tile exhausts. It considers patch descriptors in a bounded region around the player, then checks live tile stock. It reports one nearby nonempty patch per material, ordered by patch-center distance; it does not promise the closest individual tile among all patches. Markers and survey results are transient and clear when loading a different world.

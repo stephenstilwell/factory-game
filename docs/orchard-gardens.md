@@ -10,4 +10,4 @@ Supply, collect harvest or withdraw unused inputs through the orchard panel. For
 
 At the restored market, deliver produce through its town panel or an inserter. The market buffers up to 16 produce. Four produce fund a separate 30-second shipment paying six credits. Incomplete batches remain buffered. These sales run alongside the existing machine-parts contract.
 
-The orchard is an ongoing agricultural supply chain; Greybank remains a finite road restoration project. Neither generates supplies for free. Beds, physical inventories, paid crops, market shipments and currency ledgers persist through saving. Older saves begin with no restored beds. Older industrial worlds can now collect four timber from each finite tree and hand-craft planks without restarting progression.
+Orchard beds provide ongoing agriculture; Greybank remains a finite road project. Inventories, paid crops, shipments and currency persist. The complete garden section is required. Industrial towns retain forestry and plank crafting.

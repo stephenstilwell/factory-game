@@ -5,23 +5,7 @@ const Saves = preload("res://scripts/persistence/save_service.gd")
 const Fixtures = preload("res://tests/fixtures.gd")
 
 static func run(test: SceneTree) -> void:
-	for generator in [1, 2]:
-		var old := World.new()
-		old.terrain.generator_version = generator
-		old.terrain.stock_scale = 1
-		var cell := Vector2i(14, 16)
-		old.terrain.mine(cell)
-		old.terrain.depleted[cell + Vector2i.RIGHT] = 0
-		var remaining: int = old.terrain.tile(cell).amount
-		var data := Saves.encode(old)
-		data.erase("resource_scale")
-		var migrated := Saves.decode(JSON.parse_string(JSON.stringify(data)))
-		test.check(migrated.error.is_empty(), "Legacy resource migration validates generator %d" % generator)
-		if not migrated.error.is_empty(): continue
-		test.check(migrated.world.terrain.tile(cell).amount == remaining * 4 and migrated.world.terrain.tile(cell + Vector2i.RIGHT).is_empty(), "Migration multiplies remaining stock and never revives exhausted tiles")
-		var again := Saves.decode(Saves.encode(migrated.world))
-		test.check(again.error.is_empty() and again.world.terrain.tile(cell) == migrated.world.terrain.tile(cell), "Richness migration runs once across repeated saves")
-	var world := World.new()
+	var world := Fixtures.industrial()
 	var hearth = world.spawn("fuel_depot", Vector2i.ZERO, 0)
 	var first = world.spawn("furnace", Vector2i(8, 0), 0)
 	var second = world.spawn("furnace", Vector2i(0, 8), 0)
@@ -58,7 +42,7 @@ static func run(test: SceneTree) -> void:
 	var invalid := Saves.encode(world)
 	invalid.entities[0].inventory = {"iron_plate": 1}
 	test.check(not Saves.decode(invalid).error.is_empty(), "Malformed shared fuel storage is rejected")
-	var automated := World.new()
+	var automated := Fixtures.industrial()
 	var chest = automated.spawn("chest", Vector2i(-2, 0), 0)
 	chest.inventory.add("coal", 10)
 	automated.spawn("inserter", Vector2i(-1, 0), 0)
@@ -111,8 +95,10 @@ static func ui(test: SceneTree) -> void:
 		test.check(not scene.hud.workspace.pack_column.visible and panel.size.x > 900, "Crafting gets the full workspace at %s" % viewport_size)
 		var tiles_fit := true
 		for button in panel.recipe_buttons.values():
-			if button.visible and not button.get_parent().get_parent().get_parent().get_global_rect().encloses(button.get_global_rect()): tiles_fit = false
-		test.check(tiles_fit, "All unlocked hand recipes fit without palette scrolling at %s" % viewport_size)
+			if button.visible:
+				var scroll: ScrollContainer = button.get_parent().get_parent().get_parent()
+				if not scroll.get_global_rect().encloses(button.get_global_rect()) and scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED: tiles_fit = false
+		test.check(tiles_fit, "Every unlocked hand recipe remains reachable in the recipe palette at %s" % viewport_size)
 		scene.hud.close_workspace()
 		var tech := InputEventKey.new()
 		tech.pressed = true

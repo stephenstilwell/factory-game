@@ -10,8 +10,6 @@ func bind(world: RefCounted) -> void:
 	if token == world.get_instance_id(): return
 	token = world.get_instance_id()
 	terrain = Terrain.new(world.terrain.seed_value)
-	terrain.generator_version = world.terrain.generator_version
-	terrain.stock_scale = world.terrain.stock_scale
 	pending.clear()
 func known_chunk(world: RefCounted, chunk: Vector2i) -> bool:
 	for x in range(2):
